@@ -1,0 +1,5 @@
+{
+  "name": "CBT Exam Simulator",
+  "description": "A Computer-Based Test (CBT) simulator built with React and Tailwind CSS. It fetches questions from a local data source, manages sections, tracks time, and provides a realistic exam experience with review and result screens.",
+  "requestFramePermissions": []
+}
