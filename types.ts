@@ -24,6 +24,7 @@ export enum GameState {
   Ongoing,
   Review,
   Finished,
+  Disqualified,
 }
 
 export enum QuestionStatus {

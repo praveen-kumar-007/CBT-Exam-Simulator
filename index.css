@@ -1,0 +1,343 @@
+/* ===== CBT Exam Simulator — Professional White Glassmorphic Theme ===== */
+
+/* --- Google Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: rgba(31, 38, 135, 0.12);
+  --accent-blue: #4f46e5;
+  --accent-purple: #7c3aed;
+  --accent-gradient: linear-gradient(135deg, #4f46e5, #7c3aed, #2563eb);
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --bg-soft: #f0f4ff;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+/* === ANIMATIONS === */
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(2deg); }
+}
+
+@keyframes slide-up {
+  0% { transform: translateY(40px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-left {
+  0% { transform: translateX(60px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-right {
+  0% { transform: translateX(-60px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes scale-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes blob-morph-1 {
+  0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: translate(0, 0) scale(1); }
+  33% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; transform: translate(30px, -20px) scale(1.05); }
+  66% { border-radius: 50% 40% 60% 50% / 40% 70% 40% 60%; transform: translate(-20px, 15px) scale(0.95); }
+}
+
+@keyframes blob-morph-2 {
+  0%, 100% { border-radius: 40% 60% 70% 30% / 50% 40% 60% 50%; transform: translate(0, 0) scale(1); }
+  33% { border-radius: 60% 30% 40% 70% / 60% 50% 40% 50%; transform: translate(-25px, 25px) scale(1.08); }
+  66% { border-radius: 50% 60% 30% 60% / 40% 60% 70% 30%; transform: translate(15px, -10px) scale(0.96); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(180deg); }
+}
+
+@keyframes door-left-open {
+  0% { transform: perspective(1200px) rotateY(0deg); }
+  100% { transform: perspective(1200px) rotateY(-95deg); }
+}
+
+@keyframes door-right-open {
+  0% { transform: perspective(1200px) rotateY(0deg); }
+  100% { transform: perspective(1200px) rotateY(95deg); }
+}
+
+@keyframes typing-cursor {
+  0%, 100% { border-right-color: transparent; }
+  50% { border-right-color: var(--accent-blue); }
+}
+
+@keyframes check-pop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes ripple-btn {
+  0% { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(var(--orbit-radius, 150px)) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(var(--orbit-radius, 150px)) rotate(-360deg); }
+}
+
+/* === PAGE LAYOUT === */
+
+.login-page {
+  min-height: 100vh;
+  background: linear-gradient(145deg, #eef2ff 0%, #f8fafc 25%, #faf5ff 50%, #eff6ff 75%, #f0f9ff 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated background blobs */
+.bg-blob {
+  position: absolute;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.bg-blob-1 {
+  width: 500px;
+  height: 500px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.15), rgba(124, 58, 237, 0.1));
+  animation: blob-morph-1 20s ease-in-out infinite;
+}
+
+.bg-blob-2 {
+  width: 400px;
+  height: 400px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(6, 182, 212, 0.08));
+  animation: blob-morph-2 18s ease-in-out infinite;
+}
+
+.bg-blob-3 {
+  width: 350px;
+  height: 350px;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(244, 114, 182, 0.06));
+  animation: blob-morph-1 22s ease-in-out infinite reverse;
+}
+
+/* Dot pattern overlay */
+.dot-pattern {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(79, 70, 229, 0.06) 1px, transparent 1px);
+  background-size: 30px 30px;
+  pointer-events: none;
+}
+
+/* === GLASSMORPHISM CARD === */
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 8px 32px rgba(31, 38, 135, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  transition: box-shadow 0.4s ease, transform 0.4s ease;
+}
+
+.glass-card:hover {
+  box-shadow:
+    0 12px 48px rgba(31, 38, 135, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* === FORM STYLES === */
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1.5px solid rgba(148, 163, 184, 0.25);
+  border-radius: 14px;
+  padding: 14px 16px 14px 48px;
+  font-size: 0.9rem;
+  color: #1e293b;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  outline: none;
+}
+
+.glass-input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1), 0 4px 16px rgba(79, 70, 229, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.glass-input::placeholder {
+  color: #94a3b8;
+}
+
+.glass-btn {
+  background: var(--accent-gradient);
+  background-size: 200% 200%;
+  animation: gradient-move 4s ease infinite;
+  border: none;
+  border-radius: 14px;
+  padding: 15px 24px;
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  letter-spacing: 0.02em;
+}
+
+.glass-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(79, 70, 229, 0.35), 0 4px 12px rgba(124, 58, 237, 0.2);
+}
+
+.glass-btn:active {
+  transform: translateY(0);
+}
+
+.glass-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Sparkle decorations */
+.sparkle {
+  position: absolute;
+  pointer-events: none;
+}
+
+.sparkle::before {
+  content: '✦';
+  animation: sparkle var(--sparkle-duration, 3s) ease-in-out var(--sparkle-delay, 0s) infinite;
+  display: block;
+}
+
+/* Floating elements */
+.float-element {
+  animation: float-gentle 6s ease-in-out infinite;
+}
+
+.float-element-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+
+/* 3D illustration container  */
+.illustration-3d {
+  animation: float-gentle 5s ease-in-out infinite;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.1));
+}
+
+/* Orbiting decorations */
+.orbit-element {
+  position: absolute;
+  animation: orbit var(--orbit-duration, 20s) linear infinite;
+}
+
+/* Gate overlay for transition */
+.gate-panel {
+  position: fixed;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 200;
+  background: linear-gradient(180deg, #f0f4ff, #e8ecff, #f5f3ff);
+}
+
+.gate-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(79, 70, 229, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.gate-left {
+  left: 0;
+  transform-origin: left center;
+  border-right: 2px solid rgba(79, 70, 229, 0.1);
+}
+
+.gate-right {
+  right: 0;
+  transform-origin: right center;
+  border-left: 2px solid rgba(79, 70, 229, 0.1);
+}
+
+.gate-left.gate-opening {
+  animation: door-left-open 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.gate-right.gate-opening {
+  animation: door-right-open 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Animate pulse for warning overlay (kept from anti-cheat) */
+.animate-pulse-once {
+  animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Feature pill badges */
+.feature-pill {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 100px;
+  padding: 6px 14px;
+  font-size: 0.7rem;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.feature-pill:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}

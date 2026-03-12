@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { examData as defaultExamData } from './data/questions';
 import { GameState, QuestionStatus, Answers, Section, Question } from './types';
 import { ClockIcon, CheckCircleIcon, XCircleIcon, EyeIcon, UserCircleIcon } from './components/icons';
+import { useAntiCheat, ViolationEntry } from './hooks/useAntiCheat';
 
 // --- Helper Functions ---
 const formatTime = (seconds: number) => {
@@ -9,6 +10,113 @@ const formatTime = (seconds: number) => {
     const secs = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
+
+// --- Violation Warning Overlay ---
+const ViolationWarningOverlay: React.FC<{
+    message: string;
+    violationCount: number;
+    maxViolations: number;
+    onDismiss: () => void;
+}> = ({ message, violationCount, maxViolations, onDismiss }) => (
+    <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        style={{ backgroundColor: 'rgba(220, 38, 38, 0.85)', backdropFilter: 'blur(8px)' }}
+    >
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 text-center animate-pulse-once">
+            <div className="w-20 h-20 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-12 h-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-red-700 mb-2">{String.fromCodePoint(0x26A0, 0xFE0F)} CHEATING DETECTED</h2>
+            <p className="text-gray-700 whitespace-pre-line mb-4 text-sm leading-relaxed">{message}</p>
+
+            {/* Violation progress bar */}
+            <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                <div
+                    className="h-3 rounded-full transition-all duration-500"
+                    style={{
+                        width: `${(violationCount / maxViolations) * 100}%`,
+                        background: violationCount >= maxViolations - 1
+                            ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                            : 'linear-gradient(90deg, #f59e0b, #ef4444)',
+                    }}
+                />
+            </div>
+            <p className="text-xs text-gray-500 mb-6">
+                {violationCount} of {maxViolations} violations {String.fromCodePoint(0x2014)} exam will auto-submit at {maxViolations}
+            </p>
+
+            <button
+                onClick={onDismiss}
+                className="bg-red-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+                I Understand {String.fromCodePoint(0x2014)} Return to Exam
+            </button>
+        </div>
+    </div>
+);
+
+// --- Disqualified Screen ---
+const DisqualifiedScreen: React.FC<{
+    violations: ViolationEntry[];
+    onRestart: () => void;
+}> = ({ violations, onRestart }) => (
+    <div className="flex items-center justify-center min-h-screen" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+        <div className="p-10 bg-white bg-opacity-95 rounded-2xl shadow-2xl text-center max-w-lg w-full mx-4">
+            <div className="w-24 h-24 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-16 h-16 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-red-700 mb-2">Exam Terminated</h1>
+            <p className="text-gray-500 text-lg mb-6">Cheating activity was detected</p>
+
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-left">
+                <h3 className="text-sm font-bold text-red-800 mb-3 uppercase tracking-wider">Violation Log</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {violations.map((v, i) => (
+                        <div key={i} className="flex items-start text-xs text-red-700 bg-white p-2 rounded-lg border border-red-100">
+                            <span className="font-mono text-red-400 mr-2 whitespace-nowrap">
+                                {v.timestamp.toLocaleTimeString()}
+                            </span>
+                            <span className="font-semibold">{v.message}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <p className="text-xs text-gray-400 mb-6">
+                Your exam has been automatically submitted due to multiple policy violations.
+                The exam authority has been notified.
+            </p>
+
+            <button
+                onClick={onRestart}
+                className="w-full bg-gray-800 text-white font-bold py-3 px-6 rounded-xl hover:bg-gray-900 transition-all duration-300 shadow-lg"
+            >
+                Return to Login
+            </button>
+        </div>
+    </div>
+);
+
+// --- Security Status Badge ---
+const SecurityBadge: React.FC<{ violationCount: number; maxViolations: number }> = ({ violationCount, maxViolations }) => (
+    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${
+        violationCount === 0
+            ? 'bg-green-500 bg-opacity-20 text-green-200'
+            : violationCount < maxViolations - 1
+                ? 'bg-yellow-500 bg-opacity-20 text-yellow-200'
+                : 'bg-red-500 bg-opacity-20 text-red-200 animate-pulse'
+    }`}>
+        <span className={`inline-block w-2 h-2 rounded-full ${
+            violationCount === 0 ? 'bg-green-400' : violationCount < maxViolations - 1 ? 'bg-yellow-400' : 'bg-red-400'
+        }`} />
+        {violationCount === 0 ? `${String.fromCodePoint(0x1F512)} Secure` : `${String.fromCodePoint(0x26A0, 0xFE0F)} ${violationCount}/${maxViolations}`}
+    </div>
+);
+
 
 // --- App Component ---
 const App: React.FC = () => {
@@ -19,8 +127,25 @@ const App: React.FC = () => {
     const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [visited, setVisited] = useState<string[]>([]);
+    const [isGateOpening, setIsGateOpening] = useState(false);
 
     const allQuestions = useMemo(() => defaultExamData.sections.flatMap(s => s.questions), []);
+
+    // Protections stay active during exam AND on the disqualified screen
+    const isProtectionActive = gameState === GameState.Ongoing || gameState === GameState.Review || gameState === GameState.Disqualified;
+    // Only count new violations during an active exam (not on disqualified screen)
+    const isExamActive = gameState === GameState.Ongoing || gameState === GameState.Review;
+
+    const handleAutoSubmit = useCallback(() => {
+        setGameState(GameState.Disqualified);
+    }, []);
+
+    const antiCheat = useAntiCheat({
+        enabled: isProtectionActive,
+        trackViolations: isExamActive,
+        maxViolations: 3,
+        onAutoSubmit: handleAutoSubmit,
+    });
 
     useEffect(() => {
         if (gameState === GameState.Ongoing && timeRemaining > 0) {
@@ -33,17 +158,24 @@ const App: React.FC = () => {
         }
     }, [gameState, timeRemaining]);
 
-    const startExam = () => {
+    const startExam = async () => {
         const firstQuestionId = defaultExamData.sections[0].questions[0].id;
         setVisited([firstQuestionId]);
         setGameState(GameState.Ongoing);
+        // Enter full-screen mode
+        await antiCheat.enterFullScreen();
     };
 
-    const handleSubmitExam = () => {
-        setGameState(GameState.Finished)
+    const handleSubmitExam = async () => {
+        setGameState(GameState.Finished);
+        // Exit full-screen on normal submission
+        await antiCheat.exitFullScreen();
     }
 
-    const resetExam = () => {
+    const resetExam = async () => {
+        // Reset anti-cheat state FIRST (clears all refs), then exit full-screen
+        antiCheat.reset();
+        await antiCheat.exitFullScreen();
         setGameState(GameState.Login);
         setAnswers({});
         setMarkedForReview([]);
@@ -59,10 +191,19 @@ const App: React.FC = () => {
         }, 0);
     }, [answers, allQuestions]);
 
+    const handleLoginGateway = useCallback(() => {
+        setIsGateOpening(true);
+        // After gate animation completes, transition to Instructions
+        setTimeout(() => {
+            setGameState(GameState.Instructions);
+            setIsGateOpening(false);
+        }, 2200);
+    }, []);
+
     const renderContent = () => {
         switch (gameState) {
             case GameState.Login:
-                return <LoginScreen onLogin={() => setGameState(GameState.Instructions)} />;
+                return <LoginScreen onLogin={handleLoginGateway} isGateOpening={isGateOpening} />;
             case GameState.Instructions:
                 return <InstructionScreen onStart={startExam} />;
             case GameState.Ongoing:
@@ -80,6 +221,8 @@ const App: React.FC = () => {
                         setGameState={setGameState}
                         visited={visited}
                         setVisited={setVisited}
+                        violationCount={antiCheat.violationCount}
+                        maxViolations={antiCheat.maxViolations}
                     />
                 );
             case GameState.Review:
@@ -95,6 +238,8 @@ const App: React.FC = () => {
                 );
             case GameState.Finished:
                 return <ResultScreen score={calculateScore()} total={allQuestions.length} onRestart={resetExam} />;
+            case GameState.Disqualified:
+                return <DisqualifiedScreen violations={antiCheat.violations} onRestart={resetExam} />;
             default:
                 return <div>Loading...</div>;
         }
@@ -103,56 +248,328 @@ const App: React.FC = () => {
     return (
         <div className="min-h-screen font-sans text-gray-800 bg-gray-200">
             {renderContent()}
+
+            {/* Violation Warning Overlay */}
+            {antiCheat.warningMessage && isExamActive && (
+                <ViolationWarningOverlay
+                    message={antiCheat.warningMessage}
+                    violationCount={antiCheat.violationCount}
+                    maxViolations={antiCheat.maxViolations}
+                    onDismiss={antiCheat.dismissWarning}
+                />
+            )}
         </div>
     );
 };
 
-const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
-    const [loginId, setLoginId] = useState('123456789');
-    const [password, setPassword] = useState('**********');
+// --- LoginScreen â€” Professional White Glassmorphic ---
+const LoginScreen: React.FC<{ onLogin: () => void; isGateOpening: boolean }> = ({ onLogin, isGateOpening }) => {
+    const [loginId, setLoginId] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [focused, setFocused] = useState<string | null>(null);
+
+    const isReady = loginId.length >= 1 && password.length >= 1;
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!isReady) return;
         onLogin();
-    }
+    };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-cover" style={{ backgroundImage: "url('https://i.imgur.com/eL8y4j3.png')" }}>
-            <div className="w-full max-w-sm p-8 space-y-8 bg-white bg-opacity-90 rounded-lg shadow-2xl">
-                <div className="text-center">
-                    <img src="/components/back.png" alt="TCS iON Logo" className="w-32 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-gray-700">Login</h2>
+        <div className="login-page flex items-center justify-center p-4">
+            {/* Background blobs */}
+            <div className="bg-blob bg-blob-1" style={{ top: '-15%', left: '-10%' }} />
+            <div className="bg-blob bg-blob-2" style={{ bottom: '-10%', right: '-8%' }} />
+            <div className="bg-blob bg-blob-3" style={{ top: '40%', right: '20%' }} />
+
+            {/* Dot pattern overlay */}
+            <div className="dot-pattern" />
+
+            {/* Sparkles scattered */}
+            {[
+                { top: '12%', left: '15%', delay: '0s', duration: '4s', color: '#818cf8', size: '14px' },
+                { top: '25%', right: '12%', delay: '1.5s', duration: '3.5s', color: '#a78bfa', size: '12px' },
+                { bottom: '20%', left: '20%', delay: '2.5s', duration: '5s', color: '#60a5fa', size: '16px' },
+                { top: '60%', right: '25%', delay: '0.8s', duration: '4.5s', color: '#f472b6', size: '10px' },
+                { top: '8%', left: '50%', delay: '3s', duration: '3s', color: '#34d399', size: '11px' },
+            ].map((s, i) => (
+                <div
+                    key={i}
+                    className="sparkle"
+                    style={{
+                        ...s,
+                        fontSize: s.size,
+                        color: s.color,
+                        '--sparkle-delay': s.delay,
+                        '--sparkle-duration': s.duration,
+                    } as React.CSSProperties}
+                />
+            ))}
+
+            {/* Main container â€” split layout */}
+            <div
+                className="relative z-10 w-full max-w-5xl mx-auto flex flex-col lg:flex-row items-center gap-8 lg:gap-16"
+            >
+                {/* LEFT SIDE â€” 3D Illustration */}
+                <div
+                    className="flex-1 flex flex-col items-center justify-center relative"
+                    style={{ animation: 'slide-right 1s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
+                >
+                    {/* Orbiting decorations around illustration */}
+                    <div className="relative" style={{ width: '380px', height: '380px' }}>
+                        {/* Soft glow behind illustration */}
+                        <div
+                            className="absolute rounded-full"
+                            style={{
+                                width: '300px', height: '300px',
+                                top: '50%', left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                background: 'radial-gradient(circle, rgba(79, 70, 229, 0.08), transparent 70%)',
+                                animation: 'pulse-soft 4s ease-in-out infinite',
+                            }}
+                        />
+
+                        {/* 3D Student Illustration */}
+                        <div className="illustration-3d absolute inset-0 flex items-center justify-center">
+                            <img
+                                src="/student-3d.png"
+                                alt="Student studying at desk"
+                                className="w-80 h-80 object-contain"
+                                style={{ filter: 'drop-shadow(0 25px 50px rgba(0,0,0,0.12))' }}
+                            />
+                        </div>
+
+                        {/* Orbiting emojis */}
+                        <div className="orbit-element" style={{
+                            top: '50%', left: '50%',
+                            '--orbit-radius': '180px',
+                            '--orbit-duration': '25s',
+                        } as React.CSSProperties}>
+                            <span className="text-2xl" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>{String.fromCodePoint(0x1F4DA)}</span>
+                        </div>
+                        <div className="orbit-element" style={{
+                            top: '50%', left: '50%',
+                            '--orbit-radius': '170px',
+                            '--orbit-duration': '20s',
+                            animationDelay: '-5s',
+                        } as React.CSSProperties}>
+                            <span className="text-xl" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>{String.fromCodePoint(0x1F4BB)}</span>
+                        </div>
+                        <div className="orbit-element" style={{
+                            top: '50%', left: '50%',
+                            '--orbit-radius': '160px',
+                            '--orbit-duration': '30s',
+                            animationDelay: '-10s',
+                        } as React.CSSProperties}>
+                            <span className="text-lg" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>{String.fromCodePoint(0x1F393)}</span>
+                        </div>
+                        <div className="orbit-element" style={{
+                            top: '50%', left: '50%',
+                            '--orbit-radius': '190px',
+                            '--orbit-duration': '22s',
+                            animationDelay: '-15s',
+                        } as React.CSSProperties}>
+                            <span className="text-lg" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>{String.fromCodePoint(0x270F, 0xFE0F)}</span>
+                        </div>
+                    </div>
+
+                    {/* Feature pills */}
+                    <div className="flex flex-wrap gap-2 justify-center mt-4" style={{ animation: 'slide-up 0.8s ease 0.6s both' }}>
+                        <span className="feature-pill">
+                            <svg className="w-3.5 h-3.5 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                            AI-Proctored
+                        </span>
+                        <span className="feature-pill">
+                            <svg className="w-3.5 h-3.5 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>
+                            Encrypted
+                        </span>
+                        <span className="feature-pill">
+                            <svg className="w-3.5 h-3.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
+                            Live Monitoring
+                        </span>
+                    </div>
                 </div>
-                <form className="space-y-6" onSubmit={handleLogin}>
-                    <div>
-                        <label htmlFor="loginId" className="text-sm font-bold text-gray-600 block">Login ID</label>
-                        <input
-                            id="loginId"
-                            type="text"
-                            value={loginId}
-                            onChange={(e) => setLoginId(e.target.value)}
-                            className="w-full p-2 mt-1 text-gray-800 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
+
+                {/* RIGHT SIDE â€” Login Card */}
+                <div
+                    className="flex-1 w-full max-w-md"
+                    style={{ animation: 'slide-left 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both' }}
+                >
+                    <div className="glass-card p-8 sm:p-10">
+                        {/* Header */}
+                        <div className="text-center mb-8" style={{ animation: 'fade-in 0.8s ease 0.5s both' }}>
+                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4"
+                                style={{
+                                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                                    boxShadow: '0 8px 24px rgba(79, 70, 229, 0.3)',
+                                }}
+                            >
+                                <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                            </div>
+                            <h1
+                                className="text-2xl font-bold tracking-tight"
+                                style={{ fontFamily: "'Poppins', sans-serif", color: '#1e293b' }}
+                            >
+                                Welcome Back
+                            </h1>
+                            <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>
+                                Sign in to start your examination
+                            </p>
+                        </div>
+
+                        <form className="space-y-5" onSubmit={handleLogin}>
+                            {/* Candidate ID */}
+                            <div style={{ animation: 'slide-up 0.6s ease 0.6s both' }}>
+                                <label
+                                    htmlFor="loginId"
+                                    className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                                    style={{ color: focused === 'loginId' ? '#4f46e5' : '#64748b', transition: 'color 0.3s' }}
+                                >
+                                    Candidate ID
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                                        <svg className={`w-5 h-5 transition-colors duration-300 ${focused === 'loginId' ? 'text-indigo-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        id="loginId"
+                                        type="text"
+                                        value={loginId}
+                                        onChange={(e) => setLoginId(e.target.value)}
+                                        onFocus={() => setFocused('loginId')}
+                                        onBlur={() => setFocused(null)}
+                                        placeholder="Enter your candidate ID"
+                                        className="glass-input"
+                                        required
+                                        autoComplete="off"
+                                    />
+                                    {loginId && (
+                                        <div style={{ animation: 'check-pop 0.4s ease forwards' }}>
+                                            <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Password */}
+                            <div style={{ animation: 'slide-up 0.6s ease 0.75s both' }}>
+                                <label
+                                    htmlFor="password"
+                                    className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                                    style={{ color: focused === 'password' ? '#4f46e5' : '#64748b', transition: 'color 0.3s' }}
+                                >
+                                    Password
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                                        <svg className={`w-5 h-5 transition-colors duration-300 ${focused === 'password' ? 'text-indigo-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        id="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        onFocus={() => setFocused('password')}
+                                        onBlur={() => setFocused(null)}
+                                        placeholder="Enter your password"
+                                        className="glass-input"
+                                        style={{ paddingRight: '48px' }}
+                                        required
+                                        autoComplete="off"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors duration-200"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            {showPassword
+                                                ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18" />
+                                                : <><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></>
+                                            }
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Submit */}
+                            <div style={{ animation: 'slide-up 0.6s ease 0.9s both' }}>
+                                <button
+                                    type="submit"
+                                    disabled={!isReady || isGateOpening}
+                                    className="glass-btn"
+                                >
+                                    <span className="flex items-center justify-center gap-2">
+                                        {isGateOpening ? (
+                                            <>
+                                                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                </svg>
+                                                Entering Exam...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                                </svg>
+                                                Sign In & Start Exam
+                                            </>
+                                        )}
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+
+                        {/* Divider */}
+                        <div className="flex items-center gap-3 my-6" style={{ animation: 'fade-in 1s ease 1s both' }}>
+                            <div className="flex-1 h-px bg-slate-200" />
+                            <span className="text-xs text-slate-400">Secured by CBT Engine</span>
+                            <div className="flex-1 h-px bg-slate-200" />
+                        </div>
+
+                        {/* Trust badges */}
+                        <div className="flex items-center justify-center gap-6 text-xs text-slate-400" style={{ animation: 'fade-in 1s ease 1.1s both' }}>
+                            <div className="flex items-center gap-1.5">
+                                <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                256-bit SSL
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                                GDPR
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <svg className="w-4 h-4 text-indigo-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
+                                Proctored
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label htmlFor="password" className="text-sm font-bold text-gray-600 block">Password</label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full p-2 mt-1 text-gray-800 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 rounded-md text-white text-sm font-bold transition-colors"
-                    >
-                        Sign In
-                    </button>
-                </form>
+                </div>
+            </div>
+
+            {/* Gate opening overlay */}
+            {isGateOpening && (
+                <>
+                    <div className={`gate-panel gate-left gate-opening`} />
+                    <div className={`gate-panel gate-right gate-opening`} />
+                </>
+            )}
+
+            {/* Bottom branding */}
+            <div className="absolute bottom-4 text-center z-10" style={{ animation: 'fade-in 1s ease 1.2s both' }}>
+                <p className="text-xs text-slate-400 tracking-wide">
+                    CBT Examination System {"\u2022"} &copy; 2026 Secure Assessment Engine
+                </p>
             </div>
         </div>
     );
@@ -165,6 +582,8 @@ const InstructionScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => {
         <div className="min-h-screen bg-white p-4 sm:p-8">
             <div className="max-w-4xl mx-auto">
                 <h1 className="text-2xl font-bold text-blue-800 mb-4 border-b pb-2">{defaultExamData.examTitle}</h1>
+
+
                 <h2 className="text-lg font-semibold text-gray-700 mb-4">General Instructions:</h2>
                 <div className="text-sm text-gray-600 space-y-3 p-4 border rounded-md bg-gray-50 max-h-96 overflow-y-auto">
                     <p>1. Total duration of this examination is <strong>{defaultExamData.durationInMinutes} minutes</strong>.</p>
@@ -183,7 +602,7 @@ const InstructionScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => {
                 <div className="mt-6 p-4 border-t">
                     <label className="flex items-center">
                         <input type="checkbox" checked={agreed} onChange={() => setAgreed(!agreed)} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                        <span className="ml-3 text-sm text-gray-700">I have read and understood all the instructions. I agree that in case of any dispute, the decision of the exam authority will be final.</span>
+                        <span className="ml-3 text-sm text-gray-700">I have read and understood all the instructions.</span>
                     </label>
                 </div>
 
@@ -193,7 +612,7 @@ const InstructionScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => {
                         disabled={!agreed}
                         className="bg-blue-600 text-white font-bold py-2 px-6 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                        Proceed
+                        Proceed to Exam (Full-Screen)
                     </button>
                 </div>
             </div>
@@ -214,13 +633,16 @@ interface ExamScreenProps {
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
     visited: string[];
     setVisited: React.Dispatch<React.SetStateAction<string[]>>;
+    violationCount: number;
+    maxViolations: number;
 }
 
 const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     const {
         answers, setAnswers, markedForReview, setMarkedForReview, timeRemaining,
         currentSectionIndex, setCurrentSectionIndex, currentQuestionIndex,
-        setCurrentQuestionIndex, setGameState, visited, setVisited
+        setCurrentQuestionIndex, setGameState, visited, setVisited,
+        violationCount, maxViolations
     } = props;
 
     const currentSection = defaultExamData.sections[currentSectionIndex];
@@ -275,13 +697,16 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-gray-100">
+        <div className="flex flex-col h-screen bg-gray-100" style={{ userSelect: 'none' }}>
             <header className="bg-blue-800 text-white shadow-md p-2 flex justify-between items-center z-10">
                 <h1 className="text-lg font-bold ml-4">{defaultExamData.examTitle}</h1>
-                <div className="flex items-center mr-4">
-                    <div className="flex items-center mr-6">
+                <div className="flex items-center mr-4 gap-4">
+                    <SecurityBadge violationCount={violationCount} maxViolations={maxViolations} />
+                    <div className="flex items-center">
                         <ClockIcon />
-                        <span className="font-mono text-lg font-semibold">{formatTime(timeRemaining)}</span>
+                        <span className={`font-mono text-lg font-semibold ${timeRemaining <= 300 ? 'text-red-300 animate-pulse' : ''}`}>
+                            {formatTime(timeRemaining)}
+                        </span>
                     </div>
                     <div className="flex items-center">
                         <span className="mr-2 font-semibold">John Doe</span>
