@@ -109,7 +109,9 @@ export const useAntiCheat = ({
       }
       hasEnteredFullScreenRef.current = true;
     } catch (err) {
-      console.warn('Failed to enter full-screen:', err);
+      console.warn('Failed to enter full-screen (might be unsupported on this device):', err);
+      // Fallback for mobile devices (like iOS Safari) that block requestFullscreen
+      hasEnteredFullScreenRef.current = true;
     }
   }, []);
 
@@ -247,6 +249,15 @@ export const useAntiCheat = ({
         }
       }
     }, 3000);
+    // --- Page refresh warning ---
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Show warning only if actively taking the exam and not auto-submitting
+      if (trackViolationsRef.current && !autoSubmittedRef.current) {
+        e.preventDefault();
+        e.returnValue = ''; // Setting returnValue triggers the browser's confirmation dialog
+        return '';
+      }
+    };
 
     // --- Attach event listeners ---
     document.addEventListener('fullscreenchange', handleFullScreenChange);
@@ -258,6 +269,7 @@ export const useAntiCheat = ({
     document.addEventListener('copy', handleCopyPaste);
     document.addEventListener('cut', handleCopyPaste);
     document.addEventListener('paste', handleCopyPaste);
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     // Disable text selection
     document.body.style.userSelect = 'none';
@@ -273,6 +285,7 @@ export const useAntiCheat = ({
       document.removeEventListener('copy', handleCopyPaste);
       document.removeEventListener('cut', handleCopyPaste);
       document.removeEventListener('paste', handleCopyPaste);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       clearInterval(devToolsCheckInterval);
 
       // Restore text selection

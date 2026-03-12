@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { examData as defaultExamData } from './data/questions';
 import { GameState, QuestionStatus, Answers, Section, Question } from './types';
 import { ClockIcon, CheckCircleIcon, XCircleIcon, EyeIcon, UserCircleIcon } from './components/icons';
@@ -159,11 +159,12 @@ const App: React.FC = () => {
     }, [gameState, timeRemaining]);
 
     const startExam = async () => {
+        // Trigger full-screen FIRST, synchronously within the click handler to satisfy browser/mobile security policies
+        antiCheat.enterFullScreen().catch(console.error);
+
         const firstQuestionId = defaultExamData.sections[0].questions[0].id;
         setVisited([firstQuestionId]);
         setGameState(GameState.Ongoing);
-        // Enter full-screen mode
-        await antiCheat.enterFullScreen();
     };
 
     const handleSubmitExam = async () => {
