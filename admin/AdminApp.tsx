@@ -19,6 +19,7 @@ type SectionItem = {
 
 type QuestionItem = {
     _id: string;
+    section?: string | { _id: string; name: string };
     questionText: string;
     options: string[];
     correctOptionIndex: number;
@@ -93,8 +94,15 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const BRAND_NAME = 'Indocreonix';
 const BRAND_LOGO_URL = 'https://res.cloudinary.com/deiy8xksn/image/upload/v1773475385/logo_ujugop.png';
 const BRAND_MOTTO = 'Smart Assessment Infrastructure';
+const BRAND_TAG = 'Build.Scale.Lead';
 
-const BrandSignature: React.FC = () => (
+type BrandSignatureProps = {
+    showMenuButton?: boolean;
+    isMenuOpen?: boolean;
+    onMenuToggle?: () => void;
+};
+
+const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false, isMenuOpen = false, onMenuToggle }) => (
     <div
         style={{
             width: '100%',
@@ -112,7 +120,9 @@ const BrandSignature: React.FC = () => (
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '14px',
-                flexWrap: 'wrap'
+                flexWrap: 'wrap',
+                position: 'relative',
+                paddingRight: showMenuButton ? '52px' : 0
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -126,7 +136,44 @@ const BrandSignature: React.FC = () => (
                     <div style={{ fontSize: '11px', color: '#5b73a0', fontWeight: 600, letterSpacing: '0.2px' }}>{BRAND_MOTTO}</div>
                 </div>
             </div>
-            <span style={{ fontSize: '13px', color: '#1f365d', fontWeight: 700 }}>Powered by {BRAND_NAME}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                <span style={{ fontSize: '13px', color: '#1f365d', fontWeight: 700 }}>Powered by {BRAND_NAME}</span>
+            </div>
+            {showMenuButton && onMenuToggle && (
+                <button
+                    type="button"
+                    onClick={onMenuToggle}
+                    aria-label={isMenuOpen ? 'Close admin pages menu' : 'Open admin pages menu'}
+                    style={{
+                        border: '1px solid #1f5fbd',
+                        background: 'linear-gradient(120deg, #1b57b8, #2383d6)',
+                        borderRadius: '10px',
+                        width: '42px',
+                        height: '38px',
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        boxShadow: '0 8px 16px rgba(35, 95, 181, 0.28)'
+                    }}
+                >
+                    <span
+                        style={{
+                            display: 'inline-flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            gap: '4px'
+                        }}
+                    >
+                        <span style={{ width: '17px', height: '2px', background: '#ffffff', borderRadius: '999px', display: 'block' }} />
+                        <span style={{ width: '17px', height: '2px', background: '#ffffff', borderRadius: '999px', display: 'block' }} />
+                        <span style={{ width: '17px', height: '2px', background: '#ffffff', borderRadius: '999px', display: 'block' }} />
+                    </span>
+                </button>
+            )}
         </div>
     </div>
 );
@@ -158,6 +205,7 @@ const AdminApp: React.FC = () => {
     const [mode, setMode] = useState<Mode>(getModeFromPath());
     const [activeView, setActiveView] = useState<DashboardView>('overview');
     const [isMobile, setIsMobile] = useState(getIsMobile());
+    const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
     const [token, setToken] = useState(localStorage.getItem('adminToken') || '');
     const [adminIdentity, setAdminIdentity] = useState<AdminIdentity | null>(readAdminIdentity());
 
@@ -182,6 +230,14 @@ const AdminApp: React.FC = () => {
     const [marks, setMarks] = useState(1);
     const [questionImage, setQuestionImage] = useState<File | null>(null);
     const [questions, setQuestions] = useState<QuestionItem[]>([]);
+    const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+    const [editSectionId, setEditSectionId] = useState('');
+    const [editQuestionText, setEditQuestionText] = useState('');
+    const [editOptions, setEditOptions] = useState(['', '', '', '']);
+    const [editCorrectOptionIndex, setEditCorrectOptionIndex] = useState(0);
+    const [editMarks, setEditMarks] = useState(1);
+    const [editQuestionImage, setEditQuestionImage] = useState<File | null>(null);
+    const [editCurrentImageUrl, setEditCurrentImageUrl] = useState<string | null>(null);
 
     const [students, setStudents] = useState<StudentItem[]>([]);
     const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
@@ -231,6 +287,12 @@ const AdminApp: React.FC = () => {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    useEffect(() => {
+        if (!isMobile) {
+            setIsNavMenuOpen(false);
+        }
+    }, [isMobile]);
 
     useEffect(() => {
         if ((mode === 'dashboard') && !token) {
@@ -515,33 +577,95 @@ const AdminApp: React.FC = () => {
         }
     };
 
-    const updateQuestion = async (question: QuestionItem) => {
-        const newQuestionText = window.prompt('Question text', question.questionText);
-        if (!newQuestionText) return;
+    const startQuestionEdit = (question: QuestionItem) => {
+        const sectionId =
+            typeof question.section === 'string'
+                ? question.section
+                : (question.section?._id || selectedSectionId);
 
-        const updatedOptions = [...question.options];
-        for (let i = 0; i < 4; i += 1) {
-            const next = window.prompt(`Option ${i}`, updatedOptions[i]);
-            if (!next) return;
-            updatedOptions[i] = next;
+        setEditingQuestionId(question._id);
+        setEditSectionId(sectionId || selectedSectionId);
+        setEditQuestionText(question.questionText || '');
+        setEditOptions([...(question.options || ['', '', '', ''])].slice(0, 4));
+        setEditCorrectOptionIndex(Number(question.correctOptionIndex) || 0);
+        setEditMarks(Number(question.marks) || 1);
+        setEditQuestionImage(null);
+        setEditCurrentImageUrl(question.imageUrl || null);
+        setStatus('');
+        setError('');
+    };
+
+    const cancelQuestionEdit = () => {
+        setEditingQuestionId(null);
+        setEditSectionId('');
+        setEditQuestionText('');
+        setEditOptions(['', '', '', '']);
+        setEditCorrectOptionIndex(0);
+        setEditMarks(1);
+        setEditQuestionImage(null);
+        setEditCurrentImageUrl(null);
+    };
+
+    const submitQuestionUpdate = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError('');
+        setStatus('');
+
+        if (!editingQuestionId) {
+            setError('Select a question to edit first.');
+            return;
         }
 
-        const nextCorrect = window.prompt('Correct option index (0-3)', String(question.correctOptionIndex));
-        const nextMarks = window.prompt('Marks', String(question.marks));
+        if (!editSectionId) {
+            setError('Select a section for this question.');
+            return;
+        }
+
+        if (!editQuestionText.trim()) {
+            setError('Question text is required.');
+            return;
+        }
+
+        if (editOptions.length !== 4 || editOptions.some((opt) => !opt.trim())) {
+            setError('All four options are required.');
+            return;
+        }
+
+        if (!Number.isInteger(editCorrectOptionIndex) || editCorrectOptionIndex < 0 || editCorrectOptionIndex > 3) {
+            setError('Correct option index must be between 0 and 3.');
+            return;
+        }
+
+        if (!Number.isInteger(editMarks) || editMarks < 1) {
+            setError('Marks must be at least 1.');
+            return;
+        }
 
         try {
-            await api(`/api/admin/questions/${question._id}`, {
+            const formData = new FormData();
+            formData.append('section', editSectionId);
+            formData.append('questionText', editQuestionText.trim());
+            editOptions.forEach((opt) => formData.append('options', opt.trim()));
+            formData.append('correctOptionIndex', String(editCorrectOptionIndex));
+            formData.append('marks', String(editMarks));
+            if (editQuestionImage) {
+                formData.append('questionImage', editQuestionImage);
+            }
+
+            const res = await fetch(`${API_BASE}/api/admin/questions/${editingQuestionId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    section: selectedSectionId,
-                    questionText: newQuestionText,
-                    options: updatedOptions,
-                    correctOptionIndex: Number(nextCorrect),
-                    marks: Number(nextMarks)
-                })
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData
             });
-            setStatus('Question updated successfully.');
+
+            const body = await res.json();
+            if (!res.ok || body.success === false) {
+                throw new Error(body.message || 'Failed to update question');
+            }
+
+            setStatus('Question updated successfully with all details.');
+            setSelectedSectionId(editSectionId);
+            cancelQuestionEdit();
             await loadQuestions();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to update question');
@@ -741,14 +865,14 @@ const AdminApp: React.FC = () => {
         }
     }, [mode, token]);
 
-    const navItems: Array<{ key: DashboardView; label: string }> = [
-        { key: 'overview', label: 'Overview' },
-        { key: 'sections', label: 'Sections' },
-        { key: 'questions', label: 'Questions' },
-        { key: 'students', label: 'Students' },
-        { key: 'config', label: 'Exam Config' },
-        { key: 'activity', label: 'Activity' },
-        { key: 'help', label: 'Help Center' }
+    const navItems: Array<{ key: DashboardView; label: string; hint: string }> = [
+        { key: 'overview', label: 'Overview', hint: 'Summary and quick actions' },
+        { key: 'sections', label: 'Sections', hint: 'Create and manage exam sections' },
+        { key: 'questions', label: 'Questions', hint: 'Build question bank and marks' },
+        { key: 'students', label: 'Students', hint: 'Results, exports, and reset tools' },
+        { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup' },
+        { key: 'activity', label: 'Activity', hint: 'Recent submission timeline' },
+        { key: 'help', label: 'Help Center', hint: 'Usage guide and best practices' }
     ];
 
     const dashboardTitle: Record<DashboardView, string> = {
@@ -761,6 +885,16 @@ const AdminApp: React.FC = () => {
         help: 'Help Center'
     };
 
+    const dashboardSubtitle: Record<DashboardView, string> = {
+        overview: 'Monitor performance and jump to common admin tasks quickly.',
+        sections: 'Organize section structure before adding questions.',
+        questions: 'Maintain quality and correctness of every exam question.',
+        students: 'Review outcomes and control student data operations safely.',
+        config: 'Keep timing and examiner identity consistent across all exams.',
+        activity: 'Track latest attempts and response trends in real time.',
+        help: 'Follow the recommended workflow for smooth exam operations.'
+    };
+
     const responsiveGridStyle: React.CSSProperties = isMobile
         ? { ...gridStyle, gridTemplateColumns: '1fr' }
         : gridStyle;
@@ -768,6 +902,13 @@ const AdminApp: React.FC = () => {
     const responsiveRowStyle: React.CSSProperties = isMobile
         ? { ...rowStyle, gridTemplateColumns: '1fr' }
         : rowStyle;
+
+    const openView = (view: DashboardView) => {
+        setActiveView(view);
+        if (isMobile) {
+            setIsNavMenuOpen(false);
+        }
+    };
 
     if (mode === 'login') {
         return (
@@ -833,87 +974,185 @@ const AdminApp: React.FC = () => {
 
     return (
         <>
-            <BrandSignature />
+            <BrandSignature
+                showMenuButton={isMobile}
+                isMenuOpen={isNavMenuOpen}
+                onMenuToggle={() => setIsNavMenuOpen((prev) => !prev)}
+            />
             <div style={{ ...pageStyle, alignItems: 'stretch', paddingTop: '0.5rem' }}>
                 <div
                     style={{
                         width: '100%',
                         maxWidth: '1250px',
                         margin: '1rem auto',
-                        display: 'flex',
-                        flexDirection: isMobile ? 'column' : 'row',
+                        display: 'grid',
                         gap: '1rem',
-                        alignItems: 'flex-start'
+                        alignItems: 'stretch'
                     }}
                 >
-                    <aside
+                    <nav
                         style={{
                             ...cardStyle,
-                            flex: isMobile ? '1 1 100%' : '1 1 260px',
-                            width: isMobile ? '100%' : undefined,
-                            maxWidth: isMobile ? '100%' : '280px',
-                            position: isMobile ? 'static' : 'sticky',
-                            top: isMobile ? undefined : '1rem'
+                            position: 'static',
+                            zIndex: 20,
+                            background: 'linear-gradient(135deg, rgba(255,255,255,0.78), rgba(234,243,255,0.82))',
+                            backdropFilter: 'blur(14px)',
+                            border: '1px solid rgba(151, 183, 235, 0.9)',
+                            boxShadow: '0 16px 34px rgba(16, 49, 108, 0.15)',
+                            padding: isMobile ? '0.7rem' : '0.8rem 1rem'
                         }}
                     >
-                        <div style={{ ...itemStyle, background: 'linear-gradient(150deg, #edf4ff, #ffffff)', borderColor: '#b7cff5' }}>
-                            <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '42px', width: 'auto', objectFit: 'contain' }} />
-                            <div style={{ marginTop: '0.35rem', fontWeight: 800, color: '#14376f' }}>{BRAND_NAME} Command Console</div>
-                            <div style={{ ...mutedStyle, marginTop: '0.2rem' }}>Manage exams with branded control and confidence.</div>
-                        </div>
-                        <h3 style={{ margin: 0, color: '#11346f' }}>Control Center</h3>
-                        <p style={{ ...mutedStyle, marginTop: '0.35rem' }}>Examiner profile</p>
-                        <div style={{ ...itemStyle, marginTop: '0.35rem' }}>
-                            <strong style={{ color: '#173a7a' }}>{adminIdentity?.name || 'Admin'}</strong>
-                            <p style={mutedStyle}>{adminIdentity?.email || 'No email available'}</p>
-                        </div>
+                        <div
+                            style={{
+                                display: 'grid',
+                                gap: '0.65rem'
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '0.75rem',
+                                    flexWrap: 'wrap'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                    <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
+                                    <div>
+                                        <div style={{ fontWeight: 800, color: '#13366c', letterSpacing: '0.2px' }}>{BRAND_NAME} Admin</div>
+                                        <div style={{ ...mutedStyle, color: '#466aa0', fontSize: '0.75rem' }}>{BRAND_MOTTO}</div>
+                                    </div>
+                                </div>
 
-                        {isMobile ? (
-                            <div style={{ marginTop: '0.6rem' }}>
-                                <label style={{ ...mutedStyle, display: 'block', marginBottom: '0.25rem' }}>Navigate</label>
-                                <select
-                                    value={activeView}
-                                    onChange={(e) => setActiveView(e.target.value as DashboardView)}
-                                    style={inputStyle}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0f3f8d', background: 'rgba(223, 236, 255, 0.92)', border: '1px solid #b2c9f1', borderRadius: '999px', padding: '0.25rem 0.6rem' }}>
+                                        {BRAND_TAG}
+                                    </span>
+                                    <span style={{ fontSize: '0.74rem', color: '#2b4f84', background: 'rgba(255,255,255,0.72)', border: '1px solid #bfd2f2', borderRadius: '999px', padding: '0.25rem 0.6rem' }}>
+                                        Examiner: {adminIdentity?.name || 'Admin'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {!isMobile && (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        flexWrap: 'nowrap',
+                                        gap: '0.45rem',
+                                        overflowX: 'auto',
+                                        paddingBottom: '0.1rem'
+                                    }}
                                 >
                                     {navItems.map((item) => (
-                                        <option key={item.key} value={item.key}>{item.label}</option>
+                                        <button
+                                            key={item.key}
+                                            onClick={() => openView(item.key)}
+                                            style={{
+                                                ...secondaryBtnStyle,
+                                                width: 'auto',
+                                                marginTop: 0,
+                                                padding: '0.55rem 0.85rem',
+                                                whiteSpace: 'normal',
+                                                textAlign: 'left',
+                                                background: activeView === item.key
+                                                    ? 'linear-gradient(120deg, #1b57b8, #2383d6)'
+                                                    : 'rgba(255,255,255,0.76)',
+                                                borderColor: activeView === item.key ? '#1f5fbd' : '#bdd0ef',
+                                                color: activeView === item.key ? '#ffffff' : '#173a7a',
+                                                boxShadow: activeView === item.key
+                                                    ? '0 8px 18px rgba(35, 95, 181, 0.32)'
+                                                    : '0 3px 10px rgba(17, 52, 111, 0.08)'
+                                            }}
+                                        >
+                                            <div style={{ fontWeight: 700 }}>{item.label}</div>
+                                            <div style={{ fontSize: '0.72rem', opacity: 0.88, marginTop: '0.1rem' }}>{item.hint}</div>
+                                        </button>
                                     ))}
-                                </select>
-                            </div>
-                        ) : (
-                            <div style={{ marginTop: '0.6rem', display: 'grid', gap: '0.4rem' }}>
-                                {navItems.map((item) => (
-                                    <button
-                                        key={item.key}
-                                        onClick={() => setActiveView(item.key)}
-                                        style={{
-                                            ...secondaryBtnStyle,
-                                            marginTop: 0,
-                                            textAlign: 'left',
-                                            background: activeView === item.key ? '#dfe9ff' : '#f7faff',
-                                            borderColor: activeView === item.key ? '#8db0f3' : '#b7c7e8',
-                                            color: activeView === item.key ? '#0f3f93' : '#173a7a'
-                                        }}
-                                    >
-                                        {item.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </aside>
+                                </div>
+                            )}
+                        </div>
+                    </nav>
 
-                    <main style={{ flex: '4 1 760px', width: '100%', display: 'grid', gap: '1rem' }}>
+                    {isMobile && isNavMenuOpen && (
+                        <div
+                            style={{
+                                position: 'fixed',
+                                inset: 0,
+                                zIndex: 40,
+                                background: 'rgba(8, 23, 48, 0.35)',
+                                backdropFilter: 'blur(2px)'
+                            }}
+                            onClick={() => setIsNavMenuOpen(false)}
+                        >
+                            <aside
+                                style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    right: 0,
+                                    width: '84%',
+                                    maxWidth: '350px',
+                                    height: '100%',
+                                    background: 'linear-gradient(170deg, #ffffff 0%, #eef5ff 100%)',
+                                    borderLeft: '1px solid #b8cdf0',
+                                    boxShadow: '-16px 0 28px rgba(17, 45, 92, 0.24)',
+                                    padding: '0.9rem',
+                                    overflowY: 'auto'
+                                }}
+                                onClick={(event) => event.stopPropagation()}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
+                                    <strong style={{ color: '#123a78' }}>Admin Pages</strong>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsNavMenuOpen(false)}
+                                        style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.35rem 0.6rem' }}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '0.45rem' }}>
+                                    {navItems.map((item) => (
+                                        <button
+                                            key={item.key}
+                                            onClick={() => openView(item.key)}
+                                            style={{
+                                                ...secondaryBtnStyle,
+                                                width: '100%',
+                                                marginTop: 0,
+                                                padding: '0.6rem 0.75rem',
+                                                whiteSpace: 'normal',
+                                                textAlign: 'left',
+                                                background: activeView === item.key
+                                                    ? 'linear-gradient(120deg, #1b57b8, #2383d6)'
+                                                    : '#ffffff',
+                                                borderColor: activeView === item.key ? '#1f5fbd' : '#bdd0ef',
+                                                color: activeView === item.key ? '#ffffff' : '#173a7a'
+                                            }}
+                                        >
+                                            <div style={{ fontWeight: 700 }}>{item.label}</div>
+                                            <div style={{ fontSize: '0.72rem', opacity: 0.88, marginTop: '0.1rem' }}>{item.hint}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </aside>
+                        </div>
+                    )}
+
+                    <main style={{ width: '100%', display: 'grid', gap: '1rem' }}>
                         <section style={{ ...cardStyle, display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <div>
                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '0.3rem', background: '#edf4ff', border: '1px solid #c7daf8', borderRadius: '999px', padding: '4px 10px' }}>
                                     <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} badge`} style={{ height: '18px', width: 'auto', objectFit: 'contain' }} />
-                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#1f4a8a' }}>{BRAND_NAME} Branded Ops</span>
+                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#1f4a8a' }}>{BRAND_NAME} Branded Ops | {BRAND_TAG}</span>
                                 </div>
                                 <h2 style={{ margin: 0 }}>{dashboardTitle[activeView]}</h2>
                                 <p style={{ ...mutedStyle, marginTop: '0.35rem' }}>
                                     Examiner: <strong>{adminIdentity?.name || 'Admin'}</strong>
                                 </p>
+                                <p style={{ ...mutedStyle, marginTop: '0.2rem' }}>{dashboardSubtitle[activeView]}</p>
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 <button
@@ -925,7 +1164,10 @@ const AdminApp: React.FC = () => {
                                     }}
                                     style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem' }}
                                 >
-                                    Refresh Data
+                                    Refresh Dashboard
+                                </button>
+                                <button onClick={() => openView('help')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem' }}>
+                                    Open Help
                                 </button>
                                 <button onClick={logout} style={{ ...dangerBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem' }}>
                                     Logout
@@ -952,10 +1194,10 @@ const AdminApp: React.FC = () => {
                                     <section style={cardStyle}>
                                         <h3 style={{ marginTop: 0 }}>Quick Actions</h3>
                                         <p style={{ ...mutedStyle, marginTop: '-0.25rem' }}>Branded shortcuts for rapid control</p>
-                                        <button onClick={() => setActiveView('sections')} style={primaryBtnStyle}>Manage Sections</button>
-                                        <button onClick={() => setActiveView('questions')} style={secondaryBtnStyle}>Open Question Bank</button>
-                                        <button onClick={() => setActiveView('students')} style={secondaryBtnStyle}>Review Student Results</button>
-                                        <button onClick={() => setActiveView('config')} style={secondaryBtnStyle}>Exam Time Settings</button>
+                                        <button onClick={() => openView('sections')} style={primaryBtnStyle}>Manage Sections</button>
+                                        <button onClick={() => openView('questions')} style={secondaryBtnStyle}>Open Question Bank</button>
+                                        <button onClick={() => openView('students')} style={secondaryBtnStyle}>Review Student Results</button>
+                                        <button onClick={() => openView('config')} style={secondaryBtnStyle}>Exam Time Settings</button>
                                     </section>
 
                                     <section style={cardStyle}>
@@ -966,7 +1208,7 @@ const AdminApp: React.FC = () => {
                                         <p style={mutedStyle}>
                                             Last updated: {examConfigUpdatedAt ? new Date(examConfigUpdatedAt).toLocaleString() : 'Not set'}
                                         </p>
-                                        <button onClick={() => setActiveView('config')} style={primaryBtnStyle}>Open Config Page</button>
+                                        <button onClick={() => openView('config')} style={primaryBtnStyle}>Open Config Page</button>
                                     </section>
                                 </div>
 
@@ -1074,6 +1316,87 @@ const AdminApp: React.FC = () => {
                                     <div style={{ ...mutedStyle, alignSelf: 'center' }}>{activeSection ? activeSection.name : ''}</div>
                                 </div>
 
+                                {editingQuestionId && (
+                                    <section style={{ ...cardStyle, marginTop: '0.8rem', border: '1px solid #9fbcf1' }}>
+                                        <h4 style={{ marginTop: 0, marginBottom: '0.4rem', color: '#103b7b' }}>Edit Question</h4>
+                                        <p style={{ ...mutedStyle, marginTop: 0 }}>Update question text, options, correct answer, marks, section, and image.</p>
+                                        <form onSubmit={submitQuestionUpdate}>
+                                            <label>Section</label>
+                                            <select value={editSectionId} onChange={(e) => setEditSectionId(e.target.value)} style={inputStyle} required>
+                                                <option value="">Select section</option>
+                                                {sections.map((section) => (
+                                                    <option key={section._id} value={section._id}>{section.name}</option>
+                                                ))}
+                                            </select>
+
+                                            <label>Question text</label>
+                                            <textarea value={editQuestionText} onChange={(e) => setEditQuestionText(e.target.value)} required style={inputStyle} />
+
+                                            {editOptions.map((opt, i) => (
+                                                <div key={i}>
+                                                    <label>Option {i + 1}</label>
+                                                    <input
+                                                        value={opt}
+                                                        onChange={(e) => {
+                                                            const next = [...editOptions];
+                                                            next[i] = e.target.value;
+                                                            setEditOptions(next);
+                                                        }}
+                                                        required
+                                                        style={inputStyle}
+                                                    />
+                                                </div>
+                                            ))}
+
+                                            <div style={responsiveRowStyle}>
+                                                <div>
+                                                    <label>Correct index (0-3)</label>
+                                                    <input
+                                                        value={editCorrectOptionIndex}
+                                                        onChange={(e) => setEditCorrectOptionIndex(Number(e.target.value))}
+                                                        type="number"
+                                                        min={0}
+                                                        max={3}
+                                                        required
+                                                        style={inputStyle}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label>Marks</label>
+                                                    <input
+                                                        value={editMarks}
+                                                        onChange={(e) => setEditMarks(Number(e.target.value))}
+                                                        type="number"
+                                                        min={1}
+                                                        required
+                                                        style={inputStyle}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {editCurrentImageUrl && (
+                                                <div style={{ marginTop: '0.35rem' }}>
+                                                    <p style={{ ...mutedStyle, marginBottom: '0.25rem' }}>Current image</p>
+                                                    <img src={editCurrentImageUrl} alt="Question" style={{ width: '100%', maxWidth: '240px', borderRadius: '8px', border: '1px solid #c9d9f2' }} />
+                                                </div>
+                                            )}
+
+                                            <label style={{ marginTop: '0.45rem', display: 'block' }}>Replace image (optional)</label>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => setEditQuestionImage(e.target.files?.[0] || null)}
+                                                style={inputStyle}
+                                            />
+
+                                            <div style={responsiveRowStyle}>
+                                                <button type="submit" style={primaryBtnStyle}>Save All Changes</button>
+                                                <button type="button" onClick={cancelQuestionEdit} style={secondaryBtnStyle}>Cancel Edit</button>
+                                            </div>
+                                        </form>
+                                    </section>
+                                )}
+
                                 <label>Search question text</label>
                                 <input
                                     value={questionSearch}
@@ -1088,9 +1411,16 @@ const AdminApp: React.FC = () => {
                                         <div key={question._id} style={itemStyle}>
                                             <strong>{question.questionText}</strong>
                                             <p style={mutedStyle}>Correct: {question.correctOptionIndex} | Marks: {question.marks}</p>
+                                            {question.imageUrl && (
+                                                <img
+                                                    src={question.imageUrl}
+                                                    alt="Question"
+                                                    style={{ width: '100%', maxWidth: '240px', borderRadius: '8px', border: '1px solid #c9d9f2', marginBottom: '0.45rem' }}
+                                                />
+                                            )}
                                             <p style={mutedStyle}>{question.options.map((o, i) => `${i}. ${o}`).join(' | ')}</p>
                                             <div style={responsiveRowStyle}>
-                                                <button onClick={() => updateQuestion(question)} style={primaryBtnStyle}>Update</button>
+                                                <button onClick={() => startQuestionEdit(question)} style={primaryBtnStyle}>Edit</button>
                                                 <button onClick={() => deleteQuestion(question)} style={dangerBtnStyle}>Delete</button>
                                             </div>
                                         </div>

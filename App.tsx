@@ -154,10 +154,10 @@ const DisqualifiedScreen: React.FC<{
 // --- Security Status Badge ---
 const SecurityBadge: React.FC<{ violationCount: number; maxViolations: number }> = ({ violationCount, maxViolations }) => (
   <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${violationCount === 0
-      ? 'bg-green-500 bg-opacity-20 text-green-200'
-      : violationCount < maxViolations - 1
-        ? 'bg-yellow-500 bg-opacity-20 text-yellow-200'
-        : 'bg-red-500 bg-opacity-20 text-red-200 animate-pulse'
+    ? 'bg-green-500 bg-opacity-20 text-green-200'
+    : violationCount < maxViolations - 1
+      ? 'bg-yellow-500 bg-opacity-20 text-yellow-200'
+      : 'bg-red-500 bg-opacity-20 text-red-200 animate-pulse'
     }`}>
     <span className={`inline-block w-2 h-2 rounded-full ${violationCount === 0 ? 'bg-green-400' : violationCount < maxViolations - 1 ? 'bg-yellow-400' : 'bg-red-400'
       }`} />
