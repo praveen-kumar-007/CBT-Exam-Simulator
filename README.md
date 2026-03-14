@@ -57,3 +57,19 @@ Prerequisites:
 - `/admin/login`
 - `/admin/signup`
 - `/admin/dashboard`
+
+## PWA (Install Like App)
+
+- PWA is enabled with `vite-plugin-pwa`.
+- Build output includes `manifest.webmanifest` and a generated service worker.
+- Install prompt appears in supported browsers (Chrome/Edge mobile and desktop) after visiting the deployed HTTPS site.
+
+To test locally:
+
+1. Build and preview:
+
+`npm run build && npm run preview`
+
+2. Open the preview URL in Chrome/Edge.
+
+3. Use browser menu: `Install app` or `Add to Home screen`.

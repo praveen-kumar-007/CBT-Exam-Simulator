@@ -2,6 +2,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { registerSW } from 'virtual:pwa-register';
+
+registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    // Automatically apply updates so users stay on latest exam build.
+    window.location.reload();
+  }
+});
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
