@@ -1,14 +1,56 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { examData as defaultExamData } from './data/questions';
-import { GameState, QuestionStatus, Answers, Section, Question } from './types';
+import { GameState, QuestionStatus, Answers, Section, Question, ExamData } from './types';
 import { ClockIcon, CheckCircleIcon, XCircleIcon, EyeIcon, UserCircleIcon } from './components/icons';
 import { useAntiCheat, ViolationEntry } from './hooks/useAntiCheat';
+import AdminApp from './admin/AdminApp';
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const BRAND_NAME = 'Indocreonix';
+const BRAND_LOGO_URL = 'https://res.cloudinary.com/deiy8xksn/image/upload/v1773475385/logo_ujugop.png';
 
 // --- Helper Functions ---
 const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
+const apiRequest = async <T,>(path: string, options: RequestInit = {}): Promise<T> => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(options.headers || {}),
+        },
+    });
+
+    const payload = await response.json();
+
+    if (!response.ok || payload.success === false) {
+        throw new Error(payload.message || 'Request failed.');
+    }
+
+    return payload as T;
+};
+
+const getConfiguredDurationInMinutes = async (token: string) => {
+    try {
+        const config = await apiRequest<{ data: { durationInMinutes: number } }>('/api/student/exam-config', {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        const value = Number(config?.data?.durationInMinutes);
+        if (Number.isInteger(value) && value > 0) {
+            return value;
+        }
+    } catch (error) {
+        console.warn('Exam config fetch failed, falling back to default duration.', error);
+    }
+
+    return defaultExamData.durationInMinutes;
 };
 
 // --- Violation Warning Overlay ---
@@ -117,10 +159,26 @@ const SecurityBadge: React.FC<{ violationCount: number; maxViolations: number }>
     </div>
 );
 
+const BrandSignature: React.FC = () => (
+    <div className="w-full border-b border-slate-200 bg-white px-4 py-2 shadow-sm">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-center gap-3">
+            <img
+                src={BRAND_LOGO_URL}
+                alt={`${BRAND_NAME} logo`}
+                className="h-10 w-auto object-contain"
+            />
+            <span className="text-sm font-semibold tracking-wide text-slate-800">
+                Made by brand {BRAND_NAME}
+            </span>
+        </div>
+    </div>
+);
+
 
 // --- App Component ---
-const App: React.FC = () => {
+const StudentApp: React.FC = () => {
     const [gameState, setGameState] = useState<GameState>(GameState.Login);
+    const [examData, setExamData] = useState<ExamData>(defaultExamData);
     const [answers, setAnswers] = useState<Answers>({});
     const [markedForReview, setMarkedForReview] = useState<string[]>([]);
     const [timeRemaining, setTimeRemaining] = useState(defaultExamData.durationInMinutes * 60);
@@ -128,8 +186,13 @@ const App: React.FC = () => {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [visited, setVisited] = useState<string[]>([]);
     const [isGateOpening, setIsGateOpening] = useState(false);
+    const [studentToken, setStudentToken] = useState('');
+    const [sectionIds, setSectionIds] = useState<string[]>([]);
+    const [sectionSessionIds, setSectionSessionIds] = useState<string[]>([]);
+    const [attemptedCount, setAttemptedCount] = useState(0);
+    const [apiError, setApiError] = useState('');
 
-    const allQuestions = useMemo(() => defaultExamData.sections.flatMap(s => s.questions), []);
+    const allQuestions = useMemo(() => examData.sections.flatMap(s => s.questions), [examData]);
 
     // Protections stay active during exam AND on the disqualified screen
     const isProtectionActive = gameState === GameState.Ongoing || gameState === GameState.Review || gameState === GameState.Disqualified;
@@ -156,20 +219,72 @@ const App: React.FC = () => {
         } else if (timeRemaining === 0 && gameState === GameState.Ongoing) {
             handleSubmitExam();
         }
-    }, [gameState, timeRemaining]);
+    }, [gameState, timeRemaining, sectionSessionIds]);
 
     const startExam = async () => {
         // Trigger full-screen FIRST, synchronously within the click handler to satisfy browser/mobile security policies
         antiCheat.enterFullScreen().catch(console.error);
 
-        const firstQuestionId = defaultExamData.sections[0].questions[0].id;
+        const firstQuestionId = examData.sections[0].questions[0].id;
         setVisited([firstQuestionId]);
         setGameState(GameState.Ongoing);
     };
 
     const handleSubmitExam = async () => {
+        try {
+            if (studentToken && sectionIds.length) {
+                let attempted = 0;
+
+                for (let i = 0; i < examData.sections.length; i += 1) {
+                    const section = examData.sections[i];
+                    const sectionId = sectionIds[i];
+
+                    if (!sectionId) {
+                        continue;
+                    }
+
+                    const submissionAnswers = section.questions.reduce<Array<{ questionId: string; selectedOptionIndex: number }>>((acc, question) => {
+                        const selectedValue = answers[question.id];
+                        if (!selectedValue) {
+                            return acc;
+                        }
+
+                        const selectedOptionIndex = Number(selectedValue);
+                        if (Number.isInteger(selectedOptionIndex) && selectedOptionIndex >= 0 && selectedOptionIndex <= 3) {
+                            acc.push({ questionId: question.id, selectedOptionIndex });
+                        }
+
+                        return acc;
+                    }, []);
+
+                    const sessionId = sectionSessionIds[i];
+                    if (!sessionId) {
+                        continue;
+                    }
+
+                    const result = await apiRequest<{ data: { attemptedQuestions: number } }>('/api/student/submit', {
+                        method: 'POST',
+                        headers: {
+                            Authorization: `Bearer ${studentToken}`,
+                        },
+                        body: JSON.stringify({
+                            sectionId,
+                            sessionId,
+                            answers: submissionAnswers,
+                        }),
+                    });
+
+                    attempted += result.data.attemptedQuestions;
+                }
+
+                setAttemptedCount(attempted);
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to submit exam to server.';
+            setApiError(message);
+        }
+
         setGameState(GameState.Finished);
-        // Exit full-screen on normal submission
         await antiCheat.exitFullScreen();
     }
 
@@ -178,27 +293,86 @@ const App: React.FC = () => {
         antiCheat.reset();
         await antiCheat.exitFullScreen();
         setGameState(GameState.Login);
+        setExamData(defaultExamData);
         setAnswers({});
         setMarkedForReview([]);
         setTimeRemaining(defaultExamData.durationInMinutes * 60);
         setCurrentSectionIndex(0);
         setCurrentQuestionIndex(0);
         setVisited([]);
+        setStudentToken('');
+        setSectionIds([]);
+        setSectionSessionIds([]);
+        setAttemptedCount(0);
+        setApiError('');
     };
 
-    const calculateScore = useCallback(() => {
-        return allQuestions.reduce((score, question) => {
-            return answers[question.id] === question.answer ? score + 1 : score;
-        }, 0);
-    }, [answers, allQuestions]);
-
-    const handleLoginGateway = useCallback(() => {
+    const handleLoginGateway = useCallback(async (studentName: string, rollNumber: string) => {
         setIsGateOpening(true);
-        // After gate animation completes, transition to Instructions
-        setTimeout(() => {
-            setGameState(GameState.Instructions);
+        setApiError('');
+
+        try {
+            const session = await apiRequest<{ data: { token: string } }>('/api/auth/student/session', {
+                method: 'POST',
+                body: JSON.stringify({ loginId: rollNumber, password: studentName }),
+            });
+
+            const token = session.data.token;
+            setStudentToken(token);
+
+            const configuredDurationInMinutes = await getConfiguredDurationInMinutes(token);
+
+            const sectionsResponse = await apiRequest<{ data: Array<{ _id: string; name: string }> }>('/api/student/sections', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const sectionQuestionResponses = await Promise.all(
+                sectionsResponse.data.map((section) =>
+                    apiRequest<{ data: { sessionId: string; questions: Array<{ id: string; questionText: string; options: string[] }> } }>(
+                        `/api/student/questions/section/${section._id}`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        }
+                    )
+                )
+            );
+
+            const mappedSections: Section[] = sectionsResponse.data.map((section, index) => ({
+                name: section.name,
+                questions: sectionQuestionResponses[index].data.questions.map((q) => ({
+                    id: q.id,
+                    text: q.questionText,
+                    options: q.options,
+                    answer: '',
+                })),
+            }));
+
+            if (!mappedSections.length || mappedSections.every((section) => section.questions.length === 0)) {
+                throw new Error('No active questions available. Please contact admin.');
+            }
+
+            setExamData((prev) => ({
+                ...prev,
+                durationInMinutes: configuredDurationInMinutes,
+                sections: mappedSections,
+            }));
+            setSectionIds(sectionsResponse.data.map((section) => section._id));
+            setSectionSessionIds(sectionQuestionResponses.map((res) => res.data.sessionId));
+            setTimeRemaining(configuredDurationInMinutes * 60);
+
+            setTimeout(() => {
+                setGameState(GameState.Instructions);
+                setIsGateOpening(false);
+            }, 2200);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to start exam session.';
+            setApiError(message);
             setIsGateOpening(false);
-        }, 2200);
+        }
     }, []);
 
     const renderContent = () => {
@@ -206,10 +380,11 @@ const App: React.FC = () => {
             case GameState.Login:
                 return <LoginScreen onLogin={handleLoginGateway} isGateOpening={isGateOpening} />;
             case GameState.Instructions:
-                return <InstructionScreen onStart={startExam} />;
+                return <InstructionScreen onStart={startExam} examData={examData} />;
             case GameState.Ongoing:
                 return (
                     <ExamScreen
+                        examData={examData}
                         answers={answers}
                         setAnswers={setAnswers}
                         markedForReview={markedForReview}
@@ -238,7 +413,7 @@ const App: React.FC = () => {
                     />
                 );
             case GameState.Finished:
-                return <ResultScreen score={calculateScore()} total={allQuestions.length} onRestart={resetExam} />;
+                return <ResultScreen attempted={attemptedCount} total={allQuestions.length} onRestart={resetExam} />;
             case GameState.Disqualified:
                 return <DisqualifiedScreen violations={antiCheat.violations} onRestart={resetExam} />;
             default:
@@ -248,6 +423,12 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-screen font-sans text-gray-800 bg-gray-200">
+            <BrandSignature />
+            {apiError && (
+                <div className="fixed top-3 right-3 z-50 bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-sm">
+                    {apiError}
+                </div>
+            )}
             {renderContent()}
 
             {/* Violation Warning Overlay */}
@@ -263,19 +444,26 @@ const App: React.FC = () => {
     );
 };
 
+const App: React.FC = () => {
+    if (typeof window !== 'undefined' && window.location.pathname.toLowerCase().startsWith('/admin')) {
+        return <AdminApp />;
+    }
+
+    return <StudentApp />;
+};
+
 // --- LoginScreen â€” Professional White Glassmorphic ---
-const LoginScreen: React.FC<{ onLogin: () => void; isGateOpening: boolean }> = ({ onLogin, isGateOpening }) => {
-    const [loginId, setLoginId] = useState('');
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
+const LoginScreen: React.FC<{ onLogin: (studentName: string, rollNumber: string) => void; isGateOpening: boolean }> = ({ onLogin, isGateOpening }) => {
+    const [studentName, setStudentName] = useState('');
+    const [rollNumber, setRollNumber] = useState('');
     const [focused, setFocused] = useState<string | null>(null);
 
-    const isReady = loginId.length >= 1 && password.length >= 1;
+    const isReady = studentName.trim().length >= 1 && rollNumber.trim().length >= 1;
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         if (!isReady) return;
-        onLogin();
+        onLogin(studentName.trim(), rollNumber.trim());
     };
 
     return (
@@ -423,34 +611,34 @@ const LoginScreen: React.FC<{ onLogin: () => void; isGateOpening: boolean }> = (
                         </div>
 
                         <form className="space-y-5" onSubmit={handleLogin}>
-                            {/* Candidate ID */}
+                            {/* Name */}
                             <div style={{ animation: 'slide-up 0.6s ease 0.6s both' }}>
                                 <label
-                                    htmlFor="loginId"
+                                    htmlFor="studentName"
                                     className="block text-xs font-semibold uppercase tracking-wider mb-2"
-                                    style={{ color: focused === 'loginId' ? '#4f46e5' : '#64748b', transition: 'color 0.3s' }}
+                                    style={{ color: focused === 'studentName' ? '#4f46e5' : '#64748b', transition: 'color 0.3s' }}
                                 >
-                                    Candidate ID
+                                    Name
                                 </label>
                                 <div className="relative">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                                        <svg className={`w-5 h-5 transition-colors duration-300 ${focused === 'loginId' ? 'text-indigo-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg className={`w-5 h-5 transition-colors duration-300 ${focused === 'studentName' ? 'text-indigo-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                         </svg>
                                     </div>
                                     <input
-                                        id="loginId"
+                                        id="studentName"
                                         type="text"
-                                        value={loginId}
-                                        onChange={(e) => setLoginId(e.target.value)}
-                                        onFocus={() => setFocused('loginId')}
+                                        value={studentName}
+                                        onChange={(e) => setStudentName(e.target.value)}
+                                        onFocus={() => setFocused('studentName')}
                                         onBlur={() => setFocused(null)}
-                                        placeholder="Enter your candidate ID"
+                                        placeholder="Enter your name"
                                         className="glass-input"
                                         required
                                         autoComplete="off"
                                     />
-                                    {loginId && (
+                                    {studentName && (
                                         <div style={{ animation: 'check-pop 0.4s ease forwards' }}>
                                             <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -460,46 +648,33 @@ const LoginScreen: React.FC<{ onLogin: () => void; isGateOpening: boolean }> = (
                                 </div>
                             </div>
 
-                            {/* Password */}
+                            {/* Roll Number */}
                             <div style={{ animation: 'slide-up 0.6s ease 0.75s both' }}>
                                 <label
-                                    htmlFor="password"
+                                    htmlFor="rollNumber"
                                     className="block text-xs font-semibold uppercase tracking-wider mb-2"
-                                    style={{ color: focused === 'password' ? '#4f46e5' : '#64748b', transition: 'color 0.3s' }}
+                                    style={{ color: focused === 'rollNumber' ? '#4f46e5' : '#64748b', transition: 'color 0.3s' }}
                                 >
-                                    Password
+                                    Roll Number
                                 </label>
                                 <div className="relative">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                                        <svg className={`w-5 h-5 transition-colors duration-300 ${focused === 'password' ? 'text-indigo-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        <svg className={`w-5 h-5 transition-colors duration-300 ${focused === 'rollNumber' ? 'text-indigo-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3M5 11h14M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                     </div>
                                     <input
-                                        id="password"
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        onFocus={() => setFocused('password')}
+                                        id="rollNumber"
+                                        type="text"
+                                        value={rollNumber}
+                                        onChange={(e) => setRollNumber(e.target.value)}
+                                        onFocus={() => setFocused('rollNumber')}
                                         onBlur={() => setFocused(null)}
-                                        placeholder="Enter your password"
+                                        placeholder="Enter your roll number"
                                         className="glass-input"
-                                        style={{ paddingRight: '48px' }}
                                         required
                                         autoComplete="off"
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors duration-200"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            {showPassword
-                                                ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18" />
-                                                : <><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></>
-                                            }
-                                        </svg>
-                                    </button>
                                 </div>
                             </div>
 
@@ -524,7 +699,7 @@ const LoginScreen: React.FC<{ onLogin: () => void; isGateOpening: boolean }> = (
                                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                                                 </svg>
-                                                Sign In & Start Exam
+                                                Start Exam
                                             </>
                                         )}
                                     </span>
@@ -568,26 +743,29 @@ const LoginScreen: React.FC<{ onLogin: () => void; isGateOpening: boolean }> = (
 
             {/* Bottom branding */}
             <div className="absolute bottom-4 text-center z-10" style={{ animation: 'fade-in 1s ease 1.2s both' }}>
-                <p className="text-xs text-slate-400 tracking-wide">
-                    CBT Examination System {"\u2022"} &copy; 2026 Secure Assessment Engine
-                </p>
+                <div className="flex items-center justify-center gap-2">
+                    <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} className="h-6 w-auto object-contain" />
+                    <p className="text-xs text-slate-500 tracking-wide">
+                        Made by {BRAND_NAME}
+                    </p>
+                </div>
             </div>
         </div>
     );
 };
 
-const InstructionScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => {
+const InstructionScreen: React.FC<{ onStart: () => void; examData: ExamData }> = ({ onStart, examData }) => {
     const [agreed, setAgreed] = useState(false);
 
     return (
         <div className="min-h-screen bg-white p-4 sm:p-8">
             <div className="max-w-4xl mx-auto">
-                <h1 className="text-2xl font-bold text-blue-800 mb-4 border-b pb-2">{defaultExamData.examTitle}</h1>
+                <h1 className="text-2xl font-bold text-blue-800 mb-4 border-b pb-2">{examData.examTitle}</h1>
 
 
                 <h2 className="text-lg font-semibold text-gray-700 mb-4">General Instructions:</h2>
                 <div className="text-sm text-gray-600 space-y-3 p-4 border rounded-md bg-gray-50 max-h-96 overflow-y-auto">
-                    <p>1. Total duration of this examination is <strong>{defaultExamData.durationInMinutes} minutes</strong>.</p>
+                    <p>1. Total duration of this examination is <strong>{examData.durationInMinutes} minutes</strong>.</p>
                     <p>2. The clock will be set at the server. The countdown timer at the top right corner of screen will display the remaining time available for you to complete the examination. When the timer reaches zero, the examination will end by itself. You need not terminate the examination or submit your paper.</p>
                     <p>3. The Question Palette displayed on the right side of screen will show the status of each question using one of the following symbols:</p>
                     <ul className="list-disc pl-6 space-y-2 mt-2">
@@ -622,6 +800,7 @@ const InstructionScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => {
 };
 
 interface ExamScreenProps {
+    examData: ExamData;
     answers: Answers;
     setAnswers: React.Dispatch<React.SetStateAction<Answers>>;
     markedForReview: string[];
@@ -640,17 +819,18 @@ interface ExamScreenProps {
 
 const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     const {
+        examData,
         answers, setAnswers, markedForReview, setMarkedForReview, timeRemaining,
         currentSectionIndex, setCurrentSectionIndex, currentQuestionIndex,
         setCurrentQuestionIndex, setGameState, visited, setVisited,
         violationCount, maxViolations
     } = props;
 
-    const currentSection = defaultExamData.sections[currentSectionIndex];
+    const currentSection = examData.sections[currentSectionIndex];
     const currentQuestion = currentSection.questions[currentQuestionIndex];
 
-    const handleOptionChange = (option: string) => {
-        setAnswers(prev => ({ ...prev, [currentQuestion.id]: option }));
+    const handleOptionChange = (optionIndex: number) => {
+        setAnswers(prev => ({ ...prev, [currentQuestion.id]: String(optionIndex) }));
     };
 
     const handleClearResponse = () => {
@@ -671,7 +851,7 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     const goToQuestion = (sectionIdx: number, questionIdx: number) => {
         setCurrentSectionIndex(sectionIdx);
         setCurrentQuestionIndex(questionIdx);
-        const questionId = defaultExamData.sections[sectionIdx].questions[questionIdx].id;
+        const questionId = examData.sections[sectionIdx].questions[questionIdx].id;
         if (!visited.includes(questionId)) {
             setVisited(prev => [...prev, questionId]);
         }
@@ -680,7 +860,7 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     const handleNext = () => {
         if (currentQuestionIndex < currentSection.questions.length - 1) {
             goToQuestion(currentSectionIndex, currentQuestionIndex + 1);
-        } else if (currentSectionIndex < defaultExamData.sections.length - 1) {
+        } else if (currentSectionIndex < examData.sections.length - 1) {
             goToQuestion(currentSectionIndex + 1, 0);
         }
     };
@@ -700,7 +880,7 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     return (
         <div className="flex flex-col h-screen bg-gray-100" style={{ userSelect: 'none' }}>
             <header className="bg-blue-800 text-white shadow-md p-2 flex justify-between items-center z-10">
-                <h1 className="text-lg font-bold ml-4">{defaultExamData.examTitle}</h1>
+                <h1 className="text-lg font-bold ml-4">{examData.examTitle}</h1>
                 <div className="flex items-center mr-4 gap-4">
                     <SecurityBadge violationCount={violationCount} maxViolations={maxViolations} />
                     <div className="flex items-center">
@@ -730,9 +910,9 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
                                     <input
                                         type="radio"
                                         name={currentQuestion.id}
-                                        value={option}
-                                        checked={answers[currentQuestion.id] === option}
-                                        onChange={() => handleOptionChange(option)}
+                                        value={String(index)}
+                                        checked={answers[currentQuestion.id] === String(index)}
+                                        onChange={() => handleOptionChange(index)}
                                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                                     />
                                     <span className="ml-3 text-sm text-gray-700">{option}</span>
@@ -748,7 +928,7 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
                 </div>
                 <aside className="w-full md:w-72 lg:w-80 bg-white p-3 border-l shadow-lg">
                     <div className="flex mb-3 border-b">
-                        {defaultExamData.sections.map((section, index) => (
+                        {examData.sections.map((section, index) => (
                             <button
                                 key={section.name}
                                 onClick={() => goToQuestion(index, 0)}
@@ -838,7 +1018,7 @@ const ReviewScreen: React.FC<ReviewScreenProps> = ({ answers, markedForReview, v
 };
 
 
-const ResultScreen: React.FC<{ score: number, total: number, onRestart: () => void }> = ({ score, total, onRestart }) => (
+const ResultScreen: React.FC<{ attempted: number, total: number, onRestart: () => void }> = ({ attempted, total, onRestart }) => (
     <div className="flex items-center justify-center min-h-screen bg-gray-200">
         <div className="p-10 bg-white rounded-md shadow-lg text-center max-w-sm w-full">
             <h1 className="text-2xl font-bold text-gray-800 mb-2">Exam Submitted Successfully!</h1>
@@ -846,11 +1026,9 @@ const ResultScreen: React.FC<{ score: number, total: number, onRestart: () => vo
 
             <div className="my-8">
                 <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
-                    <h2 className="text-lg font-semibold text-blue-800">Your Score</h2>
-                    <p className={`text-5xl font-bold my-2 ${score / total >= 0.5 ? 'text-green-600' : 'text-red-600'}`}>{score} <span className="text-3xl text-gray-500">/ {total}</span></p>
-                    <p className="text-md font-semibold">
-                        {score / total >= 0.5 ? 'Congratulations! You Passed.' : 'Better luck next time.'}
-                    </p>
+                    <h2 className="text-lg font-semibold text-blue-800">Submission Status</h2>
+                    <p className="text-sm text-gray-700 mt-2">Attempted Questions: <strong>{attempted}</strong> / {total}</p>
+                    <p className="text-sm text-gray-700 mt-1">Your score is visible to admin only.</p>
                 </div>
             </div>
 
