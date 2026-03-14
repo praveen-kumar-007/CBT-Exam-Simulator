@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 type Mode = 'login' | 'signup' | 'dashboard';
-type DashboardView = 'overview' | 'sections' | 'questions' | 'students' | 'config' | 'activity' | 'help';
+type DashboardView = 'overview' | 'sections' | 'questions' | 'students' | 'config' | 'activity' | 'insights' | 'help';
 
 type AdminIdentity = {
     id?: string;
@@ -43,6 +43,22 @@ type SubmissionAnswer = {
     marksAwarded: number;
 };
 
+type SubmissionInteraction = {
+    question?: string;
+    firstSelectedOptionIndex: number | null;
+    finalSelectedOptionIndex: number | null;
+    changeCount: number;
+    selectionHistory?: number[];
+};
+
+type SubmissionExamMeta = {
+    terminatedDueToCheating?: boolean;
+    terminationRemark?: string;
+    cheatingAttempts?: number;
+    totalOptionChanges?: number;
+    questionInteractions?: SubmissionInteraction[];
+};
+
 type SubmissionItem = {
     _id: string;
     section?: { name: string };
@@ -52,6 +68,8 @@ type SubmissionItem = {
     totalQuestions: number;
     createdAt: string;
     answers: SubmissionAnswer[];
+    remark?: string;
+    examMeta?: SubmissionExamMeta;
 };
 
 type AuthResponse = {
@@ -73,6 +91,10 @@ type Analytics = {
     submissionsCount: number;
     averagePercent: number;
     bestScore: number;
+    cheatingTerminations: number;
+    totalCheatingAttempts: number;
+    totalOptionChanges: number;
+    avgOptionChanges: number;
 };
 
 type RecentSubmission = {
@@ -82,12 +104,47 @@ type RecentSubmission = {
     score: number;
     maxScore: number;
     createdAt: string;
+    remark?: string;
+    examMeta?: SubmissionExamMeta;
 };
 
 type ExamConfig = {
     durationInMinutes: number;
     examinerName?: string;
     updatedAt?: string;
+};
+
+type InsightsScoreBucket = {
+    bucket: string;
+    count: number;
+};
+
+type InsightsSectionPerformance = {
+    sectionName: string;
+    avgPercent: number;
+    attempts: number;
+};
+
+type InsightsTopStudent = {
+    studentName: string;
+    studentCredential?: string;
+    avgPercent: number;
+    attempts: number;
+};
+
+type InsightsTimelineItem = {
+    day: string;
+    submissions: number;
+    cheatingAttempts: number;
+    optionChanges: number;
+    terminations: number;
+};
+
+type InsightsPayload = {
+    scoreDistribution: InsightsScoreBucket[];
+    sectionPerformance: InsightsSectionPerformance[];
+    topStudents: InsightsTopStudent[];
+    timeline: InsightsTimelineItem[];
 };
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -249,6 +306,7 @@ const AdminApp: React.FC = () => {
     const [examConfigUpdatedAt, setExamConfigUpdatedAt] = useState('');
     const [questionSearch, setQuestionSearch] = useState('');
     const [studentSearch, setStudentSearch] = useState('');
+    const [insights, setInsights] = useState<InsightsPayload | null>(null);
 
     const activeSection = useMemo(
         () => sections.find((section) => section._id === selectedSectionId) || null,
@@ -399,6 +457,15 @@ const AdminApp: React.FC = () => {
             setRecentSubmissions(result.data || []);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load recent submissions');
+        }
+    };
+
+    const loadInsights = async () => {
+        try {
+            const result = await api<{ data: InsightsPayload }>('/api/admin/insights');
+            setInsights(result.data || null);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to load insights');
         }
     };
 
@@ -769,6 +836,8 @@ const AdminApp: React.FC = () => {
         const ok = window.confirm(`Delete student ${student.name}? This will remove all submissions too.`);
         if (!ok) return;
 
+        setError('');
+
         try {
             await api(`/api/admin/students/${student._id}`, { method: 'DELETE' });
             setStatus('Student deleted successfully.');
@@ -779,6 +848,9 @@ const AdminApp: React.FC = () => {
             }
 
             await loadStudents();
+            await loadAnalytics();
+            await loadRecentSubmissions();
+            await loadInsights();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to delete student');
         }
@@ -809,6 +881,7 @@ const AdminApp: React.FC = () => {
             await loadStudents();
             await loadAnalytics();
             await loadRecentSubmissions();
+            await loadInsights();
 
             setStatus(
                 `Reset completed. Deleted ${result.data?.deletedStudents ?? 0} students and ${result.data?.deletedSubmissions ?? 0} submissions.`
@@ -833,6 +906,7 @@ const AdminApp: React.FC = () => {
         await loadStudents();
         await loadAnalytics();
         await loadRecentSubmissions();
+        await loadInsights();
 
         if (failedStudents.length === 0) {
             setSelectedStudent(null);
@@ -861,6 +935,7 @@ const AdminApp: React.FC = () => {
             loadStudents().catch(() => { });
             loadAnalytics().catch(() => { });
             loadRecentSubmissions().catch(() => { });
+            loadInsights().catch(() => { });
             loadExamConfig().catch(() => { });
         }
     }, [mode, token]);
@@ -872,6 +947,7 @@ const AdminApp: React.FC = () => {
         { key: 'students', label: 'Students', hint: 'Results, exports, and reset tools' },
         { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup' },
         { key: 'activity', label: 'Activity', hint: 'Recent submission timeline' },
+        { key: 'insights', label: 'Insights', hint: 'Data charts and trends' },
         { key: 'help', label: 'Help Center', hint: 'Usage guide and best practices' }
     ];
 
@@ -882,6 +958,7 @@ const AdminApp: React.FC = () => {
         students: 'Students & Results',
         config: 'Exam Configuration',
         activity: 'Live Activity',
+        insights: 'Data Insights',
         help: 'Help Center'
     };
 
@@ -892,6 +969,7 @@ const AdminApp: React.FC = () => {
         students: 'Review outcomes and control student data operations safely.',
         config: 'Keep timing and examiner identity consistent across all exams.',
         activity: 'Track latest attempts and response trends in real time.',
+        insights: 'Visualize student behavior and performance through chart-driven insights.',
         help: 'Follow the recommended workflow for smooth exam operations.'
     };
 
@@ -909,6 +987,40 @@ const AdminApp: React.FC = () => {
             setIsNavMenuOpen(false);
         }
     };
+
+    const scoreBuckets = insights?.scoreDistribution || [];
+    const sectionPerformance = insights?.sectionPerformance || [];
+    const topStudents = insights?.topStudents || [];
+    const timeline = insights?.timeline || [];
+
+    const totalScoreBucketCount = scoreBuckets.reduce((sum, item) => sum + item.count, 0);
+    const sectionMaxPercent = sectionPerformance.reduce((max, item) => Math.max(max, item.avgPercent), 0);
+    const topStudentMaxPercent = topStudents.reduce((max, item) => Math.max(max, item.avgPercent), 0);
+    const timelineMaxValue = timeline.reduce((max, item) => Math.max(max, item.submissions, item.cheatingAttempts, item.optionChanges), 0);
+
+    const pieColors = ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+    const pieSize = isMobile ? 140 : 170;
+    const chartStartX = isMobile ? 44 : 56;
+    const chartPointGap = isMobile ? 42 : 56;
+    const chartMaxHeight = isMobile ? 160 : 180;
+    const chartBottomY = 220;
+    const timelineChartWidth = Math.max(isMobile ? 360 : 720, chartStartX + (Math.max(timeline.length - 1, 0) * chartPointGap) + 48);
+    const scorePieGradient = useMemo(() => {
+        if (!totalScoreBucketCount) {
+            return 'conic-gradient(#e2e8f0 0deg 360deg)';
+        }
+
+        let start = 0;
+        const segments = scoreBuckets.map((bucket, index) => {
+            const ratio = bucket.count / totalScoreBucketCount;
+            const end = start + ratio * 360;
+            const segment = `${pieColors[index % pieColors.length]} ${start.toFixed(1)}deg ${end.toFixed(1)}deg`;
+            start = end;
+            return segment;
+        });
+
+        return `conic-gradient(${segments.join(', ')})`;
+    }, [scoreBuckets, totalScoreBucketCount]);
 
     if (mode === 'login') {
         return (
@@ -1159,6 +1271,7 @@ const AdminApp: React.FC = () => {
                                     onClick={() => {
                                         loadAnalytics();
                                         loadRecentSubmissions();
+                                        loadInsights();
                                         loadSections();
                                         loadStudents();
                                     }}
@@ -1189,6 +1302,9 @@ const AdminApp: React.FC = () => {
                                         <p style={mutedStyle}>Questions: <strong>{analytics?.questionsCount ?? 0}</strong></p>
                                         <p style={mutedStyle}>Submissions: <strong>{analytics?.submissionsCount ?? 0}</strong></p>
                                         <p style={mutedStyle}>Average Score: <strong>{analytics?.averagePercent ?? 0}%</strong></p>
+                                        <p style={mutedStyle}>Cheating Terminations: <strong>{analytics?.cheatingTerminations ?? 0}</strong></p>
+                                        <p style={mutedStyle}>Total Cheating Attempts: <strong>{analytics?.totalCheatingAttempts ?? 0}</strong></p>
+                                        <p style={mutedStyle}>Option Changes Logged: <strong>{analytics?.totalOptionChanges ?? 0}</strong></p>
                                     </section>
 
                                     <section style={cardStyle}>
@@ -1198,6 +1314,7 @@ const AdminApp: React.FC = () => {
                                         <button onClick={() => openView('questions')} style={secondaryBtnStyle}>Open Question Bank</button>
                                         <button onClick={() => openView('students')} style={secondaryBtnStyle}>Review Student Results</button>
                                         <button onClick={() => openView('config')} style={secondaryBtnStyle}>Exam Time Settings</button>
+                                        <button onClick={() => openView('insights')} style={secondaryBtnStyle}>Open Insights Charts</button>
                                     </section>
 
                                     <section style={cardStyle}>
@@ -1224,6 +1341,8 @@ const AdminApp: React.FC = () => {
                                                 <p style={mutedStyle}>{item.student?.email || '-'}</p>
                                                 <p style={mutedStyle}>Section: {item.section?.name || '-'}</p>
                                                 <p style={mutedStyle}>Score: {item.score} / {item.maxScore}</p>
+                                                <p style={mutedStyle}>Cheating: {item.examMeta?.terminatedDueToCheating ? 'Yes (terminated)' : 'No'}</p>
+                                                <p style={mutedStyle}>Option Changes: {item.examMeta?.totalOptionChanges ?? 0}</p>
                                                 <p style={mutedStyle}>{new Date(item.createdAt).toLocaleString()}</p>
                                             </div>
                                         ))}
@@ -1475,6 +1594,25 @@ const AdminApp: React.FC = () => {
                                                     <p style={mutedStyle}>Score: {submission.score} / {submission.maxScore}</p>
                                                     <p style={mutedStyle}>Attempted: {submission.attemptedQuestions} / {submission.totalQuestions}</p>
                                                     <p style={mutedStyle}>Submitted: {new Date(submission.createdAt).toLocaleString()}</p>
+                                                    <p style={mutedStyle}>Cheating Attempts: {submission.examMeta?.cheatingAttempts ?? 0}</p>
+                                                    <p style={mutedStyle}>Option Changes: {submission.examMeta?.totalOptionChanges ?? 0}</p>
+                                                    <p style={mutedStyle}>Terminated: {submission.examMeta?.terminatedDueToCheating ? 'Yes' : 'No'}</p>
+                                                    {(submission.examMeta?.terminationRemark || submission.remark) && (
+                                                        <p style={mutedStyle}>Remark: {submission.examMeta?.terminationRemark || submission.remark}</p>
+                                                    )}
+                                                    {!!submission.examMeta?.questionInteractions?.length && (
+                                                        <div style={{ ...itemStyle, marginTop: '0.35rem' }}>
+                                                            <div style={{ ...mutedStyle, fontWeight: 700 }}>Choice Change Insights</div>
+                                                            {submission.examMeta.questionInteractions.slice(0, 8).map((interaction, insightIndex) => (
+                                                                <div key={insightIndex} style={mutedStyle}>
+                                                                    Q#{insightIndex + 1}: first={interaction.firstSelectedOptionIndex ?? '-'} final={interaction.finalSelectedOptionIndex ?? '-'} changes={interaction.changeCount}
+                                                                </div>
+                                                            ))}
+                                                            {submission.examMeta.questionInteractions.length > 8 && (
+                                                                <div style={mutedStyle}>+{submission.examMeta.questionInteractions.length - 8} more interactions</div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     <div>
                                                         {submission.answers.map((answer, index) => (
                                                             <div key={index} style={{ ...itemStyle, marginTop: '0.3rem' }}>
@@ -1549,6 +1687,9 @@ const AdminApp: React.FC = () => {
                                                 <strong>{item.student?.name || 'Student'}</strong>
                                                 <p style={mutedStyle}>Section: {item.section?.name || '-'}</p>
                                                 <p style={mutedStyle}>Score: {item.score} / {item.maxScore}</p>
+                                                <p style={mutedStyle}>Cheating Attempts: {item.examMeta?.cheatingAttempts ?? 0}</p>
+                                                <p style={mutedStyle}>Option Changes: {item.examMeta?.totalOptionChanges ?? 0}</p>
+                                                <p style={mutedStyle}>Terminated: {item.examMeta?.terminatedDueToCheating ? 'Yes' : 'No'}</p>
                                                 <p style={mutedStyle}>{new Date(item.createdAt).toLocaleString()}</p>
                                             </div>
                                         ))}
@@ -1560,6 +1701,180 @@ const AdminApp: React.FC = () => {
                                     <p style={mutedStyle}>Best Raw Score: <strong>{analytics?.bestScore ?? 0}</strong></p>
                                     <p style={mutedStyle}>Average Score: <strong>{analytics?.averagePercent ?? 0}%</strong></p>
                                     <p style={mutedStyle}>Total Submissions: <strong>{analytics?.submissionsCount ?? 0}</strong></p>
+                                    <p style={mutedStyle}>Cheating Terminations: <strong>{analytics?.cheatingTerminations ?? 0}</strong></p>
+                                    <p style={mutedStyle}>Average Option Changes: <strong>{analytics?.avgOptionChanges ?? 0}</strong></p>
+                                </section>
+                            </>
+                        )}
+
+                        {activeView === 'insights' && (
+                            <>
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Student Data Insights</h3>
+                                    <p style={mutedStyle}>Dedicated chart hub for score, cheating behavior, and answer-change trends.</p>
+                                    <button onClick={loadInsights} style={primaryBtnStyle}>Refresh Insights Data</button>
+                                </section>
+
+                                <div style={responsiveGridStyle}>
+                                    <section style={cardStyle}>
+                                        <h4 style={{ marginTop: 0 }}>Score Distribution (Pie)</h4>
+                                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                            <div
+                                                style={{
+                                                    width: `${pieSize}px`,
+                                                    height: `${pieSize}px`,
+                                                    borderRadius: '50%',
+                                                    background: scorePieGradient,
+                                                    border: '1px solid #c7d9f4',
+                                                    boxShadow: 'inset 0 0 0 10px rgba(255,255,255,0.55)'
+                                                }}
+                                            />
+                                            <div style={{ flex: 1, minWidth: isMobile ? '100%' : '200px' }}>
+                                                {scoreBuckets.length === 0 && <p style={mutedStyle}>No score data available.</p>}
+                                                {scoreBuckets.map((bucket, index) => (
+                                                    <div key={bucket.bucket} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#274978', fontSize: '0.86rem' }}>
+                                                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: pieColors[index % pieColors.length], display: 'inline-block' }} />
+                                                            {bucket.bucket}%
+                                                        </span>
+                                                        <span style={{ ...mutedStyle, margin: 0 }}>{bucket.count}</span>
+                                                    </div>
+                                                ))}
+                                                <p style={{ ...mutedStyle, marginTop: '0.6rem' }}>Total attempts counted: <strong>{totalScoreBucketCount}</strong></p>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section style={cardStyle}>
+                                        <h4 style={{ marginTop: 0 }}>Section Performance (Bar)</h4>
+                                        <div style={{ display: 'grid', gap: '0.55rem' }}>
+                                            {sectionPerformance.length === 0 && <p style={mutedStyle}>No section analytics available.</p>}
+                                            {sectionPerformance.map((item) => (
+                                                <div key={item.sectionName}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ color: '#224777', fontWeight: 700, fontSize: '0.84rem' }}>{item.sectionName}</span>
+                                                        <span style={mutedStyle}>{item.avgPercent}% ({item.attempts} attempts)</span>
+                                                    </div>
+                                                    <div style={{ height: '10px', background: '#e2ebf8', borderRadius: '999px', overflow: 'hidden' }}>
+                                                        <div
+                                                            style={{
+                                                                width: `${sectionMaxPercent > 0 ? (item.avgPercent / sectionMaxPercent) * 100 : 0}%`,
+                                                                height: '100%',
+                                                                borderRadius: '999px',
+                                                                background: 'linear-gradient(120deg, #1d5fc5, #29b6f6)'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                </div>
+
+                                <section style={cardStyle}>
+                                    <h4 style={{ marginTop: 0 }}>Top Students (Bar)</h4>
+                                    <div style={{ display: 'grid', gap: '0.5rem' }}>
+                                        {topStudents.length === 0 && <p style={mutedStyle}>No student ranking data available.</p>}
+                                        {topStudents.map((student, index) => (
+                                            <div key={`${student.studentName}-${index}`} style={{ border: '1px solid #d1def4', borderRadius: '8px', padding: '0.5rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <strong style={{ color: '#1e3f73' }}>{student.studentName}</strong>
+                                                    <span style={mutedStyle}>{student.avgPercent}%</span>
+                                                </div>
+                                                <p style={{ ...mutedStyle, margin: '0.18rem 0' }}>Credential: {student.studentCredential || '-'}</p>
+                                                <p style={{ ...mutedStyle, margin: '0.18rem 0' }}>Attempts: {student.attempts}</p>
+                                                <div style={{ height: '9px', background: '#e2ebf8', borderRadius: '999px', overflow: 'hidden' }}>
+                                                    <div
+                                                        style={{
+                                                            width: `${topStudentMaxPercent > 0 ? (student.avgPercent / topStudentMaxPercent) * 100 : 0}%`,
+                                                            height: '100%',
+                                                            borderRadius: '999px',
+                                                            background: 'linear-gradient(120deg, #0f9d58, #3bcf93)'
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                <section style={cardStyle}>
+                                    <h4 style={{ marginTop: 0 }}>Behavior Trends (Line)</h4>
+                                    <p style={mutedStyle}>Last 14 days: submissions vs cheating attempts vs option changes.</p>
+                                    {timeline.length === 0 ? (
+                                        <p style={mutedStyle}>No trend timeline available yet.</p>
+                                    ) : (
+                                        <div style={{ overflowX: 'auto' }}>
+                                            <svg width={timelineChartWidth} height={280} style={{ display: 'block' }}>
+                                                <rect x="0" y="0" width="100%" height="100%" fill="#f8fbff" rx="10" />
+                                                {timeline.map((_, idx) => {
+                                                    const x = chartStartX + idx * chartPointGap;
+                                                    return (
+                                                        <line
+                                                            key={`grid-${idx}`}
+                                                            x1={x}
+                                                            y1={24}
+                                                            x2={x}
+                                                            y2={chartBottomY}
+                                                            stroke="#e1ebf9"
+                                                            strokeWidth="1"
+                                                        />
+                                                    );
+                                                })}
+                                                <line x1={String(chartStartX - 8)} y1={String(chartBottomY)} x2={String(chartStartX + (timeline.length - 1) * chartPointGap)} y2={String(chartBottomY)} stroke="#8dadde" strokeWidth="1.4" />
+
+                                                {['submissions', 'cheatingAttempts', 'optionChanges'].map((series, seriesIndex) => {
+                                                    const color = seriesIndex === 0 ? '#2563eb' : (seriesIndex === 1 ? '#ef4444' : '#f59e0b');
+                                                    const points = timeline.map((item, idx) => {
+                                                        const value = series === 'submissions'
+                                                            ? item.submissions
+                                                            : (series === 'cheatingAttempts' ? item.cheatingAttempts : item.optionChanges);
+                                                        const normalized = timelineMaxValue > 0 ? (value / timelineMaxValue) : 0;
+                                                        const x = chartStartX + idx * chartPointGap;
+                                                        const y = chartBottomY - normalized * chartMaxHeight;
+                                                        return `${x},${y}`;
+                                                    }).join(' ');
+
+                                                    return (
+                                                        <g key={series}>
+                                                            <polyline
+                                                                points={points}
+                                                                fill="none"
+                                                                stroke={color}
+                                                                strokeWidth="2.8"
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                            />
+                                                            {timeline.map((item, idx) => {
+                                                                const value = series === 'submissions'
+                                                                    ? item.submissions
+                                                                    : (series === 'cheatingAttempts' ? item.cheatingAttempts : item.optionChanges);
+                                                                const normalized = timelineMaxValue > 0 ? (value / timelineMaxValue) : 0;
+                                                                const x = chartStartX + idx * chartPointGap;
+                                                                const y = chartBottomY - normalized * chartMaxHeight;
+
+                                                                return <circle key={`${series}-${idx}`} cx={x} cy={y} r="3.2" fill={color} />;
+                                                            })}
+                                                        </g>
+                                                    );
+                                                })}
+
+                                                {timeline.map((item, idx) => {
+                                                    const x = chartStartX + idx * chartPointGap;
+                                                    return (
+                                                        <text key={`label-${idx}`} x={x} y="242" textAnchor="middle" fontSize="10" fill="#4a6ea3">
+                                                            {item.day.slice(5)}
+                                                        </text>
+                                                    );
+                                                })}
+                                            </svg>
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap', marginTop: '0.45rem' }}>
+                                        <span style={{ ...mutedStyle, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} />Submissions</span>
+                                        <span style={{ ...mutedStyle, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />Cheating Attempts</span>
+                                        <span style={{ ...mutedStyle, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />Option Changes</span>
+                                    </div>
                                 </section>
                             </>
                         )}

@@ -6,6 +6,10 @@ This frontend is now connected to the backend API for:
 - Loading sections and MCQ questions from MongoDB
 - Submitting exam answers to backend
 - Keeping score hidden from students (admin-only visibility)
+- Auto-submit on repeated anti-cheat violations
+- Tracking and sending: cheating attempts, termination remark, first-choice vs final-choice interactions, and total option changes
+- Rendering responsive behavior insights for students and admins
+- Dedicated admin Insights page with data-driven Pie, Bar, and Line charts
 
 Admin routes are React SPA routes:
 

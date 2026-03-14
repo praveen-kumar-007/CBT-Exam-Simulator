@@ -12,7 +12,11 @@ interface UseAntiCheatOptions {
   /** Whether to track new violations (false on disqualified screen — protections stay but no new counting) */
   trackViolations: boolean;
   maxViolations: number;
-  onAutoSubmit: () => void;
+  onAutoSubmit: (context: {
+    violationCount: number;
+    violations: ViolationEntry[];
+    trigger: ViolationEntry;
+  }) => void;
 }
 
 interface UseAntiCheatReturn {
@@ -40,6 +44,7 @@ export const useAntiCheat = ({
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [isAutoSubmitted, setIsAutoSubmitted] = useState(false);
   const violationCountRef = useRef(0);
+  const violationsRef = useRef<ViolationEntry[]>([]);
   const autoSubmittedRef = useRef(false);
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFullScreenRef = useRef(false);
@@ -50,6 +55,10 @@ export const useAntiCheat = ({
   useEffect(() => {
     trackViolationsRef.current = trackViolations;
   }, [trackViolations]);
+
+  useEffect(() => {
+    violationsRef.current = violations;
+  }, [violations]);
 
   const addViolation = useCallback(
     (type: string, message: string) => {
@@ -72,7 +81,12 @@ export const useAntiCheat = ({
         autoSubmittedRef.current = true;
         setIsAutoSubmitted(true);
         setWarningMessage(null);
-        onAutoSubmit();
+        const allViolations = [...violationsRef.current, entry];
+        onAutoSubmit({
+          violationCount: newCount,
+          violations: allViolations,
+          trigger: entry,
+        });
       } else {
         const remaining = maxViolations - newCount;
         setWarningMessage(

@@ -18,6 +18,28 @@ export interface ExamData {
 
 export type Answers = Record<string, string>;
 
+export interface QuestionInteraction {
+  questionId: string;
+  firstSelectedOptionIndex: number | null;
+  finalSelectedOptionIndex: number | null;
+  changeCount: number;
+  selectionHistory: number[];
+}
+
+export interface ExamAnalytics {
+  totalOptionChanges: number;
+  totalQuestionsTouched: number;
+  interactions: Record<string, QuestionInteraction>;
+}
+
+export interface SubmissionMeta {
+  terminatedDueToCheating: boolean;
+  terminationRemark: string;
+  cheatingAttempts: number;
+  totalOptionChanges: number;
+  questionInteractions: QuestionInteraction[];
+}
+
 export enum GameState {
   Login,
   Instructions,

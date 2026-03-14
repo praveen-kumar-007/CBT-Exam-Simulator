@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { examData as defaultExamData } from './data/questions';
-import { GameState, QuestionStatus, Answers, Section, Question, ExamData } from './types';
+import { GameState, QuestionStatus, Answers, Section, Question, ExamData, QuestionInteraction, SubmissionMeta } from './types';
 import { ClockIcon, CheckCircleIcon, XCircleIcon, EyeIcon, UserCircleIcon } from './components/icons';
 import { useAntiCheat, ViolationEntry } from './hooks/useAntiCheat';
 import AdminApp from './admin/AdminApp';
@@ -61,6 +61,41 @@ const getStudentExamConfig = async (token: string) => {
   };
 };
 
+const makeDefaultSubmissionMeta = (): SubmissionMeta => ({
+  terminatedDueToCheating: false,
+  terminationRemark: '',
+  cheatingAttempts: 0,
+  totalOptionChanges: 0,
+  questionInteractions: [],
+});
+
+const buildInteractionMap = (questions: Question[]): Record<string, QuestionInteraction> => {
+  return questions.reduce<Record<string, QuestionInteraction>>((acc, question) => {
+    acc[question.id] = {
+      questionId: question.id,
+      firstSelectedOptionIndex: null,
+      finalSelectedOptionIndex: null,
+      changeCount: 0,
+      selectionHistory: [],
+    };
+    return acc;
+  }, {});
+};
+
+const exitFullScreenSafely = async () => {
+  try {
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        await (document as any).webkitExitFullscreen();
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to exit full-screen:', error);
+  }
+};
+
 // --- Violation Warning Overlay ---
 const ViolationWarningOverlay: React.FC<{
   message: string;
@@ -111,14 +146,27 @@ const ViolationWarningOverlay: React.FC<{
 const DisqualifiedScreen: React.FC<{
   violations: ViolationEntry[];
   onRestart: () => void;
-}> = ({ violations, onRestart }) => (
+  submissionMeta: SubmissionMeta;
+}> = ({ violations, onRestart, submissionMeta }) => (
   <div className="flex items-center justify-center min-h-screen" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
-    <div className="p-10 bg-white bg-opacity-95 rounded-2xl shadow-2xl text-center max-w-lg w-full mx-4">
+    <div className="p-6 sm:p-10 bg-white bg-opacity-95 rounded-2xl shadow-2xl text-center max-w-3xl w-full mx-4">
       <div className="w-24 h-24 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
         <svg className="w-16 h-16 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
         </svg>
       </div>
+
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 text-left">
+        <h3 className="text-sm font-bold text-slate-800 mb-2 uppercase tracking-wider">Termination Remark</h3>
+        <p className="text-sm text-slate-700">
+          {submissionMeta.terminationRemark || 'Exam terminated due to cheating.'}
+        </p>
+        <p className="text-xs text-slate-500 mt-2">
+          Cheating attempts tracked: <strong>{submissionMeta.cheatingAttempts || violations.length}</strong>
+        </p>
+      </div>
+
+      <ExamInsightsPanel submissionMeta={submissionMeta} />
       <h1 className="text-3xl font-bold text-red-700 mb-2">Exam Terminated</h1>
       <p className="text-gray-500 text-lg mb-6">Cheating activity was detected</p>
 
@@ -200,6 +248,10 @@ const StudentApp: React.FC = () => {
   const [candidateName, setCandidateName] = useState('');
   const [candidateRollNumber, setCandidateRollNumber] = useState('');
   const [examinerName, setExaminerName] = useState('CBT Examination Cell');
+  const [questionInteractions, setQuestionInteractions] = useState<Record<string, QuestionInteraction>>({});
+  const [totalOptionChanges, setTotalOptionChanges] = useState(0);
+  const [submissionMeta, setSubmissionMeta] = useState<SubmissionMeta>(makeDefaultSubmissionMeta());
+  const submitLockRef = useRef(false);
 
   const allQuestions = useMemo(() => examData.sections.flatMap(s => s.questions), [examData]);
 
@@ -208,38 +260,76 @@ const StudentApp: React.FC = () => {
   // Only count new violations during an active exam (not on disqualified screen)
   const isExamActive = gameState === GameState.Ongoing || gameState === GameState.Review;
 
-  const handleAutoSubmit = useCallback(() => {
-    setGameState(GameState.Disqualified);
+  const updateQuestionInteraction = useCallback((questionId: string, optionIndex: number) => {
+    setQuestionInteractions((prev) => {
+      const current = prev[questionId] || {
+        questionId,
+        firstSelectedOptionIndex: null,
+        finalSelectedOptionIndex: null,
+        changeCount: 0,
+        selectionHistory: [],
+      };
+
+      const hasDifferentPrevious =
+        current.selectionHistory.length > 0 &&
+        current.selectionHistory[current.selectionHistory.length - 1] !== optionIndex;
+
+      if (hasDifferentPrevious) {
+        setTotalOptionChanges((count) => count + 1);
+      }
+
+      return {
+        ...prev,
+        [questionId]: {
+          ...current,
+          firstSelectedOptionIndex:
+            current.firstSelectedOptionIndex === null ? optionIndex : current.firstSelectedOptionIndex,
+          finalSelectedOptionIndex: optionIndex,
+          changeCount: current.changeCount + (hasDifferentPrevious ? 1 : 0),
+          selectionHistory: [...current.selectionHistory, optionIndex],
+        },
+      };
+    });
   }, []);
 
-  const antiCheat = useAntiCheat({
-    enabled: isProtectionActive,
-    trackViolations: isExamActive,
-    maxViolations: 3,
-    onAutoSubmit: handleAutoSubmit,
-  });
-
-  useEffect(() => {
-    if (gameState === GameState.Ongoing && timeRemaining > 0) {
-      const timer = setInterval(() => {
-        setTimeRemaining(prevTime => prevTime - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    } else if (timeRemaining === 0 && gameState === GameState.Ongoing) {
-      handleSubmitExam();
+  const handleSubmitExam = useCallback(async (overrideMeta: Partial<SubmissionMeta> = {}) => {
+    if (submitLockRef.current) {
+      return;
     }
-  }, [gameState, timeRemaining, sectionSessionIds]);
+    submitLockRef.current = true;
 
-  const startExam = async () => {
-    // Trigger full-screen FIRST, synchronously within the click handler to satisfy browser/mobile security policies
-    antiCheat.enterFullScreen().catch(console.error);
+    const interactionSnapshot: Record<string, QuestionInteraction> = Object.keys(questionInteractions).length
+      ? questionInteractions
+      : buildInteractionMap(allQuestions);
 
-    const firstQuestionId = examData.sections[0].questions[0].id;
-    setVisited([firstQuestionId]);
-    setGameState(GameState.Ongoing);
-  };
+    const interactions = allQuestions.map((question) => {
+      const base = interactionSnapshot[question.id] || {
+        questionId: question.id,
+        firstSelectedOptionIndex: null,
+        finalSelectedOptionIndex: null,
+        changeCount: 0,
+        selectionHistory: [],
+      };
 
-  const handleSubmitExam = async () => {
+      const selected = answers[question.id];
+      const parsedFinal = selected !== undefined ? Number(selected) : null;
+
+      return {
+        ...base,
+        finalSelectedOptionIndex:
+          parsedFinal !== null && Number.isInteger(parsedFinal) ? parsedFinal : null,
+      };
+    });
+
+    const effectiveMeta: SubmissionMeta = {
+      ...makeDefaultSubmissionMeta(),
+      ...overrideMeta,
+      totalOptionChanges,
+      questionInteractions: interactions,
+    };
+
+    setSubmissionMeta(effectiveMeta);
+
     try {
       if (studentToken && sectionIds.length) {
         let attempted = 0;
@@ -271,6 +361,9 @@ const StudentApp: React.FC = () => {
             continue;
           }
 
+          const sectionQuestionIds = new Set(section.questions.map((q) => q.id));
+          const sectionInteractions = interactions.filter((item) => sectionQuestionIds.has(item.questionId));
+
           const result = await apiRequest<{ data: { attemptedQuestions: number } }>('/api/student/submit', {
             method: 'POST',
             headers: {
@@ -280,6 +373,14 @@ const StudentApp: React.FC = () => {
               sectionId,
               sessionId,
               answers: submissionAnswers,
+              remark: effectiveMeta.terminationRemark || undefined,
+              examMeta: {
+                terminatedDueToCheating: effectiveMeta.terminatedDueToCheating,
+                terminationRemark: effectiveMeta.terminationRemark,
+                cheatingAttempts: effectiveMeta.cheatingAttempts,
+                totalOptionChanges: effectiveMeta.totalOptionChanges,
+                questionInteractions: sectionInteractions,
+              },
             }),
           });
 
@@ -293,9 +394,46 @@ const StudentApp: React.FC = () => {
       setApiError(message);
     }
 
-    setGameState(GameState.Finished);
-    await antiCheat.exitFullScreen();
-  }
+    setGameState(effectiveMeta.terminatedDueToCheating ? GameState.Disqualified : GameState.Finished);
+    await exitFullScreenSafely();
+  }, [allQuestions, answers, examData.sections, questionInteractions, sectionIds, sectionSessionIds, studentToken, totalOptionChanges]);
+
+  const handleAutoSubmit = useCallback((context: { violationCount: number }) => {
+    const remark = 'Exam terminated due to cheating.';
+    void handleSubmitExam({
+      terminatedDueToCheating: true,
+      terminationRemark: remark,
+      cheatingAttempts: context.violationCount,
+    });
+  }, [handleSubmitExam]);
+
+  const antiCheat = useAntiCheat({
+    enabled: isProtectionActive,
+    trackViolations: isExamActive,
+    maxViolations: 3,
+    onAutoSubmit: handleAutoSubmit,
+  });
+
+  useEffect(() => {
+    if (gameState === GameState.Ongoing && timeRemaining > 0) {
+      const timer = setInterval(() => {
+        setTimeRemaining(prevTime => prevTime - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    } else if (timeRemaining === 0 && gameState === GameState.Ongoing) {
+      handleSubmitExam({ cheatingAttempts: antiCheat.violationCount });
+    }
+  }, [antiCheat.violationCount, gameState, timeRemaining, handleSubmitExam]);
+
+  const startExam = async () => {
+    // Trigger full-screen FIRST, synchronously within the click handler to satisfy browser/mobile security policies
+    antiCheat.enterFullScreen().catch(console.error);
+    submitLockRef.current = false;
+
+    const firstQuestionId = examData.sections[0].questions[0].id;
+    setVisited([firstQuestionId]);
+    setGameState(GameState.Ongoing);
+  };
 
   const resetExam = async () => {
     // Reset anti-cheat state FIRST (clears all refs), then exit full-screen
@@ -317,6 +455,10 @@ const StudentApp: React.FC = () => {
     setCandidateName('');
     setCandidateRollNumber('');
     setExaminerName('CBT Examination Cell');
+    setQuestionInteractions({});
+    setTotalOptionChanges(0);
+    setSubmissionMeta(makeDefaultSubmissionMeta());
+    submitLockRef.current = false;
   };
 
   const handleLoginGateway = useCallback(async (studentName: string, rollNumber: string) => {
@@ -378,6 +520,11 @@ const StudentApp: React.FC = () => {
       setExaminerName(examConfig.examinerName);
       setCandidateName(studentName);
       setCandidateRollNumber(rollNumber);
+      const flatQuestions = mappedSections.flatMap((section) => section.questions);
+      setQuestionInteractions(buildInteractionMap(flatQuestions));
+      setTotalOptionChanges(0);
+      setSubmissionMeta(makeDefaultSubmissionMeta());
+      submitLockRef.current = false;
 
       setTimeout(() => {
         setGameState(GameState.Instructions);
@@ -415,6 +562,7 @@ const StudentApp: React.FC = () => {
             setGameState={setGameState}
             visited={visited}
             setVisited={setVisited}
+            onAnswerInteraction={updateQuestionInteraction}
             violationCount={antiCheat.violationCount}
             maxViolations={antiCheat.maxViolations}
           />
@@ -425,15 +573,30 @@ const StudentApp: React.FC = () => {
             answers={answers}
             markedForReview={markedForReview}
             visited={visited}
-            onConfirmSubmit={handleSubmitExam}
+            onConfirmSubmit={() => handleSubmitExam({ cheatingAttempts: antiCheat.violationCount })}
             onGoBack={() => setGameState(GameState.Ongoing)}
             allQuestions={allQuestions}
+            totalOptionChanges={totalOptionChanges}
+            cheatingAttempts={antiCheat.violationCount}
           />
         );
       case GameState.Finished:
-        return <ResultScreen attempted={attemptedCount} total={allQuestions.length} onRestart={resetExam} />;
+        return (
+          <ResultScreen
+            attempted={attemptedCount}
+            total={allQuestions.length}
+            onRestart={resetExam}
+            submissionMeta={submissionMeta}
+          />
+        );
       case GameState.Disqualified:
-        return <DisqualifiedScreen violations={antiCheat.violations} onRestart={resetExam} />;
+        return (
+          <DisqualifiedScreen
+            violations={antiCheat.violations}
+            onRestart={resetExam}
+            submissionMeta={submissionMeta}
+          />
+        );
       default:
         return <div>Loading...</div>;
     }
@@ -835,6 +998,7 @@ interface ExamScreenProps {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   visited: string[];
   setVisited: React.Dispatch<React.SetStateAction<string[]>>;
+  onAnswerInteraction: (questionId: string, optionIndex: number) => void;
   violationCount: number;
   maxViolations: number;
 }
@@ -848,6 +1012,7 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     answers, setAnswers, markedForReview, setMarkedForReview, timeRemaining,
     currentSectionIndex, setCurrentSectionIndex, currentQuestionIndex,
     setCurrentQuestionIndex, setGameState, visited, setVisited,
+    onAnswerInteraction,
     violationCount, maxViolations
   } = props;
 
@@ -855,6 +1020,7 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
   const currentQuestion = currentSection.questions[currentQuestionIndex];
 
   const handleOptionChange = (optionIndex: number) => {
+    onAnswerInteraction(currentQuestion.id, optionIndex);
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: String(optionIndex) }));
   };
 
@@ -922,27 +1088,27 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100" style={{ userSelect: 'none' }}>
-      <header className="bg-blue-800 text-white shadow-md p-2 flex justify-between items-center z-10">
-        <h1 className="text-lg font-bold ml-4">{examData.examTitle}</h1>
-        <div className="flex items-center mr-4 gap-4">
+      <header className="bg-blue-800 text-white shadow-md px-3 py-2 md:px-4 md:py-3 flex flex-col gap-2 md:flex-row md:justify-between md:items-center z-10">
+        <h1 className="text-sm sm:text-base md:text-lg font-bold md:ml-2 break-words">{examData.examTitle}</h1>
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 md:mr-2">
           <SecurityBadge violationCount={violationCount} maxViolations={maxViolations} />
           <div className="flex items-center">
             <ClockIcon />
-            <span className={`font-mono text-lg font-semibold ${timeRemaining <= 300 ? 'text-red-300 animate-pulse' : ''}`}>
+            <span className={`font-mono text-base md:text-lg font-semibold ${timeRemaining <= 300 ? 'text-red-300 animate-pulse' : ''}`}>
               {formatTime(timeRemaining)}
             </span>
           </div>
           <div className="flex items-center">
-            <span className="mr-2 font-semibold">{candidateName || 'Candidate'} ({candidateRollNumber || '-'})</span>
-            <UserCircleIcon className="w-8 h-8 text-gray-300" />
+            <span className="mr-2 text-xs sm:text-sm font-semibold max-w-[60vw] truncate">{candidateName || 'Candidate'} ({candidateRollNumber || '-'})</span>
+            <UserCircleIcon className="w-6 h-6 md:w-8 md:h-8 text-gray-300" />
           </div>
         </div>
       </header>
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
         <div className="flex-1 p-4 overflow-y-auto">
-          <div className="flex justify-between items-center border-b pb-2 mb-4 bg-white p-2 rounded-t-md">
-            <h2 className="text-md font-bold text-blue-700">{currentSection.name}</h2>
-            <span className="text-sm font-semibold text-gray-600">Question Type: MCQ | Examiner: {examinerName}</span>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 border-b pb-2 mb-4 bg-white p-2 rounded-t-md">
+            <h2 className="text-sm sm:text-md font-bold text-blue-700 break-words">{currentSection.name}</h2>
+            <span className="text-xs sm:text-sm font-semibold text-gray-600 break-words">Question Type: MCQ | Examiner: {examinerName}</span>
           </div>
           <div className="bg-white p-4 rounded-b-md shadow">
             <p className="font-bold mb-4">Question No. {currentQuestionIndex + 1}</p>
@@ -1028,10 +1194,12 @@ interface ReviewScreenProps {
   markedForReview: string[];
   visited: string[];
   allQuestions: Question[];
+  totalOptionChanges: number;
+  cheatingAttempts: number;
   onConfirmSubmit: () => void;
   onGoBack: () => void;
 }
-const ReviewScreen: React.FC<ReviewScreenProps> = ({ answers, markedForReview, visited, allQuestions, onConfirmSubmit, onGoBack }) => {
+const ReviewScreen: React.FC<ReviewScreenProps> = ({ answers, markedForReview, visited, allQuestions, totalOptionChanges, cheatingAttempts, onConfirmSubmit, onGoBack }) => {
   const answeredCount = Object.keys(answers).length;
   const notAnsweredCount = visited.filter(id => !answers[id]).length;
   const notVisitedCount = allQuestions.length - visited.length;
@@ -1059,6 +1227,11 @@ const ReviewScreen: React.FC<ReviewScreenProps> = ({ answers, markedForReview, v
           </div>
         </div>
         <p className="text-gray-600 mb-8">Are you sure you want to submit for final marking? No changes will be allowed after submission.</p>
+        <div className="mb-6 p-3 rounded border border-slate-200 bg-slate-50 text-left text-sm text-slate-700 space-y-1">
+          <p><strong>Cheating attempts detected:</strong> {cheatingAttempts}</p>
+          <p><strong>Option changes:</strong> {totalOptionChanges}</p>
+          <p className="text-xs text-slate-500">Marking will be based on final selected answers only.</p>
+        </div>
         <div className="flex justify-center gap-4">
           <button onClick={onGoBack} className="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded hover:bg-gray-400 transition-colors">No, Go Back</button>
           <button onClick={onConfirmSubmit} className="bg-blue-600 text-white font-bold py-2 px-6 rounded hover:bg-blue-700 transition-colors">Yes, Submit</button>
@@ -1069,9 +1242,66 @@ const ReviewScreen: React.FC<ReviewScreenProps> = ({ answers, markedForReview, v
 };
 
 
-const ResultScreen: React.FC<{ attempted: number, total: number, onRestart: () => void }> = ({ attempted, total, onRestart }) => (
+const ExamInsightsPanel: React.FC<{ submissionMeta: SubmissionMeta }> = ({ submissionMeta }) => {
+  const touchedQuestions = submissionMeta.questionInteractions.filter((item) => item.selectionHistory.length > 0);
+  const changedQuestions = touchedQuestions.filter((item) => item.changeCount > 0);
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 mb-6 text-left">
+      <h3 className="text-base font-bold text-slate-800 mb-4">Behavior Insights</h3>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="rounded-lg bg-sky-50 border border-sky-100 p-3">
+          <p className="text-xs text-sky-700 uppercase font-semibold">Cheating Attempts</p>
+          <p className="text-xl font-bold text-sky-900">{submissionMeta.cheatingAttempts}</p>
+        </div>
+        <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
+          <p className="text-xs text-amber-700 uppercase font-semibold">Option Changes</p>
+          <p className="text-xl font-bold text-amber-900">{submissionMeta.totalOptionChanges}</p>
+        </div>
+        <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
+          <p className="text-xs text-emerald-700 uppercase font-semibold">Questions Touched</p>
+          <p className="text-xl font-bold text-emerald-900">{touchedQuestions.length}</p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 overflow-hidden">
+        <div className="hidden sm:grid sm:grid-cols-4 bg-slate-100 text-xs font-semibold text-slate-700">
+          <div className="p-2">Question ID</div>
+          <div className="p-2">First Choice</div>
+          <div className="p-2">Final Choice</div>
+          <div className="p-2">Changes</div>
+        </div>
+        <div className="max-h-52 overflow-y-auto">
+          {touchedQuestions.length === 0 && (
+            <div className="p-3 text-sm text-slate-500">No option interactions recorded.</div>
+          )}
+          {touchedQuestions.map((item) => (
+            <div key={item.questionId} className="grid grid-cols-1 sm:grid-cols-4 border-t border-slate-100 text-sm">
+              <div className="p-2 font-mono text-xs text-slate-600">{item.questionId}</div>
+              <div className="p-2 text-slate-700">{item.firstSelectedOptionIndex === null ? '-' : item.firstSelectedOptionIndex + 1}</div>
+              <div className="p-2 text-slate-700">{item.finalSelectedOptionIndex === null ? '-' : item.finalSelectedOptionIndex + 1}</div>
+              <div className="p-2 text-slate-700">
+                <span className={item.changeCount > 0 ? 'text-amber-700 font-semibold' : ''}>{item.changeCount}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {changedQuestions.length > 0 && (
+        <p className="mt-3 text-xs text-slate-500">
+          {changedQuestions.length} question(s) were modified at least once. Final answers only were submitted for marking.
+        </p>
+      )}
+    </div>
+  );
+};
+
+
+const ResultScreen: React.FC<{ attempted: number, total: number, onRestart: () => void, submissionMeta: SubmissionMeta }> = ({ attempted, total, onRestart, submissionMeta }) => (
   <div className="flex items-center justify-center min-h-screen bg-gray-200">
-    <div className="p-10 bg-white rounded-md shadow-lg text-center max-w-sm w-full">
+    <div className="p-6 sm:p-10 bg-white rounded-md shadow-lg text-center max-w-3xl w-full mx-4">
       <h1 className="text-2xl font-bold text-gray-800 mb-2">Exam Submitted Successfully!</h1>
       <p className="text-gray-600 mb-6">Thank you!</p>
 
@@ -1082,6 +1312,8 @@ const ResultScreen: React.FC<{ attempted: number, total: number, onRestart: () =
           <p className="text-sm text-gray-700 mt-1">Your score is visible to admin only.</p>
         </div>
       </div>
+
+      <ExamInsightsPanel submissionMeta={submissionMeta} />
 
       <button
         onClick={onRestart}
