@@ -36,7 +36,7 @@ const apiRequest = async <T,>(path: string, options: RequestInit = {}): Promise<
 
 const getStudentExamConfig = async (token: string) => {
   try {
-    const config = await apiRequest<{ data: { durationInMinutes: number; examinerName?: string } }>('/api/student/exam-config', {
+    const config = await apiRequest<{ data: { durationInMinutes: number; examinerName?: string; startAt?: string | null; forceEndedAt?: string | null; autoSubmitAfterTime?: boolean } }>('/api/student/exam-config', {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -49,7 +49,10 @@ const getStudentExamConfig = async (token: string) => {
 
     return {
       durationInMinutes: safeDuration,
-      examinerName: config?.data?.examinerName || 'CBT Examination Cell'
+      examinerName: config?.data?.examinerName || 'CBT Examination Cell',
+      startAt: config?.data?.startAt || null,
+      forceEndedAt: config?.data?.forceEndedAt || null,
+      autoSubmitAfterTime: typeof config?.data?.autoSubmitAfterTime === 'boolean' ? config.data.autoSubmitAfterTime : true,
     };
   } catch (error) {
     console.warn('Exam config fetch failed, falling back to default duration.', error);
@@ -57,7 +60,10 @@ const getStudentExamConfig = async (token: string) => {
 
   return {
     durationInMinutes: defaultExamData.durationInMinutes,
-    examinerName: 'CBT Examination Cell'
+    examinerName: 'CBT Examination Cell',
+    startAt: null,
+    forceEndedAt: null,
+    autoSubmitAfterTime: true,
   };
 };
 
@@ -248,6 +254,9 @@ const StudentApp: React.FC = () => {
   const [candidateName, setCandidateName] = useState('');
   const [candidateRollNumber, setCandidateRollNumber] = useState('');
   const [examinerName, setExaminerName] = useState('CBT Examination Cell');
+  const [examStartAt, setExamStartAt] = useState<string | null>(null);
+  const [examForceEndedAt, setExamForceEndedAt] = useState<string | null>(null);
+  const [autoSubmitAfterTime, setAutoSubmitAfterTime] = useState(true);
   const [questionInteractions, setQuestionInteractions] = useState<Record<string, QuestionInteraction>>({});
   const [totalOptionChanges, setTotalOptionChanges] = useState(0);
   const [submissionMeta, setSubmissionMeta] = useState<SubmissionMeta>(makeDefaultSubmissionMeta());
@@ -421,9 +430,39 @@ const StudentApp: React.FC = () => {
       }, 1000);
       return () => clearInterval(timer);
     } else if (timeRemaining === 0 && gameState === GameState.Ongoing) {
-      handleSubmitExam({ cheatingAttempts: antiCheat.violationCount });
+      if (autoSubmitAfterTime) {
+        handleSubmitExam({ cheatingAttempts: antiCheat.violationCount });
+      } else {
+        setGameState(GameState.Finished);
+      }
     }
-  }, [antiCheat.violationCount, gameState, timeRemaining, handleSubmitExam]);
+  }, [antiCheat.violationCount, gameState, timeRemaining, handleSubmitExam, autoSubmitAfterTime]);
+
+  useEffect(() => {
+    // Poll for forceful exam end by admin
+    if (gameState !== GameState.Ongoing || !studentToken) return;
+    
+    let isSubscribed = true;
+    const interval = setInterval(async () => {
+      try {
+        const examConfig = await getStudentExamConfig(studentToken);
+        if (isSubscribed && examConfig.forceEndedAt) {
+           setExamForceEndedAt(examConfig.forceEndedAt);
+           handleSubmitExam({ 
+             terminationRemark: 'The exam was forcibly ended by the administrator.',
+             cheatingAttempts: antiCheat.violationCount 
+           });
+        }
+      } catch (e) {
+        // Mute periodic network errors to not spam user if connection drops briefly
+      }
+    }, 25000);
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, [gameState, studentToken, handleSubmitExam, antiCheat.violationCount]);
 
   const startExam = async () => {
     // Trigger full-screen FIRST, synchronously within the click handler to satisfy browser/mobile security policies
@@ -475,6 +514,22 @@ const StudentApp: React.FC = () => {
       setStudentToken(token);
 
       const examConfig = await getStudentExamConfig(token);
+
+      const now = new Date();
+      const examStart = examConfig.startAt ? new Date(examConfig.startAt) : null;
+      const examEnded = examConfig.forceEndedAt ? new Date(examConfig.forceEndedAt) : null;
+
+      if (examStart && now < examStart) {
+        throw new Error(`Exam access opens at ${examStart.toLocaleString()}. Please log in at the scheduled start time.`);
+      }
+
+      if (examEnded && now >= examEnded) {
+        throw new Error('The scheduled exam period has ended. Please contact your administrator.');
+      }
+
+      setExamStartAt(examConfig.startAt || null);
+      setExamForceEndedAt(examConfig.forceEndedAt || null);
+      setAutoSubmitAfterTime(examConfig.autoSubmitAfterTime ?? true);
 
       const sectionsResponse = await apiRequest<{ data: Array<{ _id: string; name: string }> }>('/api/student/sections', {
         headers: {
@@ -535,7 +590,48 @@ const StudentApp: React.FC = () => {
       setApiError(message);
       setIsGateOpening(false);
     }
-  }, []);
+  }, [autoSubmitAfterTime, questionInteractions, sectionIds, sectionSessionIds, studentToken, totalOptionChanges]);
+
+  const saveCurrentSectionProgress = useCallback(async (updatedAnswers: Answers) => {
+    if (!studentToken) {
+      return;
+    }
+
+    const sectionId = sectionIds[currentSectionIndex];
+    const sessionId = sectionSessionIds[currentSectionIndex];
+    const section = examData.sections[currentSectionIndex];
+
+    if (!sectionId || !sessionId || !section) {
+      return;
+    }
+
+    const answersPayload = section.questions.map((question) => ({
+      questionId: question.id,
+      selectedOptionIndex:
+        updatedAnswers[question.id] !== undefined
+          ? Number(updatedAnswers[question.id])
+          : null,
+    }));
+
+    try {
+      await apiRequest(`/api/student/sessions/${sessionId}/progress`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${studentToken}`,
+        },
+        body: JSON.stringify({
+          answers: answersPayload,
+          examMeta: {
+            cheatingAttempts: antiCheat.violationCount,
+            totalOptionChanges,
+            questionInteractions: Object.values(questionInteractions),
+          },
+        }),
+      });
+    } catch (error) {
+      console.warn('Failed to save current exam progress:', error);
+    }
+  }, [studentToken, sectionIds, sectionSessionIds, currentSectionIndex, examData.sections, antiCheat.violationCount, questionInteractions, totalOptionChanges]);
 
   const renderContent = () => {
     switch (gameState) {
@@ -563,6 +659,7 @@ const StudentApp: React.FC = () => {
             visited={visited}
             setVisited={setVisited}
             onAnswerInteraction={updateQuestionInteraction}
+            onSaveProgress={saveCurrentSectionProgress}
             violationCount={antiCheat.violationCount}
             maxViolations={antiCheat.maxViolations}
           />
@@ -1029,6 +1126,7 @@ interface ExamScreenProps {
   visited: string[];
   setVisited: React.Dispatch<React.SetStateAction<string[]>>;
   onAnswerInteraction: (questionId: string, optionIndex: number) => void;
+  onSaveProgress: (updatedAnswers: Answers) => void;
   violationCount: number;
   maxViolations: number;
 }
@@ -1042,7 +1140,7 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     answers, setAnswers, markedForReview, setMarkedForReview, timeRemaining,
     currentSectionIndex, setCurrentSectionIndex, currentQuestionIndex,
     setCurrentQuestionIndex, setGameState, visited, setVisited,
-    onAnswerInteraction,
+    onAnswerInteraction, onSaveProgress,
     violationCount, maxViolations
   } = props;
 
@@ -1051,13 +1149,16 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
 
   const handleOptionChange = (optionIndex: number) => {
     onAnswerInteraction(currentQuestion.id, optionIndex);
-    setAnswers(prev => ({ ...prev, [currentQuestion.id]: String(optionIndex) }));
+    const nextAnswers = { ...answers, [currentQuestion.id]: String(optionIndex) };
+    setAnswers(nextAnswers);
+    onSaveProgress(nextAnswers);
   };
 
   const handleClearResponse = () => {
     const newAnswers = { ...answers };
     delete newAnswers[currentQuestion.id];
     setAnswers(newAnswers);
+    onSaveProgress(newAnswers);
   };
 
   const handleMarkForReview = () => {

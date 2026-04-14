@@ -50,6 +50,7 @@ export const useAntiCheat = ({
   const isFullScreenRef = useRef(false);
   const hasEnteredFullScreenRef = useRef(false);
   const trackViolationsRef = useRef(trackViolations);
+  const lastViolationTimeRef = useRef<number>(0);
 
   // Keep the ref in sync with the prop
   useEffect(() => {
@@ -65,6 +66,13 @@ export const useAntiCheat = ({
       // Don't count new violations if tracking is off (disqualified state)
       if (!trackViolationsRef.current) return;
       if (autoSubmittedRef.current) return;
+
+      const now = Date.now();
+      // Debounce violations to prevent cascade false-positives (e.g., blur + visibilitychange firing together)
+      if (now - lastViolationTimeRef.current < 2000) {
+          return;
+      }
+      lastViolationTimeRef.current = now;
 
       const newCount = violationCountRef.current + 1;
       violationCountRef.current = newCount;
@@ -253,16 +261,24 @@ export const useAntiCheat = ({
       e.preventDefault();
     };
 
-    // --- DevTools detection ---
-    const devToolsCheckInterval = setInterval(() => {
-      const widthDiff = window.outerWidth - window.innerWidth;
-      const heightDiff = window.outerHeight - window.innerHeight;
-      if (widthDiff > 200 || heightDiff > 200) {
-        if (trackViolationsRef.current && !autoSubmittedRef.current) {
-          addViolation('devtools', 'Developer Tools detected — close them immediately');
+    // --- Aggressive Full Screen Enforcement (Background & Interaction) ---
+    const enforceFullScreen = () => {
+      if (hasEnteredFullScreenRef.current && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        // Also try alternatives for cross-browser
+        if ((document.documentElement as any).webkitRequestFullscreen) {
+            (document.documentElement as any).webkitRequestFullscreen()?.catch(() => {});
         }
       }
-    }, 3000);
+    };
+
+    const enforceFullScreenInterval = setInterval(enforceFullScreen, 500);
+
+    // Any click on the page should attempt to restore full screen (bypasses browser gesture restrictions)
+    const handleGlobalClick = () => {
+      enforceFullScreen();
+    };
+
     // --- Page refresh warning ---
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       // Show warning only if actively taking the exam and not auto-submitting
@@ -284,6 +300,7 @@ export const useAntiCheat = ({
     document.addEventListener('cut', handleCopyPaste);
     document.addEventListener('paste', handleCopyPaste);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleGlobalClick, true);
 
     // Disable text selection
     document.body.style.userSelect = 'none';
@@ -300,7 +317,8 @@ export const useAntiCheat = ({
       document.removeEventListener('cut', handleCopyPaste);
       document.removeEventListener('paste', handleCopyPaste);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      clearInterval(devToolsCheckInterval);
+      document.removeEventListener('click', handleGlobalClick, true);
+      clearInterval(enforceFullScreenInterval);
 
       // Restore text selection
       document.body.style.userSelect = '';

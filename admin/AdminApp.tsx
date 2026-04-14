@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 type Mode = 'admin-login' | 'super-admin-login' | 'dashboard';
-type DashboardView = 'overview' | 'sections' | 'questions' | 'students' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help';
+type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help';
 
 type AdminIdentity = {
     id?: string;
@@ -106,20 +106,38 @@ type Analytics = {
     avgOptionChanges: number;
 };
 
-type RecentSubmission = {
-    _id: string;
-    student?: { name?: string; email?: string; studentCredential?: string };
-    section?: { name?: string };
+type RecentSubmissionSection = {
+    name: string;
     score: number;
     maxScore: number;
+    attemptedQuestions: number;
+    totalQuestions: number;
     createdAt: string;
-    remark?: string;
-    examMeta?: SubmissionExamMeta;
+    terminatedDueToCheating?: boolean;
+};
+
+type RecentSubmission = {
+    _id: string;
+    student: { _id?: string; name: string; email?: string; studentCredential?: string };
+    totalScore: number;
+    totalMaxScore: number;
+    totalAttempted: number;
+    totalQuestions: number;
+    submissionsCount: number;
+    percent: number;
+    lastSubmittedAt: string;
+    terminatedDueToCheating: boolean;
+    cheatingAttempts: number;
+    totalOptionChanges: number;
+    sections: RecentSubmissionSection[];
 };
 
 type ExamConfig = {
     durationInMinutes: number;
     examinerName?: string;
+    startAt?: string | null;
+    forceEndedAt?: string | null;
+    autoSubmitAfterTime?: boolean;
     updatedAt?: string;
 };
 
@@ -156,7 +174,7 @@ type InsightsPayload = {
     timeline: InsightsTimelineItem[];
 };
 
-const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'students', 'config', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help'];
+const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'add-question', 'students', 'responses', 'config', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help'];
 const DEFAULT_DASHBOARD_VIEW: DashboardView = 'overview';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -178,7 +196,10 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
             borderBottom: '1px solid #99b5ea',
             background: 'linear-gradient(90deg, #ffffff 0%, #eaf2ff 45%, #f3fbff 100%)',
             boxShadow: '0 6px 20px rgba(16,45,99,0.12)',
-            padding: '10px 14px'
+            padding: '10px 14px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1000
         }}
     >
         <div
@@ -319,6 +340,9 @@ const AdminApp: React.FC = () => {
     const [recentSubmissions, setRecentSubmissions] = useState<RecentSubmission[]>([]);
     const [examDuration, setExamDuration] = useState(60);
     const [examinerName, setExaminerName] = useState('CBT Examination Cell');
+    const [examStartAt, setExamStartAt] = useState('');
+    const [examAutoSubmitAfterTime, setExamAutoSubmitAfterTime] = useState(true);
+    const [examForceEndedAt, setExamForceEndedAt] = useState<string | null>(null);
     const [examConfigUpdatedAt, setExamConfigUpdatedAt] = useState('');
     const [questionSearch, setQuestionSearch] = useState('');
     const [studentSearch, setStudentSearch] = useState('');
@@ -464,13 +488,19 @@ const AdminApp: React.FC = () => {
     };
 
     const loadSections = async () => {
-        setError('');
-        const data = await api<{ data: SectionItem[] }>('/api/admin/sections');
-        setSections(data.data || []);
-        if (!selectedSectionId && data.data?.length) {
-            setSelectedSectionId(data.data[0]._id);
+        try {
+            setError('');
+            const data = await api<{ data: SectionItem[] }>('/api/admin/sections');
+            const list = data.data || [];
+            setSections(list);
+            if (!selectedSectionId && list.length) {
+                setSelectedSectionId(list[0]._id);
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to load sections');
         }
     };
+
 
     const loadAnalytics = async () => {
         try {
@@ -499,17 +529,31 @@ const AdminApp: React.FC = () => {
         }
     };
 
+    const formatLocalDateTime = (iso?: string | null): string => {
+        if (!iso) return '';
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return '';
+        const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+        return local.toISOString().slice(0, 16);
+    };
+
     const loadExamConfig = async () => {
         try {
             const result = await api<{ data: ExamConfig }>('/api/admin/exam-config');
             setExamDuration(result.data?.durationInMinutes || 60);
             setExaminerName(result.data?.examinerName || 'CBT Examination Cell');
+            setExamStartAt(formatLocalDateTime(result.data?.startAt || null));
+            setExamAutoSubmitAfterTime(result.data?.autoSubmitAfterTime ?? true);
+            setExamForceEndedAt(result.data?.forceEndedAt || null);
             setExamConfigUpdatedAt(result.data?.updatedAt || '');
         } catch (e) {
             const message = e instanceof Error ? e.message : 'Failed to load exam configuration';
             if (isMissingExamConfigRoute(message)) {
                 setExamDuration(60);
                 setExaminerName('CBT Examination Cell');
+                setExamStartAt('');
+                setExamAutoSubmitAfterTime(true);
+                setExamForceEndedAt(null);
                 setExamConfigUpdatedAt('');
                 setStatus('Exam config API is unavailable on this backend deployment. Using default 60 minutes.');
                 return;
@@ -609,14 +653,22 @@ const AdminApp: React.FC = () => {
                 {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ durationInMinutes: examDuration, examinerName: examinerName.trim() })
+                    body: JSON.stringify({
+                        durationInMinutes: examDuration,
+                        examinerName: examinerName.trim(),
+                        startAt: examStartAt || null,
+                        autoSubmitAfterTime: examAutoSubmitAfterTime,
+                    })
                 }
             );
 
             setExamDuration(result.data?.durationInMinutes || examDuration);
             setExaminerName(result.data?.examinerName || examinerName.trim());
+            setExamStartAt(formatLocalDateTime(result.data?.startAt || null));
+            setExamAutoSubmitAfterTime(result.data?.autoSubmitAfterTime ?? true);
+            setExamForceEndedAt(result.data?.forceEndedAt || null);
             setExamConfigUpdatedAt(result.data?.updatedAt || '');
-            setStatus('Exam duration updated successfully.');
+            setStatus('Exam configuration updated successfully.');
         } catch (e) {
             const message = e instanceof Error ? e.message : 'Failed to update exam duration';
             if (isMissingExamConfigRoute(message)) {
@@ -624,6 +676,25 @@ const AdminApp: React.FC = () => {
                 return;
             }
             setError(message);
+        }
+    };
+
+    const endExamNow = async () => {
+        setError('');
+        setStatus('');
+
+        try {
+            const result = await api<{ data: { forceEndedAt?: string | null } }>(
+                '/api/admin/exam-config/end',
+                {
+                    method: 'POST',
+                }
+            );
+
+            setExamForceEndedAt(result.data?.forceEndedAt || new Date().toISOString());
+            setStatus('Exam ended successfully. Active student sessions have been finalized.');
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to force end the exam');
         }
     };
 
@@ -1052,8 +1123,10 @@ const AdminApp: React.FC = () => {
     const navItems: Array<{ key: DashboardView; label: string; hint: string }> = [
         { key: 'overview', label: 'Overview', hint: 'Summary and quick actions' },
         { key: 'sections', label: 'Sections', hint: 'Create and manage exam sections' },
-        { key: 'questions', label: 'Questions', hint: 'Build question bank and marks' },
-        { key: 'students', label: 'Students', hint: 'Results, exports, and reset tools' },
+        { key: 'questions', label: 'Question Bank', hint: 'View and edit existing questions' },
+        { key: 'add-question', label: 'Add Question', hint: 'Create new questions for the exam' },
+        { key: 'students', label: 'Students', hint: 'Account management and resets' },
+        { key: 'responses', label: 'Responses', hint: 'View student submissions and answers' },
         { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup' },
         { key: 'activity', label: 'Activity', hint: 'Recent submission timeline' },
         { key: 'insights', label: 'Insights', hint: 'Data charts and trends' },
@@ -1070,7 +1143,7 @@ const AdminApp: React.FC = () => {
     const menuSearchKey = menuSearch.trim().toLowerCase();
     const sidebarSections: Array<{ title: string; views: DashboardView[] }> = [
         { title: 'Overview', views: ['overview', 'activity', 'insights'] },
-        { title: 'Exam Workspace', views: ['sections', 'questions', 'students', 'config'] },
+        { title: 'Exam Workspace', views: ['sections', 'add-question', 'questions', 'students', 'config'] },
         { title: 'Operations', views: ['reports'] },
         { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['users', 'settings', 'tenants'] : ['users', 'settings'] },
         { title: 'Support', views: ['help'] }
@@ -1101,7 +1174,9 @@ const AdminApp: React.FC = () => {
         overview: 'Admin Overview',
         sections: 'Section Management',
         questions: 'Question Bank',
-        students: 'Students & Results',
+        'add-question': 'Create New Question',
+        students: 'Student Management',
+        responses: 'Student Responses',
         config: 'Exam Configuration',
         activity: 'Live Activity',
         insights: 'Data Insights',
@@ -1115,8 +1190,10 @@ const AdminApp: React.FC = () => {
     const dashboardSubtitle: Record<DashboardView, string> = {
         overview: 'Monitor performance and jump to common admin tasks quickly.',
         sections: 'Organize section structure before adding questions.',
-        questions: 'Maintain quality and correctness of every exam question.',
-        students: 'Review outcomes and control student data operations safely.',
+        questions: 'Search, review, and modify existing exam questions.',
+        'add-question': 'Design and securely upload a new exam question.',
+        students: 'Manage student accounts, records, and system resets.',
+        responses: 'Review individual student submissions, answers, and performance.',
         config: 'Keep timing and examiner identity consistent across all exams.',
         activity: 'Track latest attempts and response trends in real time.',
         insights: 'Visualize student behavior and performance through chart-driven insights.',
@@ -1596,6 +1673,22 @@ const AdminApp: React.FC = () => {
                                 <button onClick={() => openView('help')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem', borderRadius: '999px' }}>
                                     Open Help
                                 </button>
+                                {activeView === 'responses' && (
+                                    <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <button
+                                            onClick={() => openView('students')}
+                                            style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.45rem 0.9rem', fontSize: '0.84rem', minWidth: 'fit-content' }}
+                                        >
+                                            &larr; Back to Students
+                                        </button>
+                                        <button
+                                            onClick={exportSelectedStudentCsv}
+                                            style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.45rem 0.9rem', fontSize: '0.84rem', minWidth: 'fit-content' }}
+                                        >
+                                            &#8681; Export Submissions CSV
+                                        </button>
+                                    </div>
+                                )}
                                 <span style={{ fontSize: '0.76rem', background: '#fff', border: '1px solid #d8e3f5', borderRadius: '999px', padding: '0.4rem 0.7rem', color: '#355887', fontWeight: 700 }}>
                                     {adminIdentity?.name || 'Admin'}
                                 </span>
@@ -1647,22 +1740,58 @@ const AdminApp: React.FC = () => {
                                 </div>
 
                                 <section style={cardStyle}>
-                                    <h3 style={{ marginTop: 0 }}>Recent Submissions</h3>
-                                    <p style={{ ...mutedStyle, marginTop: '-0.25rem' }}>Real-time feed under {BRAND_NAME} supervision</p>
-                                    <button onClick={loadRecentSubmissions} style={primaryBtnStyle}>Refresh Activity</button>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                                        <div>
+                                            <h3 style={{ margin: 0 }}>Recent Submissions</h3>
+                                            <p style={{ ...mutedStyle, marginTop: '0.2rem' }}>Real-time feed — 1 card per student, all sections combined</p>
+                                        </div>
+                                        <button onClick={loadRecentSubmissions} style={{ ...primaryBtnStyle, margin: 0 }}>Refresh</button>
+                                    </div>
                                     <div style={listStyle}>
                                         {recentSubmissions.length === 0 && <p style={mutedStyle}>No recent submissions found.</p>}
-                                        {recentSubmissions.map((item) => (
-                                            <div key={item._id} style={itemStyle}>
-                                                <strong>{item.student?.name || 'Student'}</strong>
-                                                <p style={mutedStyle}>{item.student?.email || '-'}</p>
-                                                <p style={mutedStyle}>Section: {item.section?.name || '-'}</p>
-                                                <p style={mutedStyle}>Score: {item.score} / {item.maxScore}</p>
-                                                <p style={mutedStyle}>Cheating: {item.examMeta?.terminatedDueToCheating ? 'Yes (terminated)' : 'No'}</p>
-                                                <p style={mutedStyle}>Option Changes: {item.examMeta?.totalOptionChanges ?? 0}</p>
-                                                <p style={mutedStyle}>{new Date(item.createdAt).toLocaleString()}</p>
-                                            </div>
-                                        ))}
+                                        {recentSubmissions.map((item) => {
+                                            const pct = item.percent ?? 0;
+                                            const pctColor = pct >= 75 ? '#15803d' : pct >= 50 ? '#b45309' : '#be123c';
+                                            return (
+                                                <div key={item._id} style={{ ...itemStyle, padding: '1rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        <div>
+                                                            <strong style={{ fontSize: '1rem', color: '#13366c' }}>{item.student?.name || 'Unknown Student'}</strong>
+                                                            {item.student?.studentCredential && <span style={{ marginLeft: '0.5rem', fontSize: '0.78rem', background: '#e8f1ff', color: '#2d6dd3', borderRadius: '999px', padding: '0.15rem 0.5rem', fontWeight: 700 }}>{item.student.studentCredential}</span>}
+                                                            {item.student?.email && <p style={{ ...mutedStyle, margin: '0.15rem 0 0 0', fontSize: '0.82rem' }}>{item.student.email}</p>}
+                                                        </div>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <span style={{ fontSize: '1.3rem', fontWeight: 800, color: pctColor }}>{pct}%</span>
+                                                            <p style={{ ...mutedStyle, margin: '0.1rem 0 0 0', fontSize: '0.8rem' }}>{item.totalScore} / {item.totalMaxScore} pts</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.4rem', margin: '0.75rem 0' }}>
+                                                        <div style={{ background: '#f8fafc', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+                                                            <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Sections</span>
+                                                            <p style={{ margin: '0.1rem 0 0', fontWeight: 800, color: '#0f172a' }}>{item.submissionsCount}</p>
+                                                        </div>
+                                                        <div style={{ background: '#f8fafc', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+                                                            <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Attempted</span>
+                                                            <p style={{ margin: '0.1rem 0 0', fontWeight: 800, color: '#0f172a' }}>{item.totalAttempted} / {item.totalQuestions}</p>
+                                                        </div>
+                                                        <div style={{ background: item.terminatedDueToCheating ? '#fff1f2' : '#f0fdf4', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+                                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: item.terminatedDueToCheating ? '#9f1239' : '#166534' }}>Integrity</span>
+                                                            <p style={{ margin: '0.1rem 0 0', fontWeight: 800, color: item.terminatedDueToCheating ? '#e11d48' : '#15803d', fontSize: '0.85rem' }}>{item.terminatedDueToCheating ? '⚠ Terminated' : '✓ Clean'}</p>
+                                                        </div>
+                                                        <div style={{ background: '#f8fafc', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
+                                                            <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Cheat Flags</span>
+                                                            <p style={{ margin: '0.1rem 0 0', fontWeight: 800, color: '#0f172a' }}>{item.cheatingAttempts}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ borderTop: '1px solid #e8eef6', paddingTop: '0.5rem', marginTop: '0.1rem' }}>
+                                                        <p style={{ ...mutedStyle, fontSize: '0.8rem', margin: 0 }}><strong>Sections:</strong> {(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name} (${s.score}/${s.maxScore})`).join(' · ') : '—'}</p>
+                                                        <p style={{ ...mutedStyle, fontSize: '0.78rem', margin: '0.2rem 0 0 0' }}>Last submission: {item.lastSubmittedAt ? new Date(item.lastSubmittedAt).toLocaleString() : '—'}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </section>
                             </>
@@ -1695,12 +1824,14 @@ const AdminApp: React.FC = () => {
                             </section>
                         )}
 
-                        {activeView === 'questions' && (
+                        {activeView === 'add-question' && (
                             <section style={cardStyle}>
-                                <h3>Questions</h3>
-                                <label>Section</label>
+                                <h3>Create New Question</h3>
+                                <p style={mutedStyle}>Draft question text, upload attachments, and configure marks. Select a target section first.</p>
+                                
+                                <label style={{ display: 'block', marginTop: '1rem', fontWeight: 600 }}>Target Exam Section</label>
                                 <select value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)} style={inputStyle}>
-                                    <option value="">Select section</option>
+                                    <option value="">-- Choose a section --</option>
                                     {sections.map((section) => (
                                         <option key={section._id} value={section._id}>{section.name}</option>
                                     ))}
@@ -1708,50 +1839,78 @@ const AdminApp: React.FC = () => {
 
                                 <form onSubmit={createQuestion}>
                                     <label>Question text</label>
-                                    <textarea value={questionText} onChange={(e) => setQuestionText(e.target.value)} required style={inputStyle} />
-                                    {options.map((opt, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
-                                            <div style={{ flex: 1 }}>
-                                                <label>Option {i + 1}</label>
-                                                <input
-                                                    value={opt}
-                                                    onChange={(e) => {
-                                                        const next = [...options];
-                                                        next[i] = e.target.value;
-                                                        setOptions(next);
-                                                    }}
-                                                    required
-                                                    style={{ ...inputStyle, marginBottom: 0 }}
-                                                />
-                                            </div>
-                                            <div style={{ flexShrink: 0, marginTop: '1.2rem' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
+                                    <textarea value={questionText} onChange={(e) => setQuestionText(e.target.value)} required style={inputStyle} rows={4} placeholder="Type the actual question statement here..." />
+                                    
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Multiple Choice Options</label>
+                                        {options.map((opt, i) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem', padding: '0.5rem', background: correctOptionIndex === i ? '#f0fdf4' : '#f8fafc', border: correctOptionIndex === i ? '1px solid #86efac' : '1px solid #e2e8f0', borderRadius: '6px' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <label style={{ fontSize: '0.85rem', color: '#475569' }}>Option {i + 1}</label>
                                                     <input
-                                                        type="radio"
-                                                        name="correctOptionIndex"
-                                                        checked={correctOptionIndex === i}
-                                                        onChange={() => setCorrectOptionIndex(i)}
-                                                        style={{ margin: 0, width: '16px', height: '16px', cursor: 'pointer' }}
+                                                        value={opt}
+                                                        onChange={(e) => {
+                                                            const next = [...options];
+                                                            next[i] = e.target.value;
+                                                            setOptions(next);
+                                                        }}
+                                                        required
+                                                        style={{ ...inputStyle, marginBottom: 0, padding: '0.45rem', fontSize: '0.9rem' }}
                                                     />
-                                                    Correct
-                                                </label>
+                                                </div>
+                                                <div style={{ flexShrink: 0, marginTop: '1.2rem', padding: '0 0.5rem' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, fontWeight: 700, color: correctOptionIndex === i ? '#16a34a' : '#64748b' }}>
+                                                        <input
+                                                            type="radio"
+                                                            name="correctOptionIndex"
+                                                            checked={correctOptionIndex === i}
+                                                            onChange={() => setCorrectOptionIndex(i)}
+                                                            style={{ margin: 0, width: '18px', height: '18px', cursor: 'pointer' }}
+                                                        />
+                                                        Correct
+                                                    </label>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                    <div style={responsiveRowStyle}>
+                                        ))}
+                                    </div>
+
+                                    <div style={{ ...responsiveRowStyle, marginTop: '1rem' }}>
                                         <div>
-                                            <label>Marks</label>
+                                            <label>Marks assigned</label>
                                             <input value={marks} onChange={(e) => setMarks(Number(e.target.value))} type="number" min={1} required style={inputStyle} />
                                         </div>
                                     </div>
-                                    <label>Image (optional)</label>
-                                    <input type="file" accept="image/*" onChange={(e) => setQuestionImage(e.target.files?.[0] || null)} style={inputStyle} />
-                                    <button type="submit" style={primaryBtnStyle}>Create Question</button>
+                                    <div style={{ marginTop: '0.5rem' }}>
+                                        <label>Question Image Attachment (optional)</label>
+                                        <input type="file" accept="image/*" onChange={(e) => setQuestionImage(e.target.files?.[0] || null)} style={inputStyle} />
+                                    </div>
+                                    
+                                    <button type="submit" style={{ ...primaryBtnStyle, marginTop: '1.5rem', width: '100%', padding: '0.8rem' }}>Create Question &rarr;</button>
                                 </form>
+                            </section>
+                        )}
 
-                                <div style={responsiveRowStyle}>
-                                    <button onClick={loadQuestions} style={primaryBtnStyle}>Load Questions</button>
-                                    <div style={{ ...mutedStyle, alignSelf: 'center' }}>{activeSection ? activeSection.name : ''}</div>
+                        {activeView === 'questions' && (
+                            <section style={cardStyle}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+                                    <div>
+                                        <h3 style={{ margin: 0, marginBottom: '0.3rem' }}>Question Bank</h3>
+                                        <p style={{ ...mutedStyle, margin: 0 }}>Review, search, and edit existing questions in your database.</p>
+                                    </div>
+                                    <button onClick={() => openView('add-question')} style={{ ...primaryBtnStyle, padding: '0.45rem 1rem', fontSize: '0.9rem' }}>+ Add Question</button>
+                                </div>
+                                
+                                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+                                    <label style={{ fontWeight: 600 }}>Filter by Section</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
+                                        <select value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)} style={{ ...inputStyle, flex: 1, margin: 0 }}>
+                                            <option value="">Select section to view</option>
+                                            {sections.map((section) => (
+                                                <option key={section._id} value={section._id}>{section.name}</option>
+                                            ))}
+                                        </select>
+                                        <button onClick={loadQuestions} style={{ ...secondaryBtnStyle, margin: 0, padding: '0 1rem' }}>Load Data</button>
+                                    </div>
                                 </div>
 
                                 {editingQuestionId && (
@@ -1896,60 +2055,127 @@ const AdminApp: React.FC = () => {
                                             <strong>{student.name}</strong>
                                             <p style={mutedStyle}>{student.email}</p>
                                             <p style={mutedStyle}>Credential: {student.studentCredential || '-'}</p>
-                                            <div style={responsiveRowStyle}>
-                                                <button onClick={() => loadSubmissions(student)} style={primaryBtnStyle}>View Submissions</button>
-                                                <button onClick={() => deleteStudent(student)} style={dangerBtnStyle}>Delete Student</button>
+                                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                <button onClick={() => { loadSubmissions(student); openView('responses'); }} style={{ ...primaryBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>View Responses</button>
+                                                <button onClick={() => deleteStudent(student)} style={{ ...dangerBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>Delete Student</button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
+                            </section>
+                        )}
 
-                                {selectedStudent && (
-                                    <div>
-                                        <h4>Submissions: {selectedStudent.name}</h4>
-                                        <button onClick={exportSelectedStudentCsv} style={secondaryBtnStyle}>Export CSV</button>
-                                        <div style={listStyle}>
+                        {activeView === 'responses' && (
+                            <section style={cardStyle}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                    <div style={{ flex: 1, minWidth: '250px' }}>
+                                        <h3 style={{ marginTop: 0, marginBottom: '0.3rem' }}>Detailed Student Responses</h3>
+                                        <p style={mutedStyle}>Complete breakdown of student answers, analytics, and cheat detection tracking.</p>
+                                    </div>
+                                </div>
+                                
+                                {!selectedStudent ? (
+                                    <div style={{ padding: '2rem', textAlign: 'center', background: '#f8fbff', borderRadius: '8px', border: '1px dashed #c9d9f2' }}>
+                                        <h4 style={{ color: '#1b4f95', margin: '0 0 0.5rem 0' }}>No Student Selected</h4>
+                                        <p style={mutedStyle}>Navigate to the Students page and click "View Responses" to analyze a student's performance.</p>
+                                        <button onClick={() => openView('students')} style={{ ...primaryBtnStyle, marginTop: '1rem', padding: '0.5rem 1.2rem', fontSize: '0.9rem' }}>Go to Students Page</button>
+                                    </div>
+                                ) : (
+                                    <div style={{ marginTop: '0.5rem', padding: '1.2rem', background: '#f8fbff', borderRadius: '10px', border: '1px solid #d1def4' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                                            <div style={{ flex: 1, minWidth: '200px' }}>
+                                                <h4 style={{ margin: 0, color: '#13366c', fontSize: '1.2rem' }}>{selectedStudent.name}</h4>
+                                                <p style={{ ...mutedStyle, margin: '0.2rem 0 0 0' }}>{selectedStudent.email} | Credential: {selectedStudent.studentCredential}</p>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ ...listStyle, marginTop: '1.5rem' }}>
+                                            {submissions.length === 0 && <p style={mutedStyle}>No submissions found for this student.</p>}
                                             {submissions.map((submission) => (
-                                                <div key={submission._id} style={itemStyle}>
-                                                    <strong>{submission.section?.name || 'Section'}</strong>
-                                                    <p style={mutedStyle}>Score: {submission.score} / {submission.maxScore}</p>
-                                                    <p style={mutedStyle}>Attempted: {submission.attemptedQuestions} / {submission.totalQuestions}</p>
-                                                    <p style={mutedStyle}>Submitted: {new Date(submission.createdAt).toLocaleString()}</p>
-                                                    <p style={mutedStyle}>Cheating Attempts: {submission.examMeta?.cheatingAttempts ?? 0}</p>
-                                                    <p style={mutedStyle}>Option Changes: {submission.examMeta?.totalOptionChanges ?? 0}</p>
-                                                    <p style={mutedStyle}>Terminated: {submission.examMeta?.terminatedDueToCheating ? 'Yes' : 'No'}</p>
-                                                    {(submission.examMeta?.terminationRemark || submission.remark) && (
-                                                        <p style={mutedStyle}>Remark: {submission.examMeta?.terminationRemark || submission.remark}</p>
-                                                    )}
+                                                <div key={submission._id} style={{ ...itemStyle, background: '#ffffff', boxShadow: '0 4px 12px rgba(16,45,99,0.04)', padding: '1.2rem' }}>
+                                                    <div style={{ paddingBottom: '0.8rem', borderBottom: '1px solid #e2ebf8', marginBottom: '1rem' }}>
+                                                        <strong style={{ fontSize: '1.15rem', color: '#1b4f95' }}>{submission.section?.name || 'Section'}</strong>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem', marginTop: '0.8rem' }}>
+                                                            <div style={{ background: '#f8fafc', padding: '0.6rem', borderRadius: '6px' }}>
+                                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Score</span>
+                                                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>{submission.score} <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>/ {submission.maxScore}</span></span>
+                                                            </div>
+                                                            <div style={{ background: '#f8fafc', padding: '0.6rem', borderRadius: '6px' }}>
+                                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Attempted</span>
+                                                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>{submission.attemptedQuestions} <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>/ {submission.totalQuestions}</span></span>
+                                                            </div>
+                                                            <div style={{ background: '#fff1f2', padding: '0.6rem', borderRadius: '6px' }}>
+                                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#9f1239', textTransform: 'uppercase', fontWeight: 700 }}>Cheating Logs</span>
+                                                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e11d48' }}>{submission.examMeta?.cheatingAttempts ?? 0}</span>
+                                                            </div>
+                                                            <div style={{ background: '#f0fdf4', padding: '0.6rem', borderRadius: '6px' }}>
+                                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#166534', textTransform: 'uppercase', fontWeight: 700 }}>Option Changes</span>
+                                                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#15803d' }}>{submission.examMeta?.totalOptionChanges ?? 0}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
+                                                            <span style={{ ...mutedStyle, fontSize: '0.86rem' }}><strong>Submitted:</strong> {new Date(submission.createdAt).toLocaleString()}</span>
+                                                            <span style={{ ...mutedStyle, fontSize: '0.86rem', color: submission.examMeta?.terminatedDueToCheating ? '#dc2626' : '#64748b' }}>
+                                                                <strong>Terminated by System:</strong> {submission.examMeta?.terminatedDueToCheating ? 'Yes' : 'No'}
+                                                            </span>
+                                                        </div>
+                                                        {(submission.examMeta?.terminationRemark || submission.remark) && (
+                                                            <div style={{ background: '#fff7ed', borderLeft: '4px solid #f97316', padding: '0.6rem', marginTop: '0.8rem', borderRadius: '4px' }}>
+                                                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c2410c' }}>REMARK</span>
+                                                                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#9a3412' }}>{submission.examMeta?.terminationRemark || submission.remark}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
                                                     {!!submission.examMeta?.questionInteractions?.length && (
-                                                        <div style={{ ...itemStyle, marginTop: '0.35rem' }}>
-                                                            <div style={{ ...mutedStyle, fontWeight: 700 }}>Choice Change Insights</div>
-                                                            {submission.examMeta.questionInteractions.slice(0, 8).map((interaction, insightIndex) => (
-                                                                <div key={insightIndex} style={mutedStyle}>
-                                                                    Q#{insightIndex + 1}: first={interaction.firstSelectedOptionIndex ?? '-'} final={interaction.finalSelectedOptionIndex ?? '-'} changes={interaction.changeCount}
-                                                                </div>
-                                                            ))}
-                                                            {submission.examMeta.questionInteractions.length > 8 && (
-                                                                <div style={mutedStyle}>+{submission.examMeta.questionInteractions.length - 8} more interactions</div>
-                                                            )}
+                                                        <div style={{ ...itemStyle, marginTop: '0.8rem', background: '#fafbfc', border: '1px dashed #c9d9f2' }}>
+                                                            <div style={{ ...mutedStyle, fontWeight: 800, color: '#3f6fb2', fontSize: '0.9rem' }}>Micro-Interaction Insights (Option Swaps)</div>
+                                                            <p style={{ margin: '0.3rem 0 0.8rem 0', fontSize: '0.8rem', color: '#64748b' }}>Tracks questions where the student constantly changed their selection.</p>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.4rem' }}>
+                                                                {submission.examMeta.questionInteractions.slice(0, 16).map((interaction, insightIndex) => (
+                                                                    <div key={insightIndex} style={{ ...mutedStyle, fontSize: '0.75rem', background: '#eef2f6', padding: '0.4rem', borderRadius: '4px' }}>
+                                                                        <strong>Q#{insightIndex + 1}:</strong> {interaction.changeCount} swaps<br/>
+                                                                        (Opt {interaction.firstSelectedOptionIndex ?? '-'} &rarr; Opt {interaction.finalSelectedOptionIndex ?? '-'})
+                                                                    </div>
+                                                                ))}
+                                                                {submission.examMeta.questionInteractions.length > 16 && (
+                                                                    <div style={{ ...mutedStyle, fontSize: '0.75rem', padding: '0.4rem', display: 'flex', alignItems: 'center' }}>
+                                                                        +{submission.examMeta.questionInteractions.length - 16} more
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     )}
-                                                    <div>
-                                                        {submission.answers.map((answer, index) => (
-                                                            <div key={index} style={{ ...itemStyle, marginTop: '0.3rem' }}>
-                                                                <div style={mutedStyle}>Q{index + 1}: {answer.questionText}</div>
-                                                                <div style={mutedStyle}>Selected Index: {answer.selectedOptionIndex ?? 'Not answered'} | Correct Index: {answer.correctOptionIndex}</div>
-                                                                <div style={mutedStyle}>
-                                                                    Selected Option: {
-                                                                        answer.selectedOptionIndex === null || answer.selectedOptionIndex === undefined
-                                                                            ? 'Not answered'
-                                                                            : (answer.options?.[answer.selectedOptionIndex] || 'Option unavailable')
-                                                                    }
+
+                                                    <div style={{ marginTop: '1.2rem' }}>
+                                                        <h5 style={{ margin: '0 0 0.8rem 0', color: '#475569', fontSize: '1rem', borderBottom: '1px solid #e2ebf8', paddingBottom: '0.4rem' }}>Detailed Answer Breakdown</h5>
+                                                        <div style={{ display: 'grid', gap: '0.6rem' }}>
+                                                            {submission.answers.map((answer, index) => (
+                                                                <div key={index} style={{ ...itemStyle, borderLeft: answer.isCorrect ? '4px solid #10b981' : '4px solid #ef4444', background: answer.isCorrect ? '#f0fdf4' : '#fef2f2', padding: '0.8rem' }}>
+                                                                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Q{index + 1}: {answer.questionText}</div>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.6rem', marginTop: '0.6rem' }}>
+                                                                        <div style={{ fontSize: '0.85rem' }}>
+                                                                            <span style={{ color: '#64748b', fontWeight: 600 }}>Selected Answer:</span><br/>
+                                                                            <span style={{ fontWeight: 500, color: '#334155' }}>
+                                                                                {answer.selectedOptionIndex === null || answer.selectedOptionIndex === undefined
+                                                                                    ? <em style={{color: '#94a3b8'}}>Not answered</em>
+                                                                                    : (answer.options?.[answer.selectedOptionIndex] || 'Option unavailable')}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.85rem' }}>
+                                                                            <span style={{ color: '#64748b', fontWeight: 600 }}>Correct Answer:</span><br/>
+                                                                            <span style={{ fontWeight: 500, color: '#166534' }}>
+                                                                                {answer.options?.[answer.correctOptionIndex] || 'Option unavailable'}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', paddingTop: '0.6rem', borderTop: answer.isCorrect ? '1px solid #bbf7d0' : '1px solid #fecdd3' }}>
+                                                                        <strong style={{ color: answer.isCorrect ? '#15803d' : '#be123c', fontSize: '0.85rem' }}>{answer.isCorrect ? 'ACCURATE' : 'INCORRECT'}</strong>
+                                                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>Marks Awarded: {answer.marksAwarded}</span>
+                                                                    </div>
                                                                 </div>
-                                                                <div style={mutedStyle}>Correct Option: {answer.options?.[answer.correctOptionIndex] || 'Option unavailable'}</div>
-                                                                <div style={mutedStyle}>Result: <strong>{answer.isCorrect ? 'Correct' : 'Incorrect'}</strong> | Marks: {answer.marksAwarded}</div>
-                                                            </div>
-                                                        ))}
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -1973,6 +2199,22 @@ const AdminApp: React.FC = () => {
                                         style={inputStyle}
                                         required
                                     />
+                                    <label>Exam Start Date &amp; Time</label>
+                                    <input
+                                        type="datetime-local"
+                                        value={examStartAt}
+                                        onChange={(e) => setExamStartAt(e.target.value)}
+                                        style={inputStyle}
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginTop: '0.6rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={examAutoSubmitAfterTime}
+                                            onChange={(e) => setExamAutoSubmitAfterTime(e.target.checked)}
+                                            style={{ width: '18px', height: '18px' }}
+                                        />
+                                        Auto submit when exam time expires
+                                    </label>
                                     <label>Examiner Name (shown on question paper)</label>
                                     <input
                                         type="text"
@@ -1983,15 +2225,24 @@ const AdminApp: React.FC = () => {
                                         style={inputStyle}
                                         required
                                     />
-                                    <button type="submit" style={primaryBtnStyle}>Save Duration</button>
+                                    <button type="submit" style={primaryBtnStyle}>Save Exam Schedule</button>
                                 </form>
-                                <button onClick={loadExamConfig} style={secondaryBtnStyle}>Reload Configuration</button>
+                                <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                                    <button onClick={loadExamConfig} style={{ ...secondaryBtnStyle, padding: '0.45rem 1rem' }}>Reload Configuration</button>
+                                    <button onClick={endExamNow} style={{ ...dangerBtnStyle, padding: '0.45rem 1rem' }}>End Exam Now</button>
+                                </div>
+                                <p style={mutedStyle}>
+                                    Scheduled start: {examStartAt ? new Date(examStartAt).toLocaleString() : 'Not set'}
+                                </p>
+                                <p style={mutedStyle}>
+                                    Force ended at: {examForceEndedAt ? new Date(examForceEndedAt).toLocaleString() : 'Not ended'}
+                                </p>
                                 <p style={mutedStyle}>
                                     Last updated: {examConfigUpdatedAt ? new Date(examConfigUpdatedAt).toLocaleString() : 'Not set'}
                                 </p>
                                 <div style={{ ...itemStyle, marginTop: '0.7rem' }}>
                                     <strong>Guidance</strong>
-                                    <p style={mutedStyle}>Recommended exam duration for objective tests: 30 to 120 minutes.</p>
+                                    <p style={mutedStyle}>Schedule the exam window clearly and let students enter only during the allowed time. Automatic submission retains saved answers and closes the exam cleanly.</p>
                                 </div>
                             </section>
                         )}
@@ -1999,21 +2250,39 @@ const AdminApp: React.FC = () => {
                         {activeView === 'activity' && (
                             <>
                                 <section style={cardStyle}>
-                                    <h3 style={{ marginTop: 0 }}>Activity Feed</h3>
-                                    <button onClick={loadRecentSubmissions} style={primaryBtnStyle}>Refresh Activity</button>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                                        <div>
+                                            <h3 style={{ margin: 0 }}>Activity Feed</h3>
+                                            <p style={{ ...mutedStyle, marginTop: '0.2rem' }}>1 entry per student &mdash; all sections merged</p>
+                                        </div>
+                                        <button onClick={loadRecentSubmissions} style={{ ...primaryBtnStyle, margin: 0 }}>Refresh</button>
+                                    </div>
                                     <div style={listStyle}>
                                         {recentSubmissions.length === 0 && <p style={mutedStyle}>No activity available right now.</p>}
-                                        {recentSubmissions.map((item) => (
-                                            <div key={item._id} style={itemStyle}>
-                                                <strong>{item.student?.name || 'Student'}</strong>
-                                                <p style={mutedStyle}>Section: {item.section?.name || '-'}</p>
-                                                <p style={mutedStyle}>Score: {item.score} / {item.maxScore}</p>
-                                                <p style={mutedStyle}>Cheating Attempts: {item.examMeta?.cheatingAttempts ?? 0}</p>
-                                                <p style={mutedStyle}>Option Changes: {item.examMeta?.totalOptionChanges ?? 0}</p>
-                                                <p style={mutedStyle}>Terminated: {item.examMeta?.terminatedDueToCheating ? 'Yes' : 'No'}</p>
-                                                <p style={mutedStyle}>{new Date(item.createdAt).toLocaleString()}</p>
-                                            </div>
-                                        ))}
+                                        {recentSubmissions.map((item) => {
+                                            const pct = item.percent ?? 0;
+                                            const pctColor = pct >= 75 ? '#15803d' : pct >= 50 ? '#b45309' : '#be123c';
+                                            return (
+                                                <div key={item._id} style={{ ...itemStyle, padding: '0.9rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                        <div>
+                                                            <strong style={{ color: '#13366c' }}>{item.student?.name || 'Unknown Student'}</strong>
+                                                            {item.student?.studentCredential && <span style={{ marginLeft: '0.5rem', fontSize: '0.78rem', background: '#e8f1ff', color: '#2d6dd3', borderRadius: '999px', padding: '0.1rem 0.45rem', fontWeight: 700 }}>{item.student.studentCredential}</span>}
+                                                        </div>
+                                                        <span style={{ fontWeight: 800, color: pctColor, fontSize: '1.1rem' }}>{pct}% &nbsp;<span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>({item.totalScore}/{item.totalMaxScore})</span></span>
+                                                    </div>
+                                                    <p style={{ ...mutedStyle, margin: '0.4rem 0 0.2rem', fontSize: '0.82rem' }}>
+                                                        <strong>Sections:</strong> {item.submissionsCount} &nbsp;&middot;&nbsp;
+                                                        <strong>Answered:</strong> {item.totalAttempted}/{item.totalQuestions} &nbsp;&middot;&nbsp;
+                                                        <strong>Cheat Flags:</strong> {item.cheatingAttempts} &nbsp;&middot;&nbsp;
+                                                        <strong>Option Swaps:</strong> {item.totalOptionChanges}
+                                                        {item.terminatedDueToCheating && <span style={{ marginLeft: '0.5rem', color: '#dc2626', fontWeight: 700 }}>&#9888; Terminated</span>}
+                                                    </p>
+                                                    <p style={{ ...mutedStyle, fontSize: '0.79rem', margin: '0.1rem 0 0' }}>{(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name}: ${s.score}/${s.maxScore}`).join(' · ') : '—'}</p>
+                                                    <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.2rem 0 0' }}>Last: {item.lastSubmittedAt ? new Date(item.lastSubmittedAt).toLocaleString() : '—'}</p>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </section>
 
@@ -2231,17 +2500,35 @@ const AdminApp: React.FC = () => {
                                 </div>
 
                                 <section style={cardStyle}>
-                                    <h4 style={{ marginTop: 0 }}>Recent Entries</h4>
+                                    <h4 style={{ marginTop: 0, marginBottom: '0.25rem' }}>Recent Student Entries</h4>
+                                    <p style={{ ...mutedStyle, marginBottom: '1rem' }}>Each student appears once — scores & sections are combined</p>
                                     <div style={listStyle}>
                                         {recentSubmissions.length === 0 && <p style={mutedStyle}>No recent submission records available.</p>}
-                                        {recentSubmissions.slice(0, 10).map((item) => (
-                                            <div key={item._id} style={itemStyle}>
-                                                <strong>{item.student?.name || 'Student'}</strong>
-                                                <p style={mutedStyle}>Section: {item.section?.name || '-'}</p>
-                                                <p style={mutedStyle}>Score: {item.score} / {item.maxScore}</p>
-                                                <p style={mutedStyle}>Submitted: {new Date(item.createdAt).toLocaleString()}</p>
-                                            </div>
-                                        ))}
+                                        {recentSubmissions.slice(0, 10).map((item) => {
+                                            const pct = item.percent ?? 0;
+                                            const pctColor = pct >= 75 ? '#15803d' : pct >= 50 ? '#b45309' : '#be123c';
+                                            return (
+                                                <div key={item._id} style={{ ...itemStyle, padding: '1rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        <div>
+                                                            <strong style={{ fontSize: '1rem', color: '#13366c' }}>{item.student?.name || 'Unknown Student'}</strong>
+                                                            {item.student?.studentCredential && <span style={{ marginLeft: '0.5rem', fontSize: '0.78rem', background: '#e8f1ff', color: '#2d6dd3', borderRadius: '999px', padding: '0.15rem 0.5rem', fontWeight: 700 }}>{item.student.studentCredential}</span>}
+                                                        </div>
+                                                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: pctColor }}>{pct}%</span>
+                                                    </div>
+                                                    <p style={{ ...mutedStyle, margin: '0.4rem 0 0.3rem 0', fontSize: '0.82rem' }}>
+                                                        <strong>Total:</strong> {item.totalScore}/{item.totalMaxScore} pts &nbsp;·&nbsp;
+                                                        <strong>Sections:</strong> {item.submissionsCount} &nbsp;·&nbsp;
+                                                        <strong>Answered:</strong> {item.totalAttempted}/{item.totalQuestions}
+                                                        {item.terminatedDueToCheating && <span style={{ marginLeft: '0.5rem', color: '#dc2626', fontWeight: 700 }}>⚠ Flagged</span>}
+                                                    </p>
+                                                    <p style={{ ...mutedStyle, fontSize: '0.8rem', margin: '0.2rem 0 0 0' }}>
+                                                        {(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name} (${s.score}/${s.maxScore})`).join(' · ') : '—'}
+                                                    </p>
+                                                    <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.2rem 0 0 0' }}>Last: {new Date(item.lastSubmittedAt).toLocaleString()}</p>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </section>
                             </>
