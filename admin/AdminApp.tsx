@@ -1160,24 +1160,24 @@ const AdminApp: React.FC = () => {
         }
     }, [mode, token, adminIdentity?.role, selectedTenantAdminId]);
 
-    const navItems: Array<{ key: DashboardView; label: string; hint: string }> = [
-        { key: 'overview', label: 'Overview', hint: 'Summary and quick actions' },
-        { key: 'sections', label: 'Sections', hint: 'Create and manage exam sections' },
-        { key: 'questions', label: 'Question Bank', hint: 'View and edit existing questions' },
-        { key: 'add-question', label: 'Add Question', hint: 'Create new questions for the exam' },
-        { key: 'students', label: 'Students', hint: 'Account management and resets' },
-        { key: 'responses', label: 'Responses', hint: 'View student submissions and answers' },
-        { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup' },
-        { key: 'activity', label: 'Activity', hint: 'Recent submission timeline' },
-        { key: 'insights', label: 'Insights', hint: 'Data charts and trends' },
-        { key: 'reports', label: 'Reports', hint: 'Export center and audit-ready summaries' },
-        { key: 'users', label: 'User Management', hint: 'Manage admin access and identity data' },
-        { key: 'settings', label: 'Platform Settings', hint: 'Govern platform behavior and preferences' },
-        { key: 'help', label: 'Help Center', hint: 'Usage guide and best practices' }
+    const navItems: Array<{ key: DashboardView; label: string; hint: string; icon: string }> = [
+        { key: 'overview', label: 'Overview', hint: 'Summary and quick actions', icon: 'ðŸ“Š' },
+        { key: 'sections', label: 'Sections', hint: 'Create and manage exam sections', icon: 'ðŸ“ ' },
+        { key: 'questions', label: 'Question Bank', hint: 'View and edit existing questions', icon: 'ðŸ—ƒï¸ ' },
+        { key: 'add-question', label: 'Add Question', hint: 'Create new questions for the exam', icon: 'âž•' },
+        { key: 'students', label: 'Students', hint: 'Account management and resets', icon: 'ðŸ‘¥' },
+        { key: 'responses', label: 'Responses', hint: 'View student submissions and answers', icon: 'ðŸ“ ' },
+        { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup', icon: 'âš™ï¸ ' },
+        { key: 'activity', label: 'Activity', hint: 'Recent submission timeline', icon: 'âš¡' },
+        { key: 'insights', label: 'Insights', hint: 'Data charts and trends', icon: 'ðŸ” ' },
+        { key: 'reports', label: 'Reports', hint: 'Export center and audit-ready summaries', icon: 'ðŸ“‹' },
+        { key: 'users', label: 'User Management', hint: 'Manage admin access and identity data', icon: 'ðŸ›¡ï¸ ' },
+        { key: 'settings', label: 'Platform Settings', hint: 'Govern platform behavior and preferences', icon: 'ðŸ”§' },
+        { key: 'help', label: 'Help Center', hint: 'Usage guide and best practices', icon: 'â “' }
     ];
 
     if (adminIdentity?.role === 'super_admin') {
-        navItems.splice(7, 0, { key: 'tenants', label: 'Organization Control', hint: 'Create and switch admin organizations' });
+        navItems.splice(7, 0, { key: 'tenants', label: 'Organization Control', hint: 'Create and switch admin organizations', icon: 'ðŸ ¢' });
     }
 
     const menuSearchKey = menuSearch.trim().toLowerCase();
@@ -1345,14 +1345,21 @@ const AdminApp: React.FC = () => {
             />
 
             {!compact && (
-                <div style={{ ...itemStyle, marginBottom: 0, padding: '0.55rem 0.65rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#3f6fb2', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                <div style={{ ...itemStyle, marginBottom: 0, padding: '0.65rem 0.75rem', border: '1px solid #d8e5f8', background: '#f8fbff' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 900, color: '#1b4f95', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem', borderBottom: '1px solid #e2eefc', paddingBottom: '0.3rem' }}>
                         Workspace Status
                     </div>
-                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>Role: <strong>{adminIdentity?.role === 'super_admin' ? 'Super Admin' : 'Organization Admin'}</strong></div>
-                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>View: <strong>{dashboardTitle[activeView]}</strong></div>
-                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>
-                        Context: <strong>{selectedTenantAdminId ? 'Organization Selected' : (adminIdentity?.role === 'super_admin' ? 'No Organization Context' : 'Own Organization')}</strong>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(50px, auto) 1fr', gap: '8px', lineHeight: '1.4' }}>
+                        <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>Role:</span>
+                        <span style={{ fontSize: '0.74rem', color: '#13366c', fontWeight: 800 }}>{adminIdentity?.role === 'super_admin' ? 'Super Admin' : 'Org Admin'}</span>
+                        
+                        <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>View:</span>
+                        <span style={{ fontSize: '0.74rem', color: '#3b82f6', fontWeight: 800 }}>{dashboardTitle[activeView]}</span>
+                        
+                        <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>Context:</span>
+                        <span style={{ fontSize: '0.74rem', color: '#13366c', fontWeight: 700 }}>
+                            {selectedTenantAdminId ? 'Organization' : (adminIdentity?.role === 'super_admin' ? 'Global' : 'Internal')}
+                        </span>
                     </div>
                 </div>
             )}
@@ -1377,20 +1384,28 @@ const AdminApp: React.FC = () => {
                                             width: '100%',
                                             marginTop: 0,
                                             textAlign: 'left',
-                                            padding: compact ? '0.5rem 0.45rem' : '0.58rem 0.58rem',
-                                            borderRadius: '6px',
+                                            padding: compact ? '0.6rem 0.5rem' : '0.65rem 0.75rem',
+                                            borderRadius: '10px',
                                             background: activeView === item.key
-                                                ? '#edf5ff'
+                                                ? 'linear-gradient(90deg, #edf5ff 0%, #ffffff 100%)'
                                                 : 'transparent',
-                                            color: activeView === item.key ? '#1b4f95' : '#1d3d70',
+                                            color: activeView === item.key ? '#1b4f95' : '#475569',
                                             borderLeft: activeView === item.key ? '4px solid #2a70dd' : '4px solid transparent',
-                                            borderBottom: '1px solid #d8e5f8',
                                             cursor: 'pointer',
-                                            transition: 'background 180ms ease, border-left-color 180ms ease, color 180ms ease'
+                                            transition: 'all 200ms ease',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            boxShadow: activeView === item.key ? '0 4px 12px rgba(42,112,221,0.08)' : 'none'
                                         }}
                                     >
-                                        <div style={{ fontWeight: 700, fontSize: '0.86rem' }}>{item.label}</div>
-                                        {!compact && <div style={{ fontSize: '0.72rem', opacity: 0.85 }}>{item.hint}</div>}
+                                        <div style={{ fontSize: '1.2rem', flexShrink: 0, filter: activeView === item.key ? 'none' : 'grayscale(1) opacity(0.7)' }}>
+                                            {item.icon}
+                                        </div>
+                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: activeView === item.key ? '#1b4f95' : '#1e293b' }}>{item.label}</div>
+                                            {!compact && <div style={{ fontSize: '0.7rem', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.hint}</div>}
+                                        </div>
                                     </button>
                                 );
                             })}
@@ -2176,9 +2191,19 @@ const AdminApp: React.FC = () => {
                                                             <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Attempted</span>
                                                             <p style={{ margin: '0.1rem 0 0', fontWeight: 800, color: '#0f172a' }}>{item.totalAttempted} / {item.totalQuestions}</p>
                                                         </div>
-                                                        <div style={{ background: item.terminatedDueToCheating ? '#fff1f2' : '#f0fdf4', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
-                                                            <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: item.terminatedDueToCheating ? '#9f1239' : '#166534' }}>Integrity</span>
-                                                            <p style={{ margin: '0.1rem 0 0', fontWeight: 800, color: item.terminatedDueToCheating ? '#e11d48' : '#15803d', fontSize: '0.85rem' }}>{item.terminatedDueToCheating ? '⚠ Terminated' : '✓ Clean'}</p>
+                                                        <div style={{ background: item.terminatedDueToCheating ? '#fff1f2' : '#f0fdf4', borderRadius: '8px', padding: '0.5rem 0.75rem', border: item.terminatedDueToCheating ? '1px solid #fee2e2' : '1px solid #dcfce7' }}>
+                                                            <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: item.terminatedDueToCheating ? '#9f1239' : '#166534', letterSpacing: '0.04em' }}>Integrity</span>
+                                                            <p style={{ margin: '0.15rem 0 0', fontWeight: 800, color: item.terminatedDueToCheating ? '#e11d48' : '#15803d', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                {item.terminatedDueToCheating ? (
+                                                                    <>
+                                                                        <span style={{ fontSize: '1rem' }}>⚠</span> Terminated
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <span style={{ fontSize: '1rem' }}>✓</span> Clean
+                                                                    </>
+                                                                )}
+                                                            </p>
                                                         </div>
                                                         <div style={{ background: '#f8fafc', borderRadius: '6px', padding: '0.4rem 0.6rem' }}>
                                                             <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Cheat Flags</span>
@@ -2467,120 +2492,193 @@ const AdminApp: React.FC = () => {
                         )}
 
                         {activeView === 'responses' && (
-                            <section style={cardStyle}>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                                    <div style={{ flex: 1, minWidth: '250px' }}>
-                                        <h3 style={{ marginTop: 0, marginBottom: '0.3rem' }}>Detailed Student Responses</h3>
-                                        <p style={mutedStyle}>Complete breakdown of student answers, analytics, and cheat detection tracking.</p>
+                            <section style={{ ...cardStyle, background: '#ffffff', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1.5rem', borderBottom: '2px solid #f0f4f9', paddingBottom: '1.2rem' }}>
+                                    <div style={{ flex: 1, minWidth: '300px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'linear-gradient(135deg, #1e4db7, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.5rem', fontWeight: 800, flexShrink: 0 }}>
+                                                {selectedStudent?.name?.charAt(0) || 'S'}
+                                            </div>
+                                            <div>
+                                                <h3 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a', lineHeight: 1.2 }}>{selectedStudent?.name || 'Candidate Responses'}</h3>
+                                                <p style={{ ...mutedStyle, margin: '0.2rem 0 0 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontSize: '0.85rem' }}>{selectedStudent?.email}</span>
+                                                    <span style={{ color: '#cbd5e1' }}>|</span>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>ID: {selectedStudent?.studentCredential}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                        <button onClick={() => openView('students')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}>&larr; Exit View</button>
+                                        <button onClick={exportSelectedStudentCsv} style={{ ...primaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}>Export Detailed PDF/CSV</button>
                                     </div>
                                 </div>
                                 
                                 {!selectedStudent ? (
-                                    <div style={{ padding: '2rem', textAlign: 'center', background: '#f8fbff', borderRadius: '8px', border: '1px dashed #c9d9f2' }}>
-                                        <h4 style={{ color: '#1b4f95', margin: '0 0 0.5rem 0' }}>No Student Selected</h4>
-                                        <p style={mutedStyle}>Navigate to the Students page and click "View Responses" to analyze a student's performance.</p>
-                                        <button onClick={() => openView('students')} style={{ ...primaryBtnStyle, marginTop: '1rem', padding: '0.5rem 1.2rem', fontSize: '0.9rem' }}>Go to Students Page</button>
+                                    <div style={{ padding: '4rem 2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
+                                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>ðŸ‘¤</div>
+                                        <h4 style={{ color: '#334155', fontSize: '1.2rem', margin: '0 0 0.5rem 0' }}>No Student Selected</h4>
+                                        <p style={{ ...mutedStyle, maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>Please select a student from the directory to analyze their exam performance, responses, and behavioral insights.</p>
+                                        <button onClick={() => openView('students')} style={{ ...primaryBtnStyle, width: 'auto', padding: '0.6rem 2rem' }}>Go to Students Directory</button>
                                     </div>
                                 ) : (
-                                    <div style={{ marginTop: '0.5rem', padding: '1.2rem', background: '#f8fbff', borderRadius: '10px', border: '1px solid #d1def4' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                                            <div style={{ flex: 1, minWidth: '200px' }}>
-                                                <h4 style={{ margin: 0, color: '#13366c', fontSize: '1.2rem' }}>{selectedStudent.name}</h4>
-                                                <p style={{ ...mutedStyle, margin: '0.2rem 0 0 0' }}>{selectedStudent.email} | Credential: {selectedStudent.studentCredential}</p>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ ...listStyle, marginTop: '1.5rem' }}>
-                                            {submissions.length === 0 && <p style={mutedStyle}>No submissions found for this student.</p>}
-                                            {submissions.map((submission) => (
-                                                <div key={submission._id} style={{ ...itemStyle, background: '#ffffff', boxShadow: '0 4px 12px rgba(16,45,99,0.04)', padding: '1.2rem' }}>
-                                                    <div style={{ paddingBottom: '0.8rem', borderBottom: '1px solid #e2ebf8', marginBottom: '1rem' }}>
-                                                        <strong style={{ fontSize: '1.15rem', color: '#1b4f95' }}>{submission.section?.name || 'Section'}</strong>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem', marginTop: '0.8rem' }}>
-                                                            <div style={{ background: '#f8fafc', padding: '0.6rem', borderRadius: '6px' }}>
-                                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Score</span>
-                                                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>{submission.score} <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>/ {submission.maxScore}</span></span>
-                                                            </div>
-                                                            <div style={{ background: '#f8fafc', padding: '0.6rem', borderRadius: '6px' }}>
-                                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Attempted</span>
-                                                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>{submission.attemptedQuestions} <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>/ {submission.totalQuestions}</span></span>
-                                                            </div>
-                                                            <div style={{ background: '#fff1f2', padding: '0.6rem', borderRadius: '6px' }}>
-                                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#9f1239', textTransform: 'uppercase', fontWeight: 700 }}>Cheating Logs</span>
-                                                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e11d48' }}>{submission.examMeta?.cheatingAttempts ?? 0}</span>
-                                                            </div>
-                                                            <div style={{ background: '#f0fdf4', padding: '0.6rem', borderRadius: '6px' }}>
-                                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#166534', textTransform: 'uppercase', fontWeight: 700 }}>Option Changes</span>
-                                                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#15803d' }}>{submission.examMeta?.totalOptionChanges ?? 0}</span>
-                                                            </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                        {submissions.length === 0 && (
+                                            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>No submissions found for this candidate.</div>
+                                        )}
+                                        {submissions.map((submission) => (
+                                            <div key={submission._id} style={{ border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+                                                {/* Submission Header */}
+                                                <div style={{ background: '#f8fafc', padding: '1.2rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                                                    <div>
+                                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EXAM SECTION</span>
+                                                        <h4 style={{ margin: '0.2rem 0 0 0', color: '#1e293b', fontSize: '1.2rem' }}>{submission.section?.name || 'Standard Assessment'}</h4>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', letterSpacing: '0.02em' }}>SUBMITTED ON</div>
+                                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>{new Date(submission.createdAt).toLocaleString()}</div>
                                                         </div>
-                                                        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
-                                                            <span style={{ ...mutedStyle, fontSize: '0.86rem' }}><strong>Submitted:</strong> {new Date(submission.createdAt).toLocaleString()}</span>
-                                                            <span style={{ ...mutedStyle, fontSize: '0.86rem', color: submission.examMeta?.terminatedDueToCheating ? '#dc2626' : '#64748b' }}>
-                                                                <strong>Terminated by System:</strong> {submission.examMeta?.terminatedDueToCheating ? 'Yes' : 'No'}
-                                                            </span>
-                                                        </div>
-                                                        {(submission.examMeta?.terminationRemark || submission.remark) && (
-                                                            <div style={{ background: '#fff7ed', borderLeft: '4px solid #f97316', padding: '0.6rem', marginTop: '0.8rem', borderRadius: '4px' }}>
-                                                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c2410c' }}>REMARK</span>
-                                                                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: '#9a3412' }}>{submission.examMeta?.terminationRemark || submission.remark}</p>
+                                                        {submission.examMeta?.terminatedDueToCheating && (
+                                                            <div style={{ background: '#fef2f2', color: '#dc2626', padding: '0.45rem 1rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, border: '1px solid #fee2e2', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <span style={{ fontSize: '1rem' }}>âš ï¸ </span> TERMINATED
                                                             </div>
                                                         )}
                                                     </div>
+                                                </div>
 
-                                                    {!!submission.examMeta?.questionInteractions?.length && (
-                                                        <div style={{ ...itemStyle, marginTop: '0.8rem', background: '#fafbfc', border: '1px dashed #c9d9f2' }}>
-                                                            <div style={{ ...mutedStyle, fontWeight: 800, color: '#3f6fb2', fontSize: '0.9rem' }}>Micro-Interaction Insights (Option Swaps)</div>
-                                                            <p style={{ margin: '0.3rem 0 0.8rem 0', fontSize: '0.8rem', color: '#64748b' }}>Tracks questions where the student constantly changed their selection.</p>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.4rem' }}>
-                                                                {submission.examMeta.questionInteractions.slice(0, 16).map((interaction, insightIndex) => (
-                                                                    <div key={insightIndex} style={{ ...mutedStyle, fontSize: '0.75rem', background: '#eef2f6', padding: '0.4rem', borderRadius: '4px' }}>
-                                                                        <strong>Q#{insightIndex + 1}:</strong> {interaction.changeCount} swaps<br/>
-                                                                        (Opt {interaction.firstSelectedOptionIndex ?? '-'} &rarr; Opt {interaction.finalSelectedOptionIndex ?? '-'})
-                                                                    </div>
-                                                                ))}
-                                                                {submission.examMeta.questionInteractions.length > 16 && (
-                                                                    <div style={{ ...mutedStyle, fontSize: '0.75rem', padding: '0.4rem', display: 'flex', alignItems: 'center' }}>
-                                                                        +{submission.examMeta.questionInteractions.length - 16} more
-                                                                    </div>
-                                                                )}
+                                                <div style={{ padding: '1.5rem' }}>
+                                                    {/* Key Metrics Row */}
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                                                        <div style={{ padding: '1rem', borderRadius: '12px', background: '#f0f9ff', border: '1px solid #e0f2fe' }}>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.25rem' }}>SCORE PERCENTAGE</div>
+                                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                                                <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0c4a6e' }}>
+                                                                    {Math.round((submission.score / submission.maxScore) * 100)}%
+                                                                </div>
+                                                                <div style={{ fontSize: '0.85rem', color: '#0369a1', fontWeight: 700, opacity: 0.8 }}>
+                                                                    ({submission.score}/{submission.maxScore} pts)
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: '1rem', borderRadius: '12px', background: '#f0fdf4', border: '1px solid #dcfce7' }}>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#166534', marginBottom: '0.25rem' }}>ACCURACY</div>
+                                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                                                <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#064e3b' }}>
+                                                                    {Math.round((submission.attemptedQuestions / submission.totalQuestions) * 100)}%
+                                                                </div>
+                                                                <div style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 700, opacity: 0.8 }}>
+                                                                    ({submission.attemptedQuestions}/{submission.totalQuestions} ans)
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: '1rem', borderRadius: '12px', background: submission.examMeta?.cheatingAttempts ? '#fff1f2' : '#f8fafc', border: submission.examMeta?.cheatingAttempts ? '1px solid #ffe4e6' : '1px solid #e2e8f0' }}>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: submission.examMeta?.cheatingAttempts ? '#9f1239' : '#64748b', marginBottom: '0.25rem' }}>POLICY VIOLATIONS</div>
+                                                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: submission.examMeta?.cheatingAttempts ? '#e11d48' : '#334155' }}>
+                                                                {submission.examMeta?.cheatingAttempts ?? 0}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: '1rem', borderRadius: '12px', background: '#fdf4ff', border: '1px solid #fae8ff' }}>
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#701a75', marginBottom: '0.25rem' }}>BEHAVIORAL SWAPS</div>
+                                                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#4a044e' }}>
+                                                                {submission.examMeta?.totalOptionChanges ?? 0}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                                   {(submission.examMeta?.terminationRemark || submission.remark) && (
+                                                        <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>
+                                                                âš ï¸ 
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>Administrative Remark</div>
+                                                                <p style={{ margin: 0, fontSize: '0.95rem', color: '#9a3412', lineHeight: '1.6', fontWeight: 500 }}>{submission.examMeta?.terminationRemark || submission.remark}</p>
                                                             </div>
                                                         </div>
                                                     )}
 
-                                                    <div style={{ marginTop: '1.2rem' }}>
-                                                        <h5 style={{ margin: '0 0 0.8rem 0', color: '#475569', fontSize: '1rem', borderBottom: '1px solid #e2ebf8', paddingBottom: '0.4rem' }}>Detailed Answer Breakdown</h5>
-                                                        <div style={{ display: 'grid', gap: '0.6rem' }}>
-                                                            {submission.answers.map((answer, index) => (
-                                                                <div key={index} style={{ ...itemStyle, borderLeft: answer.isCorrect ? '4px solid #10b981' : '4px solid #ef4444', background: answer.isCorrect ? '#f0fdf4' : '#fef2f2', padding: '0.8rem' }}>
-                                                                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Q{index + 1}: {answer.questionText}</div>
-                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.6rem', marginTop: '0.6rem' }}>
-                                                                        <div style={{ fontSize: '0.85rem' }}>
-                                                                            <span style={{ color: '#64748b', fontWeight: 600 }}>Selected Answer:</span><br/>
-                                                                            <span style={{ fontWeight: 500, color: '#334155' }}>
-                                                                                {answer.selectedOptionIndex === null || answer.selectedOptionIndex === undefined
-                                                                                    ? <em style={{color: '#94a3b8'}}>Not answered</em>
-                                                                                    : (answer.options?.[answer.selectedOptionIndex] || 'Option unavailable')}
-                                                                            </span>
+                                                    {/* Behavioral Insights */}
+                                                    {!!submission.examMeta?.questionInteractions?.length && (
+                                                        <div style={{ marginBottom: '2.5rem' }}>
+                                                            <h5 style={{ margin: '0 0 1.25rem 0', color: '#1e293b', fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                <span style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f0f9ff', border: '1px solid #e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.2rem' }}>âš¡</span> 
+                                                                <span style={{ whiteSpace: 'nowrap' }}>Sequence &amp; Micro-Interaction Tracking</span>
+                                                            </h5>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                                                                {submission.examMeta.questionInteractions.map((interaction, ix) => (
+                                                                    interaction.changeCount > 0 && (
+                                                                        <div key={ix} style={{ padding: '0.8rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                                                                                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b' }}>QUESTION #{ix + 1}</span>
+                                                                                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#f59e0b' }}>{interaction.changeCount} SWAPS</span>
+                                                                            </div>
+                                                                            <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                                                                                Opt {interaction.firstSelectedOptionIndex ?? '-'} &rarr; <strong style={{ color: '#1e40af' }}>Opt {interaction.finalSelectedOptionIndex ?? '-'}</strong>
+                                                                            </div>
                                                                         </div>
-                                                                        <div style={{ fontSize: '0.85rem' }}>
-                                                                            <span style={{ color: '#64748b', fontWeight: 600 }}>Correct Answer:</span><br/>
-                                                                            <span style={{ fontWeight: 500, color: '#166534' }}>
-                                                                                {answer.options?.[answer.correctOptionIndex] || 'Option unavailable'}
-                                                                            </span>
+                                                                    )
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Full Width Answer Breakdown */}
+                                                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
+                                                        <h5 style={{ margin: '0 0 1.5rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: 700 }}>Question-by-Question Breakdown</h5>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                                            {submission.answers.map((answer, index) => (
+                                                                <div key={index} style={{ 
+                                                                    padding: '1.5rem', 
+                                                                    background: answer.isCorrect ? '#f0fdf4' : '#fff1f2', 
+                                                                    border: answer.isCorrect ? '1px solid #dcfce7' : '1px solid #ffe4e6',
+                                                                    borderRadius: '16px',
+                                                                    position: 'relative'
+                                                                }}>
+                                                                    <div style={{ position: 'absolute', top: '-10px', left: '20px', background: answer.isCorrect ? '#22c55e' : '#ef4444', color: '#fff', padding: '2px 10px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800 }}>
+                                                                        QUESTION {index + 1}
+                                                                    </div>
+                                                                    
+                                                                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b', marginBottom: '1.2rem', lineHeight: '1.5' }}>
+                                                                        {answer.questionText}
+                                                                    </div>
+
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                                                                        <div style={{ background: 'rgba(255,255,255,0.6)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                                                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Student Selection</div>
+                                                                            <div style={{ fontSize: '1rem', color: answer.isCorrect ? '#166534' : '#991b1b', fontWeight: 600 }}>
+                                                                                {answer.selectedOptionIndex === null || answer.selectedOptionIndex === undefined
+                                                                                    ? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Not Attempted</span>
+                                                                                    : (answer.options?.[answer.selectedOptionIndex] || `Option ${answer.selectedOptionIndex}`)}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div style={{ background: 'rgba(255,255,255,0.6)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                                                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Correct Reference</div>
+                                                                            <div style={{ fontSize: '1rem', color: '#166534', fontWeight: 600 }}>
+                                                                                {answer.options?.[answer.correctOptionIndex] || `Option ${answer.correctOptionIndex}`}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem', paddingTop: '0.6rem', borderTop: answer.isCorrect ? '1px solid #bbf7d0' : '1px solid #fecdd3' }}>
-                                                                        <strong style={{ color: answer.isCorrect ? '#15803d' : '#be123c', fontSize: '0.85rem' }}>{answer.isCorrect ? 'ACCURATE' : 'INCORRECT'}</strong>
-                                                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>Marks Awarded: {answer.marksAwarded}</span>
+
+                                                                    <div style={{ marginTop: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                            <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: answer.isCorrect ? '#22c55e' : '#ef4444' }}></span>
+                                                                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: answer.isCorrect ? '#166534' : '#991b1b' }}>
+                                                                                {answer.isCorrect ? 'MARKS AWARDED' : 'NO MARKS AWARDED'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                                                                            +{answer.marksAwarded} Points
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </section>
@@ -2677,7 +2775,11 @@ const AdminApp: React.FC = () => {
                                                         <strong>Answered:</strong> {item.totalAttempted}/{item.totalQuestions} &nbsp;&middot;&nbsp;
                                                         <strong>Cheat Flags:</strong> {item.cheatingAttempts} &nbsp;&middot;&nbsp;
                                                         <strong>Option Swaps:</strong> {item.totalOptionChanges}
-                                                        {item.terminatedDueToCheating && <span style={{ marginLeft: '0.5rem', color: '#dc2626', fontWeight: 700 }}>&#9888; Terminated</span>}
+                                                        {item.terminatedDueToCheating && (
+                                                            <span style={{ marginLeft: '1rem', color: '#dc2626', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#fef2f2', padding: '0.15rem 0.65rem', borderRadius: '999px', fontSize: '0.74rem', border: '1px solid #fee2e2' }}>
+                                                                <span style={{ fontSize: '1rem' }}>⚠</span> Terminated
+                                                            </span>
+                                                        )}
                                                     </p>
                                                     <p style={{ ...mutedStyle, fontSize: '0.79rem', margin: '0.1rem 0 0' }}>{(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name}: ${s.score}/${s.maxScore}`).join(' · ') : '—'}</p>
                                                     <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.2rem 0 0' }}>Last: {item.lastSubmittedAt ? new Date(item.lastSubmittedAt).toLocaleString() : '—'}</p>
