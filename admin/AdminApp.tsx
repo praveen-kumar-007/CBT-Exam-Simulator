@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 type Mode = 'admin-login' | 'super-admin-login' | 'dashboard';
-type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help';
+type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help' | 'profile';
 
 type AdminIdentity = {
     id?: string;
@@ -9,12 +9,17 @@ type AdminIdentity = {
     email?: string;
     role?: string;
     tenantKey?: string | null;
+    phone?: string;
+    plan?: string;
+    imageUrl?: string;
 };
 
 type ManagedAdminItem = {
     _id: string;
     name: string;
     email: string;
+    phone?: string;
+    studentLimit: number;
     tenantKey: string;
     createdAt: string;
 };
@@ -89,6 +94,9 @@ type AuthResponse = {
             name: string;
             email: string;
             role: string;
+            tenantKey?: string | null;
+            phone?: string | null;
+            plan?: string;
         };
     };
 };
@@ -221,6 +229,8 @@ const Icon: React.FC<{ name: string; size?: number; color?: string }> = ({ name,
         case 'arrow-left': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>;
         case 'arrow-right': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>;
         case 'download': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+        case 'menu': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
+        case 'close': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
         default: return null;
     }
 };
@@ -254,7 +264,7 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
                 gap: '14px',
                 flexWrap: 'wrap',
                 position: 'relative',
-                padding: `0 ${showMenuButton ? '52px' : '6px'} 0 6px`
+                padding: `0 6px 0 ${showMenuButton ? '56px' : '6px'}`
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -288,33 +298,24 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
                     onClick={onMenuToggle}
                     aria-label={isMenuOpen ? 'Close admin pages menu' : 'Open admin pages menu'}
                     style={{
-                        border: `1px solid ${BRAND.teal}`,
-                        background: `linear-gradient(120deg, ${BRAND.blue}, ${BRAND.teal})`,
-                        borderRadius: '10px',
-                        width: '42px',
-                        height: '38px',
+                        border: '1px solid rgba(255, 255, 255, 0.35)',
+                        background: 'rgba(255, 255, 255, 0.12)',
+                        backdropFilter: 'blur(12px)',
+                        borderRadius: '12px',
+                        width: '44px',
+                        height: '40px',
                         position: 'absolute',
                         top: 0,
-                        right: 0,
+                        left: 0,
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        boxShadow: `0 4px 16px rgba(0,180,216,0.35)`
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                        transition: 'all 0.2s ease'
                     }}
                 >
-                    <span
-                        style={{
-                            display: 'inline-flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            gap: '4px'
-                        }}
-                    >
-                        <span style={{ width: '17px', height: '2px', background: '#ffffff', borderRadius: '999px', display: 'block' }} />
-                        <span style={{ width: '17px', height: '2px', background: '#ffffff', borderRadius: '999px', display: 'block' }} />
-                        <span style={{ width: '17px', height: '2px', background: '#ffffff', borderRadius: '999px', display: 'block' }} />
-                    </span>
+                    <Icon name={isMenuOpen ? 'close' : 'menu'} color="#ffffff" size={22} />
                 </button>
             )}
         </div>
@@ -360,6 +361,8 @@ const AdminApp: React.FC = () => {
     const [isSidebarPinned, setIsSidebarPinned] = useState(false);
     const [token, setToken] = useState(localStorage.getItem('adminToken') || '');
     const [adminIdentity, setAdminIdentity] = useState<AdminIdentity | null>(readAdminIdentity());
+    const [desktopSidebarWidth, setDesktopSidebarWidth] = useState(280);
+    const [isResizing, setIsResizing] = useState(false);
 
     const [status, setStatus] = useState('');
     const [error, setError] = useState('');
@@ -406,10 +409,13 @@ const AdminApp: React.FC = () => {
     const [newTenantAdminName, setNewTenantAdminName] = useState('');
     const [newTenantAdminEmail, setNewTenantAdminEmail] = useState('');
     const [newTenantAdminPassword, setNewTenantAdminPassword] = useState('');
+    const [newTenantAdminPhone, setNewTenantAdminPhone] = useState('');
+    const [newTenantAdminStudentLimit, setNewTenantAdminStudentLimit] = useState('100');
     const [newTenantKey, setNewTenantKey] = useState('');
     const [newSuperAdminName, setNewSuperAdminName] = useState('');
     const [newSuperAdminEmail, setNewSuperAdminEmail] = useState('');
     const [newSuperAdminPassword, setNewSuperAdminPassword] = useState('');
+    const [newSuperAdminPhone, setNewSuperAdminPhone] = useState('');
 
     const activeSection = useMemo(
         () => sections.find((section) => section._id === selectedSectionId) || null,
@@ -448,6 +454,30 @@ const AdminApp: React.FC = () => {
         window.addEventListener('popstate', handler);
         return () => window.removeEventListener('popstate', handler);
     }, []);
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing) return;
+            const newWidth = Math.min(Math.max(200, e.clientX), 600);
+            setDesktopSidebarWidth(newWidth);
+        };
+        const handleMouseUp = () => setIsResizing(false);
+
+        if (isResizing) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        } else {
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing]);
 
     useEffect(() => {
         if (mode === 'dashboard' && !window.location.pathname.toLowerCase().startsWith('/admin/dashboard/')) {
@@ -659,13 +689,17 @@ const AdminApp: React.FC = () => {
                     name: newTenantAdminName,
                     email: newTenantAdminEmail,
                     password: newTenantAdminPassword,
-                    organizationCode: newTenantKey || undefined
+                    phone: newTenantAdminPhone,
+                    studentLimit: parseInt(newTenantAdminStudentLimit) || 0,
+                    tenantKey: newTenantKey || undefined
                 })
             });
 
             setNewTenantAdminName('');
             setNewTenantAdminEmail('');
             setNewTenantAdminPassword('');
+            setNewTenantAdminPhone('');
+            setNewTenantAdminStudentLimit('100');
             setNewTenantKey('');
             setStatus('Organization admin created successfully.');
             await loadManagedAdmins();
@@ -686,7 +720,8 @@ const AdminApp: React.FC = () => {
                 body: JSON.stringify({
                     name: newSuperAdminName,
                     email: newSuperAdminEmail,
-                    password: newSuperAdminPassword
+                    password: newSuperAdminPassword,
+                    phone: newSuperAdminPhone
                 })
             });
 
@@ -696,6 +731,17 @@ const AdminApp: React.FC = () => {
             setStatus('Additional super administrator created successfully.');
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to create super administrator');
+        }
+    };
+
+    const deleteManagedAdmin = async (adminId: string) => {
+        if (!window.confirm('Are you sure you want to delete this organization admin? This action cannot be undone.')) return;
+        try {
+            await api(`/api/admin/managed-admins/${adminId}`, { method: 'DELETE' });
+            setStatus('Admin account deleted successfully.');
+            await loadManagedAdmins();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to delete admin');
         }
     };
 
@@ -1188,6 +1234,7 @@ const AdminApp: React.FC = () => {
     }, [mode, token, adminIdentity?.role, selectedTenantAdminId]);
 
     const navItems: Array<{ key: DashboardView; label: string; hint: string; icon: string }> = [
+        { key: 'profile', label: 'My Profile', hint: 'View your account and plan details', icon: 'user' },
         { key: 'overview', label: 'Overview', hint: 'Summary and quick actions', icon: 'overview' },
         { key: 'sections', label: 'Sections', hint: 'Create and manage exam sections', icon: 'sections' },
         { key: 'questions', label: 'Question Bank', hint: 'View and edit existing questions', icon: 'questions' },
@@ -1198,21 +1245,21 @@ const AdminApp: React.FC = () => {
         { key: 'activity', label: 'Activity', hint: 'Recent submission timeline', icon: 'activity' },
         { key: 'insights', label: 'Insights', hint: 'Data charts and trends', icon: 'insights' },
         { key: 'reports', label: 'Reports', hint: 'Export center and audit-ready summaries', icon: 'reports' },
-        { key: 'users', label: 'User Management', hint: 'Manage admin access and identity data', icon: 'security' },
         { key: 'settings', label: 'Platform Settings', hint: 'Govern platform behavior and preferences', icon: 'settings' },
         { key: 'help', label: 'Help Center', hint: 'Usage guide and best practices', icon: 'help' }
     ];
 
     if (adminIdentity?.role === 'super_admin') {
         navItems.splice(7, 0, { key: 'tenants', label: 'Organization Control', hint: 'Create and switch admin organizations', icon: 'tenants' });
+        navItems.push({ key: 'users', label: 'User Management', hint: 'Manage admin access and identity data', icon: 'security' });
     }
 
     const menuSearchKey = menuSearch.trim().toLowerCase();
     const sidebarSections: Array<{ title: string; views: DashboardView[] }> = [
-        { title: 'Overview', views: ['overview', 'activity', 'insights'] },
+        { title: 'Overview', views: ['profile', 'overview', 'activity', 'insights'] },
         { title: 'Exam Workspace', views: ['sections', 'add-question', 'questions', 'students', 'config'] },
         { title: 'Operations', views: ['reports'] },
-        { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['users', 'settings', 'tenants'] : ['users', 'settings'] },
+        { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['users', 'settings', 'tenants'] : ['settings'] },
         { title: 'Support', views: ['help'] }
     ];
 
@@ -1251,6 +1298,7 @@ const AdminApp: React.FC = () => {
         users: 'User Management',
         settings: 'Platform Settings',
         tenants: 'Organization Control Center',
+        profile: 'Account Profile',
         help: 'Help Center'
     };
 
@@ -1268,6 +1316,7 @@ const AdminApp: React.FC = () => {
         users: 'Handle admin identities, account ownership, and operational access.',
         settings: 'Apply organization-level standards for platform operations and compliance.',
         tenants: 'Create organization admins and choose which organization dataset you are operating on.',
+        profile: 'Manage your administrator account details and contact information.',
         help: 'Follow the recommended workflow for smooth exam operations.'
     };
 
@@ -1544,7 +1593,6 @@ const AdminApp: React.FC = () => {
     };
 
     const isDesktopSidebarVisible = !isMobile && (isSidebarPinned || isSidebarHovering);
-    const desktopSidebarWidth = 260;
 
     if (mode === 'admin-login') {
         return (
@@ -1944,9 +1992,15 @@ const AdminApp: React.FC = () => {
     return (
         <>
             <BrandSignature
-                showMenuButton={isMobile}
-                isMenuOpen={isNavMenuOpen}
-                onMenuToggle={() => setIsNavMenuOpen((prev) => !prev)}
+                showMenuButton={true}
+                isMenuOpen={isMobile ? isNavMenuOpen : isSidebarPinned}
+                onMenuToggle={() => {
+                    if (isMobile) {
+                        setIsNavMenuOpen((prev) => !prev);
+                    } else {
+                        setIsSidebarPinned((prev) => !prev);
+                    }
+                }}
             />
             <div style={{ ...pageStyle, alignItems: 'stretch', paddingTop: '0.2rem' }}>
                 {!isMobile && !isDesktopSidebarVisible && (
@@ -2022,10 +2076,27 @@ const AdminApp: React.FC = () => {
                             overflowY: 'auto',
                             zIndex: 60,
                             transform: isDesktopSidebarVisible ? 'translateX(0)' : 'translateX(-104%)',
-                            transition: 'transform 220ms ease'
+                            transition: isResizing ? 'none' : 'transform 220ms ease, width 220ms ease'
                         }}
                     >
                         {renderSidebarContent()}
+                        <div
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                setIsResizing(true);
+                            }}
+                            style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: '8px',
+                                cursor: 'col-resize',
+                                zIndex: 70,
+                                background: isResizing ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                                transition: 'background 0.2s'
+                            }}
+                        />
                     </aside>
                 )}
 
@@ -2039,7 +2110,7 @@ const AdminApp: React.FC = () => {
                         alignItems: 'stretch',
                         minHeight: 'auto',
                         paddingLeft: isMobile ? 0 : (isDesktopSidebarVisible ? `${desktopSidebarWidth + 8}px` : 0),
-                        transition: 'padding-left 220ms ease'
+                        transition: isResizing ? 'none' : 'padding-left 220ms ease'
                     }}
                 >
                     <main style={{ width: '100%', display: 'grid', gap: '0.6rem' }}>
@@ -2487,12 +2558,14 @@ const AdminApp: React.FC = () => {
                             <section style={cardStyle}>
                                 <h3>Students & Results</h3>
                                 <button onClick={loadStudents} style={primaryBtnStyle}>Refresh Students</button>
-                                <button
-                                    onClick={resetAllStudentsData}
-                                    style={{ ...dangerBtnStyle, marginTop: '0.45rem' }}
-                                >
-                                    Reset All Students Data
-                                </button>
+                                {adminIdentity?.role === 'super_admin' && (
+                                    <button
+                                        onClick={resetAllStudentsData}
+                                        style={{ ...dangerBtnStyle, marginTop: '0.45rem' }}
+                                    >
+                                        Reset All Students Data
+                                    </button>
+                                )}
                                 <button onClick={exportAllDetailedCsv} style={secondaryBtnStyle}>Export All Students Detailed CSV</button>
 
                                 <label>Search student</label>
@@ -2512,7 +2585,9 @@ const AdminApp: React.FC = () => {
                                             <p style={mutedStyle}>Credential: {student.studentCredential || '-'}</p>
                                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                                 <button onClick={() => { loadSubmissions(student); openView('responses'); }} style={{ ...primaryBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>View Responses</button>
-                                                <button onClick={() => deleteStudent(student)} style={{ ...dangerBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>Delete Student</button>
+                                                {adminIdentity?.role === 'super_admin' && (
+                                                    <button onClick={() => deleteStudent(student)} style={{ ...dangerBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>Delete Student</button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -2825,7 +2900,7 @@ const AdminApp: React.FC = () => {
                                                         )}
                                                     </p>
                                                     <p style={{ ...mutedStyle, fontSize: '0.79rem', margin: '0.1rem 0 0' }}>{(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name}: ${s.score}/${s.maxScore}`).join(' · ') : '—'}</p>
-                                                    <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.2rem 0 0' }}>Last: {item.lastSubmittedAt ? new Date(item.lastSubmittedAt).toLocaleString() : '—'}</p>
+                                                    <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.1rem 0 0' }}>Last: {item.lastSubmittedAt ? new Date(item.lastSubmittedAt).toLocaleString() : '—'}</p>
                                                 </div>
                                             );
                                         })}
@@ -3080,7 +3155,88 @@ const AdminApp: React.FC = () => {
                             </>
                         )}
 
-                        {activeView === 'users' && (
+                        {activeView === 'profile' && (
+                            <div style={{ maxWidth: '850px', margin: '0 0' }}>
+                                <section style={cardStyle}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
+                                        <div style={{
+                                            width: '100px',
+                                            height: '100px',
+                                            borderRadius: '24px',
+                                            background: 'linear-gradient(135deg, #f0f7ff 0%, #e0efff 100%)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            border: `1px solid #c8d9f5`,
+                                            boxShadow: '0 8px 20px rgba(0,0,0,0.05)'
+                                        }}>
+                                            {adminIdentity?.imageUrl ? (
+                                                <img src={adminIdentity.imageUrl} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '24px', objectFit: 'cover' }} />
+                                            ) : (
+                                                <Icon name="user" size={48} color="#1d4ed8" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h2 style={{ margin: 0, color: '#13366c', fontSize: '1.75rem', fontWeight: 900 }}>{adminIdentity?.name || 'Administrator'}</h2>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '0.4rem' }}>
+                                                <span style={{ background: adminIdentity?.role === 'super_admin' ? '#fef2f2' : '#f0f9ff', color: adminIdentity?.role === 'super_admin' ? '#dc2626' : '#0369a1', padding: '0.2rem 0.65rem', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 800, border: adminIdentity?.role === 'super_admin' ? '1px solid #fee2e2' : '1px solid #e0f2fe' }}>
+                                                    {adminIdentity?.role === 'super_admin' ? 'SUPER ADMINISTRATOR' : 'ORGANIZATION ADMIN'}
+                                                </span>
+                                                <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 500 }}>&bull; Account Active</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ ...responsiveGridStyle, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
+                                        <div style={itemStyle}>
+                                            <p style={{ ...mutedStyle, fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.4rem', color: '#1b4f95' }}>Official Email</p>
+                                            <p style={{ color: '#1e293b', fontWeight: 700, fontSize: '1.05rem' }}>{adminIdentity?.email || 'N/A'}</p>
+                                        </div>
+                                        <div style={itemStyle}>
+                                            <p style={{ ...mutedStyle, fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.4rem', color: '#1b4f95' }}>Contact Number</p>
+                                            <p style={{ color: '#1e293b', fontWeight: 700, fontSize: '1.05rem' }}>{adminIdentity?.phone || 'N/A'}</p>
+                                        </div>
+                                        <div style={itemStyle}>
+                                            <p style={{ ...mutedStyle, fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.4rem', color: '#1b4f95' }}>Subscription Level</p>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Icon name="lightning" size={16} color="#f59e0b" />
+                                                <span style={{ color: '#b45309', fontWeight: 800, fontSize: '1.05rem' }}>
+                                                    {adminIdentity?.plan || (adminIdentity?.role === 'super_admin' ? 'Enterprise Global' : 'Enterprise Business')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style={itemStyle}>
+                                            <p style={{ ...mutedStyle, fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.4rem', color: '#1b4f95' }}>Organization Key</p>
+                                            <p style={{ color: '#1e293b', fontWeight: 700, fontSize: '1.05rem', fontFamily: 'monospace' }}>{adminIdentity?.tenantKey || 'ROOT_TENANT'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginTop: '3rem', padding: '1.5rem', borderRadius: '16px', background: '#f8fbff', border: '1px solid #d8e5f8' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Icon name="help" size={18} color="#fff" />
+                                            </div>
+                                            <h4 style={{ margin: 0, color: '#13366c', fontSize: '1.1rem', fontWeight: 800 }}>Company & Engineering Support</h4>
+                                        </div>
+                                        <p style={{ ...mutedStyle, margin: '0 0 1.2rem 0', maxWidth: '600px' }}>
+                                            For technical assistance, white-labeling requests, or customized exam infrastructure, please reach out directly to our engineering team.
+                                        </p>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Primary Email:</span>
+                                                <a href="mailto:info@indocreonix.com" style={{ fontSize: '0.95rem', color: '#2563eb', fontWeight: 800, textDecoration: 'none', borderBottom: '1.5px solid #bfdbfe' }}>info@indocreonix.com</a>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Tech Support:</span>
+                                                <span style={{ fontSize: '0.95rem', color: '#1e293b', fontWeight: 700 }}>support.help@indocreonix.com</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {activeView === 'users' && adminIdentity?.role === 'super_admin' && (
                             <>
                                 <section style={cardStyle}>
                                     <h3 style={{ marginTop: 0 }}>User Management</h3>
@@ -3107,6 +3263,7 @@ const AdminApp: React.FC = () => {
                                                     <div key={item._id} style={itemStyle}>
                                                         <strong>{item.name}</strong>
                                                         <p style={mutedStyle}>{item.email}</p>
+                                                        <p style={mutedStyle}>Phone: {item.phone || 'N/A'}</p>
                                                         <p style={mutedStyle}>Organization Code: {item.tenantKey}</p>
                                                         <p style={mutedStyle}>Created: {new Date(item.createdAt).toLocaleString()}</p>
                                                     </div>
@@ -3161,6 +3318,10 @@ const AdminApp: React.FC = () => {
                                                 <input value={newTenantAdminEmail} onChange={(e) => setNewTenantAdminEmail(e.target.value)} type="email" required style={inputStyle} />
                                                 <label>Admin Password</label>
                                                 <input value={newTenantAdminPassword} onChange={(e) => setNewTenantAdminPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
+                                                <label>Admin Mobile Number</label>
+                                                <input value={newTenantAdminPhone} onChange={(e) => setNewTenantAdminPhone(e.target.value)} placeholder="+91 ..." style={inputStyle} />
+                                                <label>Maximum Student Intake (Student Limit)</label>
+                                                <input type="number" value={newTenantAdminStudentLimit} onChange={(e) => setNewTenantAdminStudentLimit(e.target.value)} required style={inputStyle} min={1} />
                                                 <label>Organization Code (optional, auto-generated if empty)</label>
                                                 <input value={newTenantKey} onChange={(e) => setNewTenantKey(e.target.value)} style={inputStyle} />
                                                 <button type="submit" style={primaryBtnStyle}>Create Organization Admin</button>
@@ -3171,6 +3332,7 @@ const AdminApp: React.FC = () => {
                                                     <div key={item._id} style={itemStyle}>
                                                         <strong>{item.name}</strong>
                                                         <p style={mutedStyle}>{item.email}</p>
+                                                        <p style={mutedStyle}>Phone: {item.phone || 'N/A'}</p>
                                                         <p style={mutedStyle}>Organization Code: {item.tenantKey}</p>
                                                         <p style={mutedStyle}>Created: {new Date(item.createdAt).toLocaleString()}</p>
                                                         <button
@@ -3182,6 +3344,20 @@ const AdminApp: React.FC = () => {
                                                         >
                                                             Use This Organization Context
                                                         </button>
+                                                        {adminIdentity?.role === 'super_admin' && (
+                                                            <button
+                                                                onClick={() => deleteManagedAdmin(item._id)}
+                                                                style={{
+                                                                    ...dangerBtnStyle,
+                                                                    fontSize: '0.74rem',
+                                                                    padding: '0.25rem 0.6rem',
+                                                                    margin: '0.5rem 0 0 0',
+                                                                    width: 'auto'
+                                                                }}
+                                                            >
+                                                                Delete Admin
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 ))}
                                                 {managedAdmins.length === 0 && <p style={mutedStyle}>No organization admins found yet.</p>}
@@ -3202,6 +3378,8 @@ const AdminApp: React.FC = () => {
                                             <input value={newSuperAdminEmail} onChange={(e) => setNewSuperAdminEmail(e.target.value)} type="email" required style={inputStyle} />
                                             <label>Super Admin Password</label>
                                             <input value={newSuperAdminPassword} onChange={(e) => setNewSuperAdminPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
+                                            <label>Super Admin Mobile Number</label>
+                                            <input value={newSuperAdminPhone} onChange={(e) => setNewSuperAdminPhone(e.target.value)} placeholder="+91 ..." style={inputStyle} />
                                             <button type="submit" style={primaryBtnStyle}>Create Additional Super Admin</button>
                                         </form>
                                     )}
