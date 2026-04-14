@@ -445,10 +445,24 @@ const AdminApp: React.FC = () => {
     }, [isMobile]);
 
     useEffect(() => {
-        if ((mode === 'dashboard') && !token) {
+        if (mode === 'dashboard' && !token) {
             navigate('/admin/login');
         }
     }, [mode, token]);
+
+    useEffect(() => {
+        if (status && !status.endsWith('...')) {
+            const timer = setTimeout(() => setStatus(''), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [status]);
+
+    useEffect(() => {
+        if (error) {
+            const timer = setTimeout(() => setError(''), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [error]);
 
     const api = async <T,>(path: string, init: RequestInit = {}, withAuth = true): Promise<T> => {
         const headers: Record<string, string> = {
@@ -3142,7 +3156,8 @@ const okStyle: React.CSSProperties = {
     background: '#e8f9ed',
     border: '1px solid #bde7c8',
     borderRadius: '8px',
-    padding: '0.55rem'
+    padding: '0.55rem',
+    animation: 'fade-in 0.4s ease-out'
 };
 
 const errStyle: React.CSSProperties = {
@@ -3151,7 +3166,8 @@ const errStyle: React.CSSProperties = {
     background: '#ffecec',
     border: '1px solid #f0c1c1',
     borderRadius: '8px',
-    padding: '0.55rem'
+    padding: '0.55rem',
+    animation: 'fade-in 0.4s ease-out'
 };
 
 const gridStyle: React.CSSProperties = {
@@ -3238,7 +3254,8 @@ const loginOkStyle: React.CSSProperties = {
     border: '1px solid #b5e8ce',
     borderRadius: '8px',
     padding: '0.55rem 0.75rem',
-    fontSize: '0.84rem'
+    fontSize: '0.84rem',
+    animation: 'fade-in 0.4s ease-out'
 };
 
 const loginErrStyle: React.CSSProperties = {
@@ -3248,7 +3265,8 @@ const loginErrStyle: React.CSSProperties = {
     border: '1px solid #f5bcbc',
     borderRadius: '8px',
     padding: '0.55rem 0.75rem',
-    fontSize: '0.84rem'
+    fontSize: '0.84rem',
+    animation: 'fade-in 0.4s ease-out'
 };
 
 export default AdminApp;

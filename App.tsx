@@ -464,6 +464,13 @@ const StudentApp: React.FC = () => {
     };
   }, [gameState, studentToken, handleSubmitExam, antiCheat.violationCount]);
 
+  useEffect(() => {
+    if (apiError) {
+      const timer = setTimeout(() => setApiError(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [apiError]);
+
   const startExam = async () => {
     // Trigger full-screen FIRST, synchronously within the click handler to satisfy browser/mobile security policies
     antiCheat.enterFullScreen().catch(console.error);
@@ -703,7 +710,10 @@ const StudentApp: React.FC = () => {
     <div className="min-h-screen font-sans text-gray-800 bg-gray-200">
       <BrandSignature />
       {apiError && (
-        <div className="fixed top-3 right-3 z-50 bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-sm">
+        <div 
+          className="fixed top-3 right-3 z-50 bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-lg text-sm shadow-lg"
+          style={{ animation: 'slide-left 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
+        >
           {apiError}
         </div>
       )}
