@@ -461,14 +461,14 @@ const StudentApp: React.FC = () => {
     submitLockRef.current = false;
   };
 
-  const handleLoginGateway = useCallback(async (studentName: string, rollNumber: string) => {
+  const handleLoginGateway = useCallback(async (studentName: string, rollNumber: string, organizationCode: string) => {
     setIsGateOpening(true);
     setApiError('');
 
     try {
       const session = await apiRequest<{ data: { token: string } }>('/api/auth/student/session', {
         method: 'POST',
-        body: JSON.stringify({ loginId: rollNumber, password: studentName }),
+        body: JSON.stringify({ loginId: rollNumber, password: studentName, organizationCode }),
       });
 
       const token = session.data.token;
@@ -634,17 +634,18 @@ const App: React.FC = () => {
 };
 
 // --- LoginScreen â€” Professional White Glassmorphic ---
-const LoginScreen: React.FC<{ onLogin: (studentName: string, rollNumber: string) => void; isGateOpening: boolean }> = ({ onLogin, isGateOpening }) => {
+const LoginScreen: React.FC<{ onLogin: (studentName: string, rollNumber: string, organizationCode: string) => void; isGateOpening: boolean }> = ({ onLogin, isGateOpening }) => {
   const [studentName, setStudentName] = useState('');
   const [rollNumber, setRollNumber] = useState('');
+  const [organizationCode, setOrganizationCode] = useState('');
   const [focused, setFocused] = useState<string | null>(null);
 
-  const isReady = studentName.trim().length >= 1 && rollNumber.trim().length >= 1;
+  const isReady = studentName.trim().length >= 1 && rollNumber.trim().length >= 1 && organizationCode.trim().length >= 3;
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isReady) return;
-    onLogin(studentName.trim(), rollNumber.trim());
+    onLogin(studentName.trim(), rollNumber.trim(), organizationCode.trim().toLowerCase());
   };
 
   return (
@@ -674,7 +675,7 @@ const LoginScreen: React.FC<{ onLogin: (studentName: string, rollNumber: string)
             color: s.color,
             '--sparkle-delay': s.delay,
             '--sparkle-duration': s.duration,
-          } as React.CSSProperties}
+          } as React.CSSProperties & Record<'--sparkle-delay' | '--sparkle-duration', string>}
         />
       ))}
 
@@ -852,6 +853,35 @@ const LoginScreen: React.FC<{ onLogin: (studentName: string, rollNumber: string)
                     onFocus={() => setFocused('rollNumber')}
                     onBlur={() => setFocused(null)}
                     placeholder="Enter your roll number"
+                    className="glass-input"
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+
+              <div style={{ animation: 'slide-up 0.6s ease 0.82s both' }}>
+                <label
+                  htmlFor="organizationCode"
+                  className="block text-xs font-semibold uppercase tracking-wider mb-2"
+                  style={{ color: focused === 'organizationCode' ? '#4f46e5' : '#64748b', transition: 'color 0.3s' }}
+                >
+                  Organization Code
+                </label>
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                    <svg className={`w-5 h-5 transition-colors duration-300 ${focused === 'organizationCode' ? 'text-indigo-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 11c0 1.657-1.12 3-2.5 3S7 12.657 7 11s1.12-3 2.5-3 2.5 1.343 2.5 3zm4.5 0c0 1.657-1.12 3-2.5 3S11.5 12.657 11.5 11s1.12-3 2.5-3 2.5 1.343 2.5 3zM3 19h18" />
+                    </svg>
+                  </div>
+                  <input
+                    id="organizationCode"
+                    type="text"
+                    value={organizationCode}
+                    onChange={(e) => setOrganizationCode(e.target.value)}
+                    onFocus={() => setFocused('organizationCode')}
+                    onBlur={() => setFocused(null)}
+                    placeholder="Enter your organization code"
                     className="glass-input"
                     required
                     autoComplete="off"

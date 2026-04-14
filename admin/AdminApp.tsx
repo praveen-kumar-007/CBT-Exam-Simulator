@@ -1,13 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-type Mode = 'login' | 'signup' | 'dashboard';
-type DashboardView = 'overview' | 'sections' | 'questions' | 'students' | 'config' | 'activity' | 'insights' | 'help';
+type Mode = 'admin-login' | 'super-admin-login' | 'dashboard';
+type DashboardView = 'overview' | 'sections' | 'questions' | 'students' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help';
 
 type AdminIdentity = {
     id?: string;
     name?: string;
     email?: string;
     role?: string;
+    tenantKey?: string | null;
+};
+
+type ManagedAdminItem = {
+    _id: string;
+    name: string;
+    email: string;
+    tenantKey: string;
+    createdAt: string;
 };
 
 type SectionItem = {
@@ -147,6 +156,9 @@ type InsightsPayload = {
     timeline: InsightsTimelineItem[];
 };
 
+const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'students', 'config', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help'];
+const DEFAULT_DASHBOARD_VIEW: DashboardView = 'overview';
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const BRAND_NAME = 'Indocreonix';
 const BRAND_LOGO_URL = 'https://res.cloudinary.com/deiy8xksn/image/upload/v1773475385/logo_ujugop.png';
@@ -171,15 +183,15 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
     >
         <div
             style={{
-                maxWidth: '1200px',
-                margin: '0 auto',
+                width: '100%',
+                margin: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '14px',
                 flexWrap: 'wrap',
                 position: 'relative',
-                paddingRight: showMenuButton ? '52px' : 0
+                padding: `0 ${showMenuButton ? '52px' : '6px'} 0 6px`
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -237,9 +249,16 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
 
 const getModeFromPath = (): Mode => {
     const path = window.location.pathname.toLowerCase();
-    if (path.startsWith('/admin/signup')) return 'signup';
+    if (path.startsWith('/admin/super-admin/login')) return 'super-admin-login';
     if (path.startsWith('/admin/dashboard')) return 'dashboard';
-    return 'login';
+    return 'admin-login';
+};
+
+const getDashboardViewFromPath = (): DashboardView => {
+    const path = window.location.pathname.toLowerCase();
+    const match = path.match(/^\/admin\/dashboard(?:\/([^/?#]+))?/);
+    const candidate = (match?.[1] || DEFAULT_DASHBOARD_VIEW) as DashboardView;
+    return DASHBOARD_VIEWS.includes(candidate) ? candidate : DEFAULT_DASHBOARD_VIEW;
 };
 
 const isMissingExamConfigRoute = (message: string) =>
@@ -260,21 +279,18 @@ const readAdminIdentity = (): AdminIdentity | null => {
 const AdminApp: React.FC = () => {
     const getIsMobile = () => (typeof window !== 'undefined' ? window.innerWidth <= 900 : false);
     const [mode, setMode] = useState<Mode>(getModeFromPath());
-    const [activeView, setActiveView] = useState<DashboardView>('overview');
+    const [activeView, setActiveView] = useState<DashboardView>(getDashboardViewFromPath());
     const [isMobile, setIsMobile] = useState(getIsMobile());
     const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+    const [isSidebarHovering, setIsSidebarHovering] = useState(false);
+    const [isSidebarPinned, setIsSidebarPinned] = useState(false);
     const [token, setToken] = useState(localStorage.getItem('adminToken') || '');
     const [adminIdentity, setAdminIdentity] = useState<AdminIdentity | null>(readAdminIdentity());
 
     const [status, setStatus] = useState('');
     const [error, setError] = useState('');
-
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
-
-    const [signupName, setSignupName] = useState('');
-    const [signupEmail, setSignupEmail] = useState('');
-    const [signupPassword, setSignupPassword] = useState('');
 
     const [sections, setSections] = useState<SectionItem[]>([]);
     const [selectedSectionId, setSelectedSectionId] = useState('');
@@ -307,6 +323,16 @@ const AdminApp: React.FC = () => {
     const [questionSearch, setQuestionSearch] = useState('');
     const [studentSearch, setStudentSearch] = useState('');
     const [insights, setInsights] = useState<InsightsPayload | null>(null);
+    const [menuSearch, setMenuSearch] = useState('');
+    const [managedAdmins, setManagedAdmins] = useState<ManagedAdminItem[]>([]);
+    const [selectedTenantAdminId, setSelectedTenantAdminId] = useState('');
+    const [newTenantAdminName, setNewTenantAdminName] = useState('');
+    const [newTenantAdminEmail, setNewTenantAdminEmail] = useState('');
+    const [newTenantAdminPassword, setNewTenantAdminPassword] = useState('');
+    const [newTenantKey, setNewTenantKey] = useState('');
+    const [newSuperAdminName, setNewSuperAdminName] = useState('');
+    const [newSuperAdminEmail, setNewSuperAdminEmail] = useState('');
+    const [newSuperAdminPassword, setNewSuperAdminPassword] = useState('');
 
     const activeSection = useMemo(
         () => sections.find((section) => section._id === selectedSectionId) || null,
@@ -332,13 +358,25 @@ const AdminApp: React.FC = () => {
     const navigate = (path: string) => {
         window.history.pushState({}, '', path);
         setMode(getModeFromPath());
+        if (path.startsWith('/admin/dashboard')) {
+            setActiveView(getDashboardViewFromPath());
+        }
     };
 
     useEffect(() => {
-        const handler = () => setMode(getModeFromPath());
+        const handler = () => {
+            setMode(getModeFromPath());
+            setActiveView(getDashboardViewFromPath());
+        };
         window.addEventListener('popstate', handler);
         return () => window.removeEventListener('popstate', handler);
     }, []);
+
+    useEffect(() => {
+        if (mode === 'dashboard' && !window.location.pathname.toLowerCase().startsWith('/admin/dashboard/')) {
+            window.history.replaceState({}, '', `/admin/dashboard/${activeView}`);
+        }
+    }, [mode, activeView]);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(getIsMobile());
@@ -349,7 +387,11 @@ const AdminApp: React.FC = () => {
     useEffect(() => {
         if (!isMobile) {
             setIsNavMenuOpen(false);
+            return;
         }
+
+        setIsSidebarHovering(false);
+        setIsSidebarPinned(false);
     }, [isMobile]);
 
     useEffect(() => {
@@ -365,6 +407,18 @@ const AdminApp: React.FC = () => {
 
         if (withAuth && token) {
             headers.Authorization = `Bearer ${token}`;
+        }
+
+        if (
+            withAuth &&
+            adminIdentity?.role === 'super_admin' &&
+            !path.includes('/managed-admins') &&
+            !path.includes('/super-admins')
+        ) {
+            if (!selectedTenantAdminId) {
+                throw new Error('Select an organization admin context first.');
+            }
+            headers['x-organization-admin-id'] = selectedTenantAdminId;
         }
 
         const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
@@ -383,8 +437,12 @@ const AdminApp: React.FC = () => {
         setStatus('');
 
         try {
+            const loginPath = mode === 'super-admin-login'
+                ? '/api/auth/super-admin/login'
+                : '/api/auth/admin/login';
+
             const result = await api<AuthResponse>(
-                '/api/auth/admin/login',
+                loginPath,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -397,39 +455,11 @@ const AdminApp: React.FC = () => {
             localStorage.setItem('adminUser', JSON.stringify(result.data.user));
             setToken(result.data.token);
             setAdminIdentity(result.data.user);
-            setActiveView('overview');
+            setActiveView(DEFAULT_DASHBOARD_VIEW);
             setStatus('Login successful.');
-            navigate('/admin/dashboard');
+            navigate('/admin/dashboard/overview');
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Login failed');
-        }
-    };
-
-    const handleSignup = async (event: React.FormEvent) => {
-        event.preventDefault();
-        setError('');
-        setStatus('');
-
-        try {
-            const result = await api<AuthResponse>(
-                '/api/auth/admin/signup',
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword })
-                },
-                false
-            );
-
-            localStorage.setItem('adminToken', result.data.token);
-            localStorage.setItem('adminUser', JSON.stringify(result.data.user));
-            setToken(result.data.token);
-            setAdminIdentity(result.data.user);
-            setActiveView('overview');
-            setStatus('Signup successful.');
-            navigate('/admin/dashboard');
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Signup failed');
         }
     };
 
@@ -485,6 +515,76 @@ const AdminApp: React.FC = () => {
                 return;
             }
             setError(message);
+        }
+    };
+
+    const loadManagedAdmins = async () => {
+        if (adminIdentity?.role !== 'super_admin') {
+            return;
+        }
+
+        try {
+            const result = await api<{ data: ManagedAdminItem[] }>('/api/admin/managed-admins');
+            setManagedAdmins(result.data || []);
+
+            if (!selectedTenantAdminId && result.data?.length) {
+                setSelectedTenantAdminId(result.data[0]._id);
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to load managed admins');
+        }
+    };
+
+    const createTenantAdmin = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError('');
+        setStatus('');
+
+        try {
+            await api('/api/admin/managed-admins', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newTenantAdminName,
+                    email: newTenantAdminEmail,
+                    password: newTenantAdminPassword,
+                    organizationCode: newTenantKey || undefined
+                })
+            });
+
+            setNewTenantAdminName('');
+            setNewTenantAdminEmail('');
+            setNewTenantAdminPassword('');
+            setNewTenantKey('');
+            setStatus('Organization admin created successfully.');
+            await loadManagedAdmins();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to create organization admin');
+        }
+    };
+
+    const createExtraSuperAdmin = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError('');
+        setStatus('');
+
+        try {
+            await api('/api/admin/super-admins', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newSuperAdminName,
+                    email: newSuperAdminEmail,
+                    password: newSuperAdminPassword
+                })
+            });
+
+            setNewSuperAdminName('');
+            setNewSuperAdminEmail('');
+            setNewSuperAdminPassword('');
+            setStatus('Additional super administrator created successfully.');
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to create super administrator');
         }
     };
 
@@ -924,21 +1024,30 @@ const AdminApp: React.FC = () => {
         localStorage.removeItem('adminUser');
         setToken('');
         setAdminIdentity(null);
-        setActiveView('overview');
+        setActiveView(DEFAULT_DASHBOARD_VIEW);
         navigate('/admin/login');
     };
 
     useEffect(() => {
         if (mode === 'dashboard' && token) {
             setAdminIdentity(readAdminIdentity());
-            loadSections().catch(() => { });
-            loadStudents().catch(() => { });
-            loadAnalytics().catch(() => { });
-            loadRecentSubmissions().catch(() => { });
-            loadInsights().catch(() => { });
-            loadExamConfig().catch(() => { });
+
+            if (adminIdentity?.role === 'super_admin') {
+                loadManagedAdmins().catch(() => { });
+            }
+
+            const canLoadTenantData = adminIdentity?.role !== 'super_admin' || Boolean(selectedTenantAdminId);
+
+            if (canLoadTenantData) {
+                loadSections().catch(() => { });
+                loadStudents().catch(() => { });
+                loadAnalytics().catch(() => { });
+                loadRecentSubmissions().catch(() => { });
+                loadInsights().catch(() => { });
+                loadExamConfig().catch(() => { });
+            }
         }
-    }, [mode, token]);
+    }, [mode, token, adminIdentity?.role, selectedTenantAdminId]);
 
     const navItems: Array<{ key: DashboardView; label: string; hint: string }> = [
         { key: 'overview', label: 'Overview', hint: 'Summary and quick actions' },
@@ -948,8 +1057,45 @@ const AdminApp: React.FC = () => {
         { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup' },
         { key: 'activity', label: 'Activity', hint: 'Recent submission timeline' },
         { key: 'insights', label: 'Insights', hint: 'Data charts and trends' },
+        { key: 'reports', label: 'Reports', hint: 'Export center and audit-ready summaries' },
+        { key: 'users', label: 'User Management', hint: 'Manage admin access and identity data' },
+        { key: 'settings', label: 'Platform Settings', hint: 'Govern platform behavior and preferences' },
         { key: 'help', label: 'Help Center', hint: 'Usage guide and best practices' }
     ];
+
+    if (adminIdentity?.role === 'super_admin') {
+        navItems.splice(7, 0, { key: 'tenants', label: 'Organization Control', hint: 'Create and switch admin organizations' });
+    }
+
+    const menuSearchKey = menuSearch.trim().toLowerCase();
+    const sidebarSections: Array<{ title: string; views: DashboardView[] }> = [
+        { title: 'Overview', views: ['overview', 'activity', 'insights'] },
+        { title: 'Exam Workspace', views: ['sections', 'questions', 'students', 'config'] },
+        { title: 'Operations', views: ['reports'] },
+        { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['users', 'settings', 'tenants'] : ['users', 'settings'] },
+        { title: 'Support', views: ['help'] }
+    ];
+
+    const visibleSidebarSections = sidebarSections
+        .map((section) => ({
+            ...section,
+            views: section.views.filter((viewKey) => {
+                const item = navItems.find((nav) => nav.key === viewKey);
+                if (!item) {
+                    return false;
+                }
+
+                if (!menuSearchKey) {
+                    return true;
+                }
+
+                return (
+                    item.label.toLowerCase().includes(menuSearchKey) ||
+                    item.hint.toLowerCase().includes(menuSearchKey)
+                );
+            })
+        }))
+        .filter((section) => section.views.length > 0);
 
     const dashboardTitle: Record<DashboardView, string> = {
         overview: 'Admin Overview',
@@ -959,6 +1105,10 @@ const AdminApp: React.FC = () => {
         config: 'Exam Configuration',
         activity: 'Live Activity',
         insights: 'Data Insights',
+        reports: 'Reports Center',
+        users: 'User Management',
+        settings: 'Platform Settings',
+        tenants: 'Organization Control Center',
         help: 'Help Center'
     };
 
@@ -970,6 +1120,10 @@ const AdminApp: React.FC = () => {
         config: 'Keep timing and examiner identity consistent across all exams.',
         activity: 'Track latest attempts and response trends in real time.',
         insights: 'Visualize student behavior and performance through chart-driven insights.',
+        reports: 'Generate exports and leadership summaries from reliable exam data.',
+        users: 'Handle admin identities, account ownership, and operational access.',
+        settings: 'Apply organization-level standards for platform operations and compliance.',
+        tenants: 'Create organization admins and choose which organization dataset you are operating on.',
         help: 'Follow the recommended workflow for smooth exam operations.'
     };
 
@@ -982,9 +1136,16 @@ const AdminApp: React.FC = () => {
         : rowStyle;
 
     const openView = (view: DashboardView) => {
+        window.history.pushState({}, '', `/admin/dashboard/${view}`);
         setActiveView(view);
+        setMode('dashboard');
         if (isMobile) {
             setIsNavMenuOpen(false);
+            return;
+        }
+
+        if (!isSidebarPinned) {
+            setIsSidebarHovering(false);
         }
     };
 
@@ -1022,29 +1183,189 @@ const AdminApp: React.FC = () => {
         return `conic-gradient(${segments.join(', ')})`;
     }, [scoreBuckets, totalScoreBucketCount]);
 
-    if (mode === 'login') {
+    const renderSidebarContent = (compact = false) => (
+        <div style={{ display: 'grid', gap: '0.7rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: compact ? '34px' : '40px', width: 'auto', objectFit: 'contain' }} />
+                <div>
+                    <div style={{ fontWeight: 800, color: '#13366c' }}>{BRAND_NAME}</div>
+                    <div style={{ ...mutedStyle, fontSize: '0.74rem' }}>Admin Panel</div>
+                </div>
+            </div>
+
+            {!compact && !isMobile && (
+                <div style={{ ...itemStyle, marginBottom: 0, padding: '0.5rem 0.6rem', background: '#f7fbff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.4rem', alignItems: 'center' }}>
+                        <div style={{ fontSize: '0.76rem', color: '#365b8e', fontWeight: 700 }}>
+                            {isSidebarPinned ? 'Sidebar pinned' : 'Auto-hide sidebar'}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsSidebarPinned((prev) => !prev)}
+                            style={{
+                                ...secondaryBtnStyle,
+                                width: 'auto',
+                                marginTop: 0,
+                                padding: '0.35rem 0.65rem',
+                                borderRadius: '999px',
+                                fontSize: '0.72rem'
+                            }}
+                        >
+                            {isSidebarPinned ? 'Unpin' : 'Pin'}
+                        </button>
+                    </div>
+                    <div style={{ marginTop: '0.35rem', fontSize: '0.72rem', color: '#5c759f' }}>
+                        Hover the left edge to open when unpinned.
+                    </div>
+                </div>
+            )}
+
+            <input
+                value={menuSearch}
+                onChange={(e) => setMenuSearch(e.target.value)}
+                placeholder="Search menu"
+                style={{ ...inputStyle, margin: 0, background: '#f8fbff' }}
+            />
+
+            {!compact && (
+                <div style={{ ...itemStyle, marginBottom: 0, padding: '0.55rem 0.65rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#3f6fb2', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                        Workspace Status
+                    </div>
+                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>Role: <strong>{adminIdentity?.role === 'super_admin' ? 'Super Admin' : 'Organization Admin'}</strong></div>
+                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>View: <strong>{dashboardTitle[activeView]}</strong></div>
+                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>
+                        Context: <strong>{selectedTenantAdminId ? 'Organization Selected' : (adminIdentity?.role === 'super_admin' ? 'No Organization Context' : 'Own Organization')}</strong>
+                    </div>
+                </div>
+            )}
+
+            <div style={{ display: 'grid', gap: '0.65rem' }}>
+                {visibleSidebarSections.map((section) => (
+                    <div key={section.title}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.4px', color: '#3f6fb2', textTransform: 'uppercase', marginBottom: '0.3rem' }}>
+                            {section.title}
+                        </div>
+                        <div style={{ display: 'grid', gap: '0.35rem' }}>
+                            {section.views.map((viewKey) => {
+                                const item = navItems.find((nav) => nav.key === viewKey);
+                                if (!item) return null;
+
+                                return (
+                                    <button
+                                        key={item.key}
+                                        onClick={() => openView(item.key)}
+                                        style={{
+                                            border: 'none',
+                                            width: '100%',
+                                            marginTop: 0,
+                                            textAlign: 'left',
+                                            padding: compact ? '0.5rem 0.45rem' : '0.58rem 0.58rem',
+                                            borderRadius: '6px',
+                                            background: activeView === item.key
+                                                ? '#edf5ff'
+                                                : 'transparent',
+                                            color: activeView === item.key ? '#1b4f95' : '#1d3d70',
+                                            borderLeft: activeView === item.key ? '4px solid #2a70dd' : '4px solid transparent',
+                                            borderBottom: '1px solid #d8e5f8',
+                                            cursor: 'pointer',
+                                            transition: 'background 180ms ease, border-left-color 180ms ease, color 180ms ease'
+                                        }}
+                                    >
+                                        <div style={{ fontWeight: 700, fontSize: '0.86rem' }}>{item.label}</div>
+                                        {!compact && <div style={{ fontSize: '0.72rem', opacity: 0.85 }}>{item.hint}</div>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <button onClick={logout} style={{ ...dangerBtnStyle, marginTop: '0.3rem', borderRadius: '10px' }}>
+                Logout
+            </button>
+
+        </div>
+    );
+
+    const authShellStyle: React.CSSProperties = {
+        ...pageStyle,
+        alignItems: 'stretch',
+        justifyContent: 'stretch',
+        padding: isMobile ? '0.55rem' : '0.8rem'
+    };
+
+    const authLayoutStyle: React.CSSProperties = {
+        width: '100%',
+        minHeight: isMobile ? 'auto' : 'calc(100vh - 102px)',
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : 'minmax(300px, 1fr) minmax(420px, 560px)',
+        gap: '0.7rem',
+        alignItems: 'stretch'
+    };
+
+    const authShowcaseStyle: React.CSSProperties = {
+        ...cardStyle,
+        background: 'linear-gradient(140deg, #0f3f89 0%, #165eb4 52%, #1d89d7 100%)',
+        border: '1px solid #1f5eb4',
+        color: '#f8fbff',
+        display: 'grid',
+        alignContent: 'space-between',
+        minHeight: isMobile ? '220px' : '100%'
+    };
+
+    const authCardStyle: React.CSSProperties = {
+        ...cardStyle,
+        width: '100%',
+        margin: 0,
+        alignSelf: 'center'
+    };
+
+    const isDesktopSidebarVisible = !isMobile && (isSidebarPinned || isSidebarHovering);
+    const desktopSidebarWidth = 260;
+
+    if (mode === 'admin-login') {
         return (
             <>
-                <div style={pageStyle}>
-                    <div style={cardStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.7rem' }}>
-                            <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
-                            <div>
-                                <div style={{ fontWeight: 800, color: '#133870' }}>{BRAND_NAME}</div>
-                                <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>Branded Command Authentication</div>
+                <div style={authShellStyle}>
+                    <div style={authLayoutStyle}>
+                        {!isMobile && (
+                            <section style={authShowcaseStyle}>
+                                <div>
+                                    <p style={{ margin: 0, fontSize: '0.78rem', letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.9 }}>Assessment Control Center</p>
+                                    <h1 style={{ margin: '0.4rem 0 0', fontSize: '1.8rem', lineHeight: 1.2 }}>Professional Admin Operations for Every Organization</h1>
+                                    <p style={{ marginTop: '0.7rem', fontSize: '0.95rem', opacity: 0.92 }}>
+                                        Secure role-based access, complete data isolation, and real-time exam supervision from one unified workspace.
+                                    </p>
+                                </div>
+                                <div style={{ display: 'grid', gap: '0.55rem' }}>
+                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>1. Sign in with organization admin credentials</div>
+                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>2. Manage sections, questions, and exam policy</div>
+                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>3. Track live activity and export verified reports</div>
+                                </div>
+                            </section>
+                        )}
+                        <section style={authCardStyle}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.7rem' }}>
+                                <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
+                                <div>
+                                    <div style={{ fontWeight: 800, color: '#133870' }}>{BRAND_NAME}</div>
+                                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>Branded Command Authentication</div>
+                                </div>
                             </div>
-                        </div>
-                        <h2 style={{ marginTop: 0 }}>Admin Login</h2>
-                        <form onSubmit={handleLogin}>
-                            <label>Email</label>
-                            <input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} type="email" required style={inputStyle} />
-                            <label>Password</label>
-                            <input value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
-                            <button type="submit" style={primaryBtnStyle}>Login</button>
-                        </form>
-                        <button type="button" onClick={() => navigate('/admin/signup')} style={secondaryBtnStyle}>Create admin account</button>
-                        {status && <p style={okStyle}>{status}</p>}
-                        {error && <p style={errStyle}>{error}</p>}
+                            <h2 style={{ marginTop: 0 }}>Organization Admin Login</h2>
+                            <form onSubmit={handleLogin}>
+                                <label>Email</label>
+                                <input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} type="email" required style={inputStyle} />
+                                <label>Password</label>
+                                <input value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
+                                <button type="submit" style={primaryBtnStyle}>Login</button>
+                            </form>
+                            <button type="button" onClick={() => navigate('/admin/super-admin/login')} style={secondaryBtnStyle}>Go to Super Admin Login</button>
+                            {status && <p style={okStyle}>{status}</p>}
+                            {error && <p style={errStyle}>{error}</p>}
+                        </section>
                     </div>
                 </div>
                 <BrandSignature />
@@ -1052,31 +1373,47 @@ const AdminApp: React.FC = () => {
         );
     }
 
-    if (mode === 'signup') {
+    if (mode === 'super-admin-login') {
         return (
             <>
-                <div style={pageStyle}>
-                    <div style={cardStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.7rem' }}>
-                            <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
-                            <div>
-                                <div style={{ fontWeight: 800, color: '#133870' }}>{BRAND_NAME}</div>
-                                <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>Admin Identity Enrollment</div>
+                <div style={authShellStyle}>
+                    <div style={authLayoutStyle}>
+                        {!isMobile && (
+                            <section style={authShowcaseStyle}>
+                                <div>
+                                    <p style={{ margin: 0, fontSize: '0.78rem', letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.9 }}>Leadership Access Layer</p>
+                                    <h1 style={{ margin: '0.4rem 0 0', fontSize: '1.8rem', lineHeight: 1.2 }}>Super Administrator Command Console</h1>
+                                    <p style={{ marginTop: '0.7rem', fontSize: '0.95rem', opacity: 0.92 }}>
+                                        Provision new organization admins, switch organization context, and govern exam infrastructure at scale.
+                                    </p>
+                                </div>
+                                <div style={{ display: 'grid', gap: '0.55rem' }}>
+                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>1. Authenticate as super administrator</div>
+                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>2. Create and assign organization admins</div>
+                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>3. Switch controlled data context securely</div>
+                                </div>
+                            </section>
+                        )}
+                        <section style={authCardStyle}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.7rem' }}>
+                                <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
+                                <div>
+                                    <div style={{ fontWeight: 800, color: '#133870' }}>{BRAND_NAME}</div>
+                                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>Super Admin Authentication</div>
+                                </div>
                             </div>
-                        </div>
-                        <h2 style={{ marginTop: 0 }}>Admin Signup</h2>
-                        <form onSubmit={handleSignup}>
-                            <label>Name</label>
-                            <input value={signupName} onChange={(e) => setSignupName(e.target.value)} required style={inputStyle} />
-                            <label>Email</label>
-                            <input value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} type="email" required style={inputStyle} />
-                            <label>Password</label>
-                            <input value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
-                            <button type="submit" style={primaryBtnStyle}>Signup</button>
-                        </form>
-                        <button type="button" onClick={() => navigate('/admin/login')} style={secondaryBtnStyle}>Back to login</button>
-                        {status && <p style={okStyle}>{status}</p>}
-                        {error && <p style={errStyle}>{error}</p>}
+                            <h2 style={{ marginTop: 0 }}>Super Admin Login</h2>
+                            <form onSubmit={handleLogin}>
+                                <label>Email</label>
+                                <input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} type="email" required style={inputStyle} />
+                                <label>Password</label>
+                                <input value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
+                                <button type="submit" style={primaryBtnStyle}>Login</button>
+                            </form>
+                            <button type="button" onClick={() => navigate('/admin/login')} style={secondaryBtnStyle}>Go to Organization Admin Login</button>
+                            {status && <p style={okStyle}>{status}</p>}
+                            {error && <p style={errStyle}>{error}</p>}
+                        </section>
                     </div>
                 </div>
                 <BrandSignature />
@@ -1091,182 +1428,158 @@ const AdminApp: React.FC = () => {
                 isMenuOpen={isNavMenuOpen}
                 onMenuToggle={() => setIsNavMenuOpen((prev) => !prev)}
             />
-            <div style={{ ...pageStyle, alignItems: 'stretch', paddingTop: '0.5rem' }}>
+            <div style={{ ...pageStyle, alignItems: 'stretch', paddingTop: '0.2rem' }}>
+                {!isMobile && !isDesktopSidebarVisible && (
+                    <div
+                        onMouseEnter={() => setIsSidebarHovering(true)}
+                        style={{
+                            position: 'fixed',
+                            top: '72px',
+                            left: 0,
+                            bottom: '0.3rem',
+                            width: '14px',
+                            zIndex: 50,
+                            borderTopRightRadius: '12px',
+                            borderBottomRightRadius: '12px',
+                            background: 'linear-gradient(180deg, rgba(35,117,207,0.75), rgba(26,76,153,0.75))',
+                            boxShadow: '4px 0 16px rgba(18, 54, 108, 0.28)',
+                            cursor: 'e-resize'
+                        }}
+                        aria-hidden="true"
+                    />
+                )}
+
+                {isMobile && isNavMenuOpen && (
+                    <div
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 40,
+                            background: 'rgba(8, 23, 48, 0.45)',
+                            backdropFilter: 'blur(2px)'
+                        }}
+                        onClick={() => setIsNavMenuOpen(false)}
+                    >
+                        <aside
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '84%',
+                                maxWidth: '320px',
+                                height: '100%',
+                                background: 'linear-gradient(170deg, #fff8f2 0%, #fff1e7 100%)',
+                                borderRight: '1px solid #efcfb8',
+                                boxShadow: '10px 0 28px rgba(17, 45, 92, 0.24)',
+                                padding: '0.85rem',
+                                overflowY: 'auto'
+                            }}
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            {renderSidebarContent(true)}
+                        </aside>
+                    </div>
+                )}
+
+                {!isMobile && (
+                    <aside
+                        onMouseEnter={() => setIsSidebarHovering(true)}
+                        onMouseLeave={() => {
+                            if (!isSidebarPinned) {
+                                setIsSidebarHovering(false);
+                            }
+                        }}
+                        style={{
+                            ...cardStyle,
+                            width: `${desktopSidebarWidth}px`,
+                            background: 'linear-gradient(180deg, #ffe8d6 0%, #fff7f0 100%)',
+                            border: '1px solid #e9c7af',
+                            boxShadow: '0 14px 32px rgba(115, 72, 32, 0.2)',
+                            position: 'fixed',
+                            top: '68px',
+                            left: 0,
+                            bottom: '0.3rem',
+                            overflowY: 'auto',
+                            zIndex: 60,
+                            transform: isDesktopSidebarVisible ? 'translateX(0)' : 'translateX(-104%)',
+                            transition: 'transform 220ms ease'
+                        }}
+                    >
+                        {renderSidebarContent()}
+                    </aside>
+                )}
+
                 <div
                     style={{
                         width: '100%',
-                        maxWidth: '1250px',
-                        margin: '1rem auto',
+                        margin: '0.2rem 0 0',
                         display: 'grid',
-                        gap: '1rem',
-                        alignItems: 'stretch'
+                        gridTemplateColumns: 'minmax(0, 1fr)',
+                        gap: '0.6rem',
+                        alignItems: 'stretch',
+                        minHeight: 'auto',
+                        paddingLeft: isMobile ? 0 : (isDesktopSidebarVisible ? `${desktopSidebarWidth + 8}px` : 0),
+                        transition: 'padding-left 220ms ease'
                     }}
                 >
-                    <nav
-                        style={{
-                            ...cardStyle,
-                            position: 'static',
-                            zIndex: 20,
-                            background: 'linear-gradient(135deg, rgba(255,255,255,0.78), rgba(234,243,255,0.82))',
-                            backdropFilter: 'blur(14px)',
-                            border: '1px solid rgba(151, 183, 235, 0.9)',
-                            boxShadow: '0 16px 34px rgba(16, 49, 108, 0.15)',
-                            padding: isMobile ? '0.7rem' : '0.8rem 1rem'
-                        }}
-                    >
-                        <div
+                    <main style={{ width: '100%', display: 'grid', gap: '0.6rem' }}>
+                        <section
                             style={{
-                                display: 'grid',
-                                gap: '0.65rem'
+                                ...cardStyle,
+                                background: 'linear-gradient(90deg, rgba(243,247,255,0.95), rgba(255,244,242,0.95))',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: '0.75rem',
+                                alignItems: 'center',
+                                flexWrap: 'wrap'
                             }}
                         >
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    gap: '0.75rem',
-                                    flexWrap: 'wrap'
-                                }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                                    <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
-                                    <div>
-                                        <div style={{ fontWeight: 800, color: '#13366c', letterSpacing: '0.2px' }}>{BRAND_NAME} Admin</div>
-                                        <div style={{ ...mutedStyle, color: '#466aa0', fontSize: '0.75rem' }}>{BRAND_MOTTO}</div>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0f3f8d', background: 'rgba(223, 236, 255, 0.92)', border: '1px solid #b2c9f1', borderRadius: '999px', padding: '0.25rem 0.6rem' }}>
-                                        {BRAND_TAG}
-                                    </span>
-                                    <span style={{ fontSize: '0.74rem', color: '#2b4f84', background: 'rgba(255,255,255,0.72)', border: '1px solid #bfd2f2', borderRadius: '999px', padding: '0.25rem 0.6rem' }}>
-                                        Examiner: {adminIdentity?.name || 'Admin'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {!isMobile && (
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        flexWrap: 'nowrap',
-                                        gap: '0.45rem',
-                                        overflowX: 'auto',
-                                        paddingBottom: '0.1rem'
-                                    }}
-                                >
-                                    {navItems.map((item) => (
-                                        <button
-                                            key={item.key}
-                                            onClick={() => openView(item.key)}
-                                            style={{
-                                                ...secondaryBtnStyle,
-                                                width: 'auto',
-                                                marginTop: 0,
-                                                padding: '0.55rem 0.85rem',
-                                                whiteSpace: 'normal',
-                                                textAlign: 'left',
-                                                background: activeView === item.key
-                                                    ? 'linear-gradient(120deg, #1b57b8, #2383d6)'
-                                                    : 'rgba(255,255,255,0.76)',
-                                                borderColor: activeView === item.key ? '#1f5fbd' : '#bdd0ef',
-                                                color: activeView === item.key ? '#ffffff' : '#173a7a',
-                                                boxShadow: activeView === item.key
-                                                    ? '0 8px 18px rgba(35, 95, 181, 0.32)'
-                                                    : '0 3px 10px rgba(17, 52, 111, 0.08)'
-                                            }}
-                                        >
-                                            <div style={{ fontWeight: 700 }}>{item.label}</div>
-                                            <div style={{ fontSize: '0.72rem', opacity: 0.88, marginTop: '0.1rem' }}>{item.hint}</div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </nav>
-
-                    {isMobile && isNavMenuOpen && (
-                        <div
-                            style={{
-                                position: 'fixed',
-                                inset: 0,
-                                zIndex: 40,
-                                background: 'rgba(8, 23, 48, 0.35)',
-                                backdropFilter: 'blur(2px)'
-                            }}
-                            onClick={() => setIsNavMenuOpen(false)}
-                        >
-                            <aside
-                                style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    right: 0,
-                                    width: '84%',
-                                    maxWidth: '350px',
-                                    height: '100%',
-                                    background: 'linear-gradient(170deg, #ffffff 0%, #eef5ff 100%)',
-                                    borderLeft: '1px solid #b8cdf0',
-                                    boxShadow: '-16px 0 28px rgba(17, 45, 92, 0.24)',
-                                    padding: '0.9rem',
-                                    overflowY: 'auto'
-                                }}
-                                onClick={(event) => event.stopPropagation()}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' }}>
-                                    <strong style={{ color: '#123a78' }}>Admin Pages</strong>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsNavMenuOpen(false)}
-                                        style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.35rem 0.6rem' }}
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-
-                                <div style={{ display: 'grid', gap: '0.45rem' }}>
-                                    {navItems.map((item) => (
-                                        <button
-                                            key={item.key}
-                                            onClick={() => openView(item.key)}
-                                            style={{
-                                                ...secondaryBtnStyle,
-                                                width: '100%',
-                                                marginTop: 0,
-                                                padding: '0.6rem 0.75rem',
-                                                whiteSpace: 'normal',
-                                                textAlign: 'left',
-                                                background: activeView === item.key
-                                                    ? 'linear-gradient(120deg, #1b57b8, #2383d6)'
-                                                    : '#ffffff',
-                                                borderColor: activeView === item.key ? '#1f5fbd' : '#bdd0ef',
-                                                color: activeView === item.key ? '#ffffff' : '#173a7a'
-                                            }}
-                                        >
-                                            <div style={{ fontWeight: 700 }}>{item.label}</div>
-                                            <div style={{ fontSize: '0.72rem', opacity: 0.88, marginTop: '0.1rem' }}>{item.hint}</div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </aside>
-                        </div>
-                    )}
-
-                    <main style={{ width: '100%', display: 'grid', gap: '1rem' }}>
-                        <section style={{ ...cardStyle, display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <div>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '0.3rem', background: '#edf4ff', border: '1px solid #c7daf8', borderRadius: '999px', padding: '4px 10px' }}>
-                                    <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} badge`} style={{ height: '18px', width: 'auto', objectFit: 'contain' }} />
-                                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#1f4a8a' }}>{BRAND_NAME} Branded Ops | {BRAND_TAG}</span>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '0.25rem' }}>
+                                    <span style={{ fontSize: '0.72rem', border: '1px solid #9bc0f4', background: '#e8f1ff', color: '#2d6dd3', borderRadius: '999px', padding: '0.22rem 0.6rem', fontWeight: 700 }}>Dashboard</span>
+                                    <span style={{ fontSize: '0.72rem', border: '1px solid #f0c6bf', background: '#fff1ef', color: '#d94f43', borderRadius: '999px', padding: '0.22rem 0.6rem', fontWeight: 700 }}>Analytics</span>
+                                    <span style={{ fontSize: '0.72rem', border: '1px solid #bde0c3', background: '#ecfff0', color: '#2e8f4c', borderRadius: '999px', padding: '0.22rem 0.6rem', fontWeight: 700 }}>Audit Logs</span>
                                 </div>
-                                <h2 style={{ margin: 0 }}>{dashboardTitle[activeView]}</h2>
-                                <p style={{ ...mutedStyle, marginTop: '0.35rem' }}>
-                                    Examiner: <strong>{adminIdentity?.name || 'Admin'}</strong>
-                                </p>
+                                <h2 style={{ margin: 0, color: '#193c73' }}>{dashboardTitle[activeView]}</h2>
                                 <p style={{ ...mutedStyle, marginTop: '0.2rem' }}>{dashboardSubtitle[activeView]}</p>
                             </div>
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+
+                            <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                {!isMobile && (
+                                    <button
+                                        onClick={() => {
+                                            setIsSidebarPinned((prev) => !prev);
+                                            setIsSidebarHovering(true);
+                                        }}
+                                        style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem', borderRadius: '999px' }}
+                                    >
+                                        {isSidebarPinned ? 'Unpin Menu' : 'Pin Menu'}
+                                    </button>
+                                )}
+                                <select
+                                    value={activeView}
+                                    onChange={(e) => openView(e.target.value as DashboardView)}
+                                    style={{ ...inputStyle, width: isMobile ? '100%' : '220px', margin: 0 }}
+                                >
+                                    {navItems.map((item) => (
+                                        <option key={item.key} value={item.key}>{item.label}</option>
+                                    ))}
+                                </select>
+
+                                {adminIdentity?.role === 'super_admin' && (
+                                    <select
+                                        value={selectedTenantAdminId}
+                                        onChange={(e) => setSelectedTenantAdminId(e.target.value)}
+                                        style={{ ...inputStyle, width: isMobile ? '100%' : '260px', margin: 0 }}
+                                    >
+                                        <option value="">Select organization admin context</option>
+                                        {managedAdmins.map((item) => (
+                                            <option key={item._id} value={item._id}>
+                                                {item.name} ({item.tenantKey})
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                                 <button
                                     onClick={() => {
                                         loadAnalytics();
@@ -1275,16 +1588,20 @@ const AdminApp: React.FC = () => {
                                         loadSections();
                                         loadStudents();
                                     }}
-                                    style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem' }}
+                                    disabled={adminIdentity?.role === 'super_admin' && !selectedTenantAdminId}
+                                    style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem', borderRadius: '999px' }}
                                 >
-                                    Refresh Dashboard
+                                    Refresh
                                 </button>
-                                <button onClick={() => openView('help')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem' }}>
+                                <button onClick={() => openView('help')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem', borderRadius: '999px' }}>
                                     Open Help
                                 </button>
-                                <button onClick={logout} style={{ ...dangerBtnStyle, width: 'auto', marginTop: 0, padding: '0.55rem 0.9rem' }}>
-                                    Logout
-                                </button>
+                                <span style={{ fontSize: '0.76rem', background: '#fff', border: '1px solid #d8e3f5', borderRadius: '999px', padding: '0.4rem 0.7rem', color: '#355887', fontWeight: 700 }}>
+                                    {adminIdentity?.name || 'Admin'}
+                                </span>
+                                <span style={{ fontSize: '0.76rem', background: '#edf6ff', border: '1px solid #bcd4f6', borderRadius: '999px', padding: '0.4rem 0.7rem', color: '#2f5f9d', fontWeight: 700 }}>
+                                    Session Active
+                                </span>
                             </div>
                         </section>
 
@@ -1879,6 +2196,182 @@ const AdminApp: React.FC = () => {
                             </>
                         )}
 
+                        {activeView === 'reports' && (
+                            <>
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Reports Center</h3>
+                                    <p style={mutedStyle}>Use professional exports and executive snapshots for audits and management reporting.</p>
+                                    <div style={responsiveRowStyle}>
+                                        <button onClick={exportAllDetailedCsv} style={primaryBtnStyle}>Export Detailed Performance CSV</button>
+                                        <button onClick={loadRecentSubmissions} style={secondaryBtnStyle}>Refresh Latest Records</button>
+                                    </div>
+                                </section>
+
+                                <div style={responsiveGridStyle}>
+                                    <section style={cardStyle}>
+                                        <h4 style={{ marginTop: 0 }}>Executive Snapshot</h4>
+                                        <p style={mutedStyle}>Total Students: <strong>{analytics?.studentsCount ?? 0}</strong></p>
+                                        <p style={mutedStyle}>Total Sections: <strong>{analytics?.sectionsCount ?? 0}</strong></p>
+                                        <p style={mutedStyle}>Total Submissions: <strong>{analytics?.submissionsCount ?? 0}</strong></p>
+                                        <p style={mutedStyle}>Average Score: <strong>{analytics?.averagePercent ?? 0}%</strong></p>
+                                        <p style={mutedStyle}>Best Score: <strong>{analytics?.bestScore ?? 0}</strong></p>
+                                    </section>
+
+                                    <section style={cardStyle}>
+                                        <h4 style={{ marginTop: 0 }}>Integrity Summary</h4>
+                                        <p style={mutedStyle}>Cheating Terminations: <strong>{analytics?.cheatingTerminations ?? 0}</strong></p>
+                                        <p style={mutedStyle}>Cheating Attempts: <strong>{analytics?.totalCheatingAttempts ?? 0}</strong></p>
+                                        <p style={mutedStyle}>Option Changes: <strong>{analytics?.totalOptionChanges ?? 0}</strong></p>
+                                        <p style={mutedStyle}>Average Option Changes: <strong>{analytics?.avgOptionChanges ?? 0}</strong></p>
+                                    </section>
+                                </div>
+
+                                <section style={cardStyle}>
+                                    <h4 style={{ marginTop: 0 }}>Recent Entries</h4>
+                                    <div style={listStyle}>
+                                        {recentSubmissions.length === 0 && <p style={mutedStyle}>No recent submission records available.</p>}
+                                        {recentSubmissions.slice(0, 10).map((item) => (
+                                            <div key={item._id} style={itemStyle}>
+                                                <strong>{item.student?.name || 'Student'}</strong>
+                                                <p style={mutedStyle}>Section: {item.section?.name || '-'}</p>
+                                                <p style={mutedStyle}>Score: {item.score} / {item.maxScore}</p>
+                                                <p style={mutedStyle}>Submitted: {new Date(item.createdAt).toLocaleString()}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            </>
+                        )}
+
+                        {activeView === 'users' && (
+                            <>
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>User Management</h3>
+                                    {adminIdentity?.role !== 'super_admin' ? (
+                                        <>
+                                            <p style={mutedStyle}>Your current account identity and access scope are shown below.</p>
+                                            <div style={itemStyle}>
+                                                <p style={mutedStyle}>Name: <strong>{adminIdentity?.name || '-'}</strong></p>
+                                                <p style={mutedStyle}>Email: <strong>{adminIdentity?.email || '-'}</strong></p>
+                                                <p style={mutedStyle}>Role: <strong>Organization Admin</strong></p>
+                                                <p style={mutedStyle}>Organization Code: <strong>{adminIdentity?.tenantKey || 'Assigned by system'}</strong></p>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p style={mutedStyle}>Super administrators can monitor and control organization-level admin access from here.</p>
+                                            <div style={responsiveRowStyle}>
+                                                <button onClick={loadManagedAdmins} style={primaryBtnStyle}>Reload Admin Accounts</button>
+                                                <button onClick={() => openView('tenants')} style={secondaryBtnStyle}>Open Organization Control</button>
+                                            </div>
+                                            <div style={listStyle}>
+                                                {managedAdmins.length === 0 && <p style={mutedStyle}>No managed organization admins available.</p>}
+                                                {managedAdmins.map((item) => (
+                                                    <div key={item._id} style={itemStyle}>
+                                                        <strong>{item.name}</strong>
+                                                        <p style={mutedStyle}>{item.email}</p>
+                                                        <p style={mutedStyle}>Organization Code: {item.tenantKey}</p>
+                                                        <p style={mutedStyle}>Created: {new Date(item.createdAt).toLocaleString()}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </section>
+                            </>
+                        )}
+
+                        {activeView === 'settings' && (
+                            <>
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Platform Settings</h3>
+                                    <p style={mutedStyle}>Central location for operational standards and readiness checks.</p>
+                                    <div style={responsiveGridStyle}>
+                                        <div style={itemStyle}>
+                                            <strong>Exam Readiness</strong>
+                                            <p style={mutedStyle}>Duration policy: {examDuration} minutes</p>
+                                            <p style={mutedStyle}>Examiner identity: {examinerName}</p>
+                                            <button onClick={() => openView('config')} style={secondaryBtnStyle}>Update Exam Configuration</button>
+                                        </div>
+                                        <div style={itemStyle}>
+                                            <strong>Data Operations</strong>
+                                            <p style={mutedStyle}>Refresh analytics before major reporting windows.</p>
+                                            <button onClick={loadAnalytics} style={secondaryBtnStyle}>Reload Analytics</button>
+                                        </div>
+                                        <div style={itemStyle}>
+                                            <strong>Support and Workflow</strong>
+                                            <p style={mutedStyle}>Use guided help for standard day-to-day administration.</p>
+                                            <button onClick={() => openView('help')} style={secondaryBtnStyle}>Open Help Center</button>
+                                        </div>
+                                    </div>
+                                </section>
+                            </>
+                        )}
+
+                        {activeView === 'tenants' && (
+                            <>
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Organization Admin Management</h3>
+                                    {adminIdentity?.role !== 'super_admin' ? (
+                                        <p style={errStyle}>Only super administrators can access this page.</p>
+                                    ) : (
+                                        <>
+                                            <button onClick={loadManagedAdmins} style={secondaryBtnStyle}>Reload Organization Admins</button>
+                                            <form onSubmit={createTenantAdmin}>
+                                                <label>Admin Name</label>
+                                                <input value={newTenantAdminName} onChange={(e) => setNewTenantAdminName(e.target.value)} required style={inputStyle} />
+                                                <label>Admin Email</label>
+                                                <input value={newTenantAdminEmail} onChange={(e) => setNewTenantAdminEmail(e.target.value)} type="email" required style={inputStyle} />
+                                                <label>Admin Password</label>
+                                                <input value={newTenantAdminPassword} onChange={(e) => setNewTenantAdminPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
+                                                <label>Organization Code (optional, auto-generated if empty)</label>
+                                                <input value={newTenantKey} onChange={(e) => setNewTenantKey(e.target.value)} style={inputStyle} />
+                                                <button type="submit" style={primaryBtnStyle}>Create Organization Admin</button>
+                                            </form>
+
+                                            <div style={listStyle}>
+                                                {managedAdmins.map((item) => (
+                                                    <div key={item._id} style={itemStyle}>
+                                                        <strong>{item.name}</strong>
+                                                        <p style={mutedStyle}>{item.email}</p>
+                                                        <p style={mutedStyle}>Organization Code: {item.tenantKey}</p>
+                                                        <p style={mutedStyle}>Created: {new Date(item.createdAt).toLocaleString()}</p>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedTenantAdminId(item._id);
+                                                                setStatus(`Active organization context switched to ${item.name}.`);
+                                                            }}
+                                                            style={secondaryBtnStyle}
+                                                        >
+                                                            Use This Organization Context
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                {managedAdmins.length === 0 && <p style={mutedStyle}>No organization admins found yet.</p>}
+                                            </div>
+                                        </>
+                                    )}
+                                </section>
+
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Super Administrator Management</h3>
+                                    {adminIdentity?.role !== 'super_admin' ? (
+                                        <p style={errStyle}>Only super administrators can create more super administrators.</p>
+                                    ) : (
+                                        <form onSubmit={createExtraSuperAdmin}>
+                                            <label>Super Admin Name</label>
+                                            <input value={newSuperAdminName} onChange={(e) => setNewSuperAdminName(e.target.value)} required style={inputStyle} />
+                                            <label>Super Admin Email</label>
+                                            <input value={newSuperAdminEmail} onChange={(e) => setNewSuperAdminEmail(e.target.value)} type="email" required style={inputStyle} />
+                                            <label>Super Admin Password</label>
+                                            <input value={newSuperAdminPassword} onChange={(e) => setNewSuperAdminPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
+                                            <button type="submit" style={primaryBtnStyle}>Create Additional Super Admin</button>
+                                        </form>
+                                    )}
+                                </section>
+                            </>
+                        )}
+
                         {activeView === 'help' && (
                             <section style={cardStyle}>
                                 <h3 style={{ marginTop: 0 }}>Help Center</h3>
@@ -1913,17 +2406,18 @@ const pageStyle: React.CSSProperties = {
     minHeight: '100vh',
     background: 'radial-gradient(circle at 20% 10%, #f2f7ff 0%, #e6f0ff 45%, #eaf2ff 100%)',
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '1rem'
+    alignItems: 'stretch',
+    justifyContent: 'stretch',
+    width: '100%',
+    padding: '0.45rem 0.6rem'
 };
 
 const cardStyle: React.CSSProperties = {
     background: 'linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)',
     border: '1px solid #c8d9f5',
     borderRadius: '12px',
-    padding: '1rem',
-    boxShadow: '0 10px 24px rgba(16, 45, 99, 0.09)'
+    padding: '0.85rem',
+    boxShadow: '0 10px 22px rgba(16, 45, 99, 0.09)'
 };
 
 const inputStyle: React.CSSProperties = {
@@ -1984,12 +2478,12 @@ const errStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '1rem'
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: '0.7rem'
 };
 
 const listStyle: React.CSSProperties = {
-    marginTop: '0.6rem',
+    marginTop: '0.45rem',
     maxHeight: '360px',
     overflow: 'auto'
 };
@@ -1998,7 +2492,7 @@ const itemStyle: React.CSSProperties = {
     border: '1px solid #ceddf6',
     borderRadius: '8px',
     padding: '0.55rem',
-    marginBottom: '0.5rem',
+    marginBottom: '0.4rem',
     background: 'linear-gradient(180deg, #fbfdff, #f6faff)'
 };
 
