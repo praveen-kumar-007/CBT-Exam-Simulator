@@ -181,7 +181,22 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const BRAND_NAME = 'Indocreonix';
 const BRAND_LOGO_URL = 'https://res.cloudinary.com/deiy8xksn/image/upload/v1773475385/logo_ujugop.png';
 const BRAND_MOTTO = 'Smart Assessment Infrastructure';
-const BRAND_TAG = 'Build.Scale.Lead';
+const BRAND_TAG = 'Build · Scale · Lead';
+
+// Brand color palette
+const BRAND = {
+    navy: '#0d1b3e',
+    navyMid: '#162550',
+    blue: '#1a4fc4',
+    teal: '#00b4d8',
+    tealLight: '#90e0ef',
+    amber: '#f59e0b',
+    amberLight: '#fcd34d',
+    gold: '#d97706',
+    white: '#f8faff',
+    glass: 'rgba(255,255,255,0.07)',
+    glassBorder: 'rgba(255,255,255,0.15)',
+};
 
 type BrandSignatureProps = {
     showMenuButton?: boolean;
@@ -193,10 +208,10 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
     <div
         style={{
             width: '100%',
-            borderBottom: '1px solid #99b5ea',
-            background: 'linear-gradient(90deg, #ffffff 0%, #eaf2ff 45%, #f3fbff 100%)',
-            boxShadow: '0 6px 20px rgba(16,45,99,0.12)',
-            padding: '10px 14px',
+            borderBottom: `1px solid rgba(0,180,216,0.25)`,
+            background: `linear-gradient(90deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 60%, #0f2244 100%)`,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.35)',
+            padding: '9px 16px',
             position: 'sticky',
             top: 0,
             zIndex: 1000
@@ -219,15 +234,26 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
                 <img
                     src={BRAND_LOGO_URL}
                     alt={`${BRAND_NAME} logo`}
-                    style={{ height: '42px', width: 'auto', objectFit: 'contain' }}
+                    style={{ height: '40px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 0 8px rgba(0,180,216,0.5))' }}
                 />
                 <div>
-                    <div style={{ fontSize: '16px', color: '#17366f', fontWeight: 800 }}>{BRAND_NAME} Admin Suite</div>
-                    <div style={{ fontSize: '11px', color: '#5b73a0', fontWeight: 600, letterSpacing: '0.2px' }}>{BRAND_MOTTO}</div>
+                    <div style={{ fontSize: '15px', color: '#ffffff', fontWeight: 800, letterSpacing: '0.3px' }}>
+                        {BRAND_NAME}
+                        <span style={{ marginLeft: '8px', fontSize: '10px', background: `linear-gradient(90deg, ${BRAND.teal}, ${BRAND.amber})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>Admin Suite</span>
+                    </div>
+                    <div style={{ fontSize: '10px', color: BRAND.tealLight, fontWeight: 600, letterSpacing: '0.4px', opacity: 0.85 }}>{BRAND_MOTTO}</div>
                 </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                <span style={{ fontSize: '13px', color: '#1f365d', fontWeight: 700 }}>Powered by {BRAND_NAME}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{
+                    fontSize: '11px',
+                    color: BRAND.amberLight,
+                    fontWeight: 700,
+                    letterSpacing: '0.8px',
+                    textTransform: 'uppercase',
+                    borderLeft: `2px solid ${BRAND.amber}`,
+                    paddingLeft: '8px'
+                }}>{BRAND_TAG}</span>
             </div>
             {showMenuButton && onMenuToggle && (
                 <button
@@ -235,8 +261,8 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
                     onClick={onMenuToggle}
                     aria-label={isMenuOpen ? 'Close admin pages menu' : 'Open admin pages menu'}
                     style={{
-                        border: '1px solid #1f5fbd',
-                        background: 'linear-gradient(120deg, #1b57b8, #2383d6)',
+                        border: `1px solid ${BRAND.teal}`,
+                        background: `linear-gradient(120deg, ${BRAND.blue}, ${BRAND.teal})`,
                         borderRadius: '10px',
                         width: '42px',
                         height: '38px',
@@ -247,7 +273,7 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        boxShadow: '0 8px 16px rgba(35, 95, 181, 0.28)'
+                        boxShadow: `0 4px 16px rgba(0,180,216,0.35)`
                     }}
                 >
                     <span
@@ -1366,37 +1392,99 @@ const AdminApp: React.FC = () => {
         </div>
     );
 
+    // ── Login page full-screen branded styles (WHITE + DYNAMIC CRYSTAL BLUE) ──
     const authShellStyle: React.CSSProperties = {
-        ...pageStyle,
+        minHeight: '100vh',
+        width: '100%',
+        background: '#ffffff',
+        display: 'flex',
+        flexDirection: 'column',
         alignItems: 'stretch',
         justifyContent: 'stretch',
-        padding: isMobile ? '0.55rem' : '0.8rem'
+        position: 'relative',
+        overflow: 'hidden'
+    };
+
+    // Ghosted Logo Pattern Background
+    const logoPatternStyle: React.CSSProperties = {
+        position: 'absolute', inset: 0,
+        backgroundImage: `url(${BRAND_LOGO_URL})`,
+        backgroundSize: '180px',
+        backgroundRepeat: 'repeat',
+        opacity: 0.015,
+        filter: 'grayscale(1)',
+        pointerEvents: 'none',
+        zIndex: 0,
+        animation: 'inc-bg-pattern-drift 120s linear infinite'
+    };
+
+    // soft background effects
+    const bgMeshStyle: React.CSSProperties = {
+        position: 'absolute', inset: 0,
+        background: `
+            radial-gradient(at 0% 0%, rgba(0,153,255,0.12) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(0,212,255,0.08) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(0,153,255,0.12) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(0,212,255,0.08) 0px, transparent 50%),
+            radial-gradient(at 50% 50%, rgba(255,255,255,0.8) 0px, transparent 100%)
+        `,
+        filter: 'blur(60px)',
+        zIndex: 0,
+        animation: 'inc-bg-shift 15s ease-in-out infinite alternate'
+    };
+
+    const orb1: React.CSSProperties = {
+        position: 'absolute', top: '-10%', left: '-5%',
+        width: 'max(40vw, 500px)', height: 'max(40vw, 500px)',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(0,170,255,0.08) 0%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 0,
+        animation: 'inc-float-subtle 20s infinite'
+    };
+    const orb2: React.CSSProperties = {
+        position: 'absolute', bottom: '-5%', right: '-5%',
+        width: 'max(35vw, 400px)', height: 'max(35vw, 400px)',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(0,140,240,0.06) 0%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 0,
+        animation: 'inc-float-subtle 25s infinite reverse'
     };
 
     const authLayoutStyle: React.CSSProperties = {
         width: '100%',
-        minHeight: isMobile ? 'auto' : 'calc(100vh - 102px)',
+        flex: 1,
         display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : 'minmax(300px, 1fr) minmax(420px, 560px)',
-        gap: '0.7rem',
-        alignItems: 'stretch'
+        gridTemplateColumns: isMobile ? '1fr' : '1fr minmax(460px, 540px)',
+        gap: 0,
+        alignItems: 'stretch',
+        position: 'relative',
+        zIndex: 1
     };
 
+    // Left showcase: pure white/very light
     const authShowcaseStyle: React.CSSProperties = {
-        ...cardStyle,
-        background: 'linear-gradient(140deg, #0f3f89 0%, #165eb4 52%, #1d89d7 100%)',
-        border: '1px solid #1f5eb4',
-        color: '#f8fbff',
-        display: 'grid',
-        alignContent: 'space-between',
-        minHeight: isMobile ? '220px' : '100%'
+        padding: isMobile ? '2rem 1.2rem' : 'clamp(2rem,4vw,4rem) clamp(2rem,5vw,5rem)',
+        color: '#0f2b52',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        gap: '2rem',
+        minHeight: isMobile ? '240px' : 'auto',
+        position: 'relative',
+        background: 'transparent'
     };
 
+    // Right card: crisp white
     const authCardStyle: React.CSSProperties = {
-        ...cardStyle,
-        width: '100%',
-        margin: 0,
-        alignSelf: 'center'
+        background: '#ffffff',
+        borderLeft: '1px solid rgba(0,140,255,0.12)',
+        boxShadow: '-8px 0 48px rgba(0,100,200,0.08)',
+        padding: isMobile ? '2rem 1.4rem' : 'clamp(2rem,4vw,3.5rem) clamp(1.5rem,4vw,3rem)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: '0.6rem',
+        minHeight: isMobile ? 'auto' : '100vh'
     };
 
     const isDesktopSidebarVisible = !isMobile && (isSidebarPinned || isSidebarHovering);
@@ -1404,97 +1492,396 @@ const AdminApp: React.FC = () => {
 
     if (mode === 'admin-login') {
         return (
-            <>
-                <div style={authShellStyle}>
-                    <div style={authLayoutStyle}>
-                        {!isMobile && (
-                            <section style={authShowcaseStyle}>
-                                <div>
-                                    <p style={{ margin: 0, fontSize: '0.78rem', letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.9 }}>Assessment Control Center</p>
-                                    <h1 style={{ margin: '0.4rem 0 0', fontSize: '1.8rem', lineHeight: 1.2 }}>Professional Admin Operations for Every Organization</h1>
-                                    <p style={{ marginTop: '0.7rem', fontSize: '0.95rem', opacity: 0.92 }}>
-                                        Secure role-based access, complete data isolation, and real-time exam supervision from one unified workspace.
-                                    </p>
-                                </div>
-                                <div style={{ display: 'grid', gap: '0.55rem' }}>
-                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>1. Sign in with organization admin credentials</div>
-                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>2. Manage sections, questions, and exam policy</div>
-                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>3. Track live activity and export verified reports</div>
-                                </div>
-                            </section>
-                        )}
-                        <section style={authCardStyle}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.7rem' }}>
-                                <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
-                                <div>
-                                    <div style={{ fontWeight: 800, color: '#133870' }}>{BRAND_NAME}</div>
-                                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>Branded Command Authentication</div>
-                                </div>
+            <div style={authShellStyle}>
+                <div style={bgMeshStyle} />
+                <div style={logoPatternStyle} />
+                <div style={orb1} />
+                <div style={orb2} />
+
+                <style>{`
+                    @keyframes inc-bg-pattern-drift {
+                        from { background-position: 0 0; }
+                        to { background-position: 1000px 1000px; }
+                    }
+                    @keyframes inc-bg-shift {
+                        0% { transform: scale(1) translate(0, 0); }
+                        100% { transform: scale(1.1) translate(20px, 10px); }
+                    }
+                    @keyframes inc-float-subtle {
+                        0%, 100% { transform: translate(0, 0); }
+                        50% { transform: translate(20px, -20px); }
+                    }
+                    @keyframes inc-crystal-float {
+                        0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+                        20% { opacity: 0.6; }
+                        80% { opacity: 0.6; }
+                        100% { transform: translateY(-300px) rotate(360deg); opacity: 0; }
+                    }
+                    @keyframes inc-float {
+                        0%,100% { transform: translateY(0px) rotate(0deg); }
+                        50%      { transform: translateY(-25px) rotate(2deg); }
+                    }
+                    @keyframes inc-punch-pop {
+                        0% { transform: scale(0.9); opacity: 0; }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                    @keyframes inc-breathe {
+                        0%,100% { box-shadow: 0 0 0 0 rgba(0,140,255,0.10), 0 20px 60px rgba(0,100,200,0.1); }
+                        50%     { box-shadow: 0 0 0 25px rgba(0,140,255,0.05), 0 30px 80px rgba(0,100,200,0.15); }
+                    }
+                    @keyframes inc-ring-spin-fast {
+                        from { transform: rotate(0deg) scale(1); }
+                        50%  { transform: rotate(180deg) scale(1.05); }
+                        to   { transform: rotate(360deg) scale(1); }
+                    }
+                    @keyframes inc-shimmer-sweep {
+                        0%   { transform: translateX(-150%) skewX(-20deg); }
+                        100% { transform: translateX(450%) skewX(-20deg); }
+                    }
+                    @keyframes inc-brand-glow {
+                        0%,100% { opacity: 0.95; filter: drop-shadow(0 0 2px rgba(0,153,255,0.4)); background-position: 0% 50%; }
+                        50%     { opacity: 1; filter: drop-shadow(0 0 8px rgba(0,153,255,0.6)); background-position: 100% 50%; }
+                    }
+                    @keyframes inc-scroll-line {
+                        0% { height: 0; top: 0; }
+                        50% { height: 100px; top: 0; }
+                        100% { height: 0; top: 100px; }
+                    }
+                    .inc-card-input {
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    }
+                    .inc-card-input:focus {
+                        transform: scale(1.01);
+                        border-color: #0099ff !important;
+                        box-shadow: 0 4px 12px rgba(0,153,255,0.1) !important;
+                    }
+                    .inc-primary-btn {
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    }
+                    .inc-primary-btn:hover {
+                        transform: scale(1.02) translateY(-2px);
+                        box-shadow: 0 10px 25px rgba(0,120,220,0.35) !important;
+                    }
+                `}</style>
+
+                {/* Navbar */}
+                <div style={{
+                    position: 'relative', zIndex: 10,
+                    padding: 'clamp(12px, 1.5vw, 18px) clamp(20px, 3vw, 40px)',
+                    borderBottom: '1px solid rgba(0,140,255,0.1)',
+                    background: 'rgba(255,255,255,0.85)',
+                    backdropFilter: 'blur(20px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <img src={BRAND_LOGO_URL} alt="logo" style={{
+                            height: 'clamp(32px, 4vw, 42px)', width: 'auto',
+                            filter: 'drop-shadow(0 4px 8px rgba(0,120,220,0.2))'
+                        }} />
+                        <div>
+                            <div style={{ fontSize: 'clamp(14px, 1.8vw, 18px)', fontWeight: 900, color: '#0f2b52' }}>
+                                {BRAND_NAME}
+                                <span style={{
+                                    marginLeft: '10px', fontSize: '10px',
+                                    background: 'linear-gradient(90deg,#0099ff,#00d4ff)',
+                                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                                    fontWeight: 800, textTransform: 'uppercase'
+                                }}>Admin</span>
                             </div>
-                            <h2 style={{ marginTop: 0 }}>Organization Admin Login</h2>
-                            <form onSubmit={handleLogin}>
-                                <label>Email</label>
-                                <input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} type="email" required style={inputStyle} />
-                                <label>Password</label>
-                                <input value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
-                                <button type="submit" style={primaryBtnStyle}>Login</button>
-                            </form>
-                            <button type="button" onClick={() => navigate('/admin/super-admin/login')} style={secondaryBtnStyle}>Go to Super Admin Login</button>
-                            {status && <p style={okStyle}>{status}</p>}
-                            {error && <p style={errStyle}>{error}</p>}
-                        </section>
+                            <div style={{ fontSize: '11px', color: '#4a90c4', fontWeight: 600 }}>{BRAND_MOTTO}</div>
+                        </div>
                     </div>
                 </div>
-                <BrandSignature />
-            </>
+
+                <div style={{ ...authLayoutStyle, flex: 1 }}>
+                    <section style={authShowcaseStyle}>
+                        <div style={{
+                            flex: 1, display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center',
+                            gap: 'clamp(2rem, 5vh, 4rem)', zIndex: 2
+                        }}>
+                            {/* RE-DESIGNED BIG LOGO STAGE */}
+                            <div style={{ position: 'relative' }}>
+                                {/* Floating mini logos around the main one */}
+                                {!isMobile && [0, 72, 144, 216, 288].map((deg) => (
+                                    <div key={deg} style={{
+                                        position: 'absolute', top: '50%', left: '50%',
+                                        width: '40px', height: '40px',
+                                        margin: '-20px',
+                                        transform: `rotate(${deg}deg) translateY(-220px) rotate(-${deg}deg)`,
+                                        opacity: 0.15,
+                                        zIndex: -1
+                                    }}>
+                                        <img src={BRAND_LOGO_URL} alt="Mini brand logo" style={{ width: '100%', height: 'auto' }} />
+                                    </div>
+                                ))}
+
+                                {/* Multi-layered Rings */}
+                                <div style={{
+                                    position: 'absolute', inset: '-80px', borderRadius: '50%',
+                                    border: '1.5px solid rgba(0,153,255,0.08)',
+                                    animation: 'inc-ring-spin-fast 40s linear infinite'
+                                }} />
+                                <div style={{
+                                    position: 'absolute', inset: '-50px', borderRadius: '50%',
+                                    border: '1px dashed rgba(0,153,255,0.12)',
+                                    animation: 'inc-ring-spin-fast 20s linear infinite reverse'
+                                }} />
+                                
+                                <div style={{
+                                    position: 'relative',
+                                    width: 'clamp(280px, 35vw, 480px)',
+                                    height: 'clamp(280px, 35vw, 480px)',
+                                    borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, #ffffff 0%, #f0faff 100%)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 40px 100px rgba(0,100,200,0.15), inset 0 2px 10px rgba(255,255,255,0.8)',
+                                    border: '2px solid rgba(0,153,255,0.18)',
+                                    animation: 'inc-float 6s ease-in-out infinite, inc-breathe 6s ease-in-out infinite',
+                                    overflow: 'hidden'
+                                }}>
+                                    <div style={{
+                                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
+                                        animation: 'inc-shimmer-sweep 4.5s ease-in-out infinite'
+                                    }} />
+                                    <img src={BRAND_LOGO_URL} alt="Hero Logo" style={{
+                                        width: '72%', height: 'auto',
+                                        filter: 'drop-shadow(0 20px 40px rgba(0,120,220,0.3))'
+                                    }} />
+                                </div>
+                            </div>
+
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{
+                                    fontSize: 'clamp(3rem, 6vw, 6rem)', 
+                                    fontWeight: 1000,
+                                    letterSpacing: '-2px',
+                                    textTransform: 'uppercase',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    gap: '2px',
+                                    position: 'relative'
+                                }}>
+                                    {/* Google-style Multi-color brand title */}
+                                    <span style={{ 
+                                        background: 'linear-gradient(135deg, #4285F4 0%, #EA4335 30%, #FBBC05 60%, #34A853 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        animation: 'inc-brand-glow 8s infinite alternate',
+                                        backgroundSize: '300% auto'
+                                    }}>
+                                        {BRAND_NAME}
+                                    </span>
+                                    
+                                    {/* Shine overlay */}
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        background: 'linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.7) 50%, transparent 60%)',
+                                        backgroundSize: '200% 100%',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        pointerEvents: 'none',
+                                        animation: 'inc-shimmer-sweep 5s infinite'
+                                    }}>
+                                        {BRAND_NAME}
+                                    </div>
+                                </div>
+                                <div style={{
+                                    fontSize: 'clamp(0.9rem, 1.4vw, 1.3rem)', fontWeight: 800,
+                                    color: '#2d5a8a', letterSpacing: '8px', textTransform: 'uppercase',
+                                    marginTop: '15px', opacity: 0.9, textAlign: 'center',
+                                    background: 'linear-gradient(90deg, #4285F4, #34A853)',
+                                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+                                }}>{BRAND_MOTTO}</div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', width: '90%', marginBottom: '3rem' }}>
+                            {[
+                                { t: 'Secure Access', d: `Authorized ${BRAND_NAME} entry only` },
+                                { t: 'Live Sync', d: 'Real-time organization metrics' },
+                                { t: 'Enterprise Scale', d: `Powered by ${BRAND_NAME} Core` }
+                            ].map((feat, i) => (
+                                <div key={i} style={{
+                                    background: 'rgba(255,255,255,0.4)',
+                                    padding: '1rem', borderRadius: '16px',
+                                    border: '1px solid rgba(0,153,255,0.1)',
+                                    textAlign: 'center',
+                                    animation: 'inc-punch-pop 0.8s ease both',
+                                    animationDelay: `${1.2 + i * 0.15}s`
+                                }}>
+                                    <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#0f2b52', marginBottom: '4px' }}>{feat.t}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6b8db5', fontWeight: 600 }}>{feat.d}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section style={authCardStyle}>
+                        <div style={{
+                            background: 'rgba(255,255,255,0.85)',
+                            backdropFilter: 'blur(30px)',
+                            padding: 'clamp(2.5rem, 6vw, 4rem)',
+                            borderRadius: '40px',
+                            border: '1px solid rgba(0,140,255,0.12)',
+                            boxShadow: '0 30px 70px rgba(0,80,180,0.1)',
+                            position: 'relative', overflow: 'hidden'
+                        }}>
+                            {/* Small watermark logo in corner of card */}
+                            <img src={BRAND_LOGO_URL} alt="logo watermark" style={{
+                                position: 'absolute', top: '20px', right: '20px',
+                                width: '32px', opacity: 0.2, filter: 'grayscale(1)'
+                            }} />
+
+                            <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1.2rem' }}>
+                                    <img src={BRAND_LOGO_URL} alt="card logo" style={{ height: '36px' }} />
+                                    <span style={{ 
+                                        fontSize: '1.4rem', 
+                                        fontWeight: 1000, 
+                                        letterSpacing: '0.5px',
+                                        background: 'linear-gradient(90deg, #4285F4, #EA4335, #FBBC05, #34A853)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent'
+                                    }}>{BRAND_NAME}</span>
+                                </div>
+                                <h2 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#0f2b52', margin: 0, letterSpacing: '-0.5px' }}>Terminal Login</h2>
+                                <p style={{ color: '#4a90c4', marginTop: '10px', fontSize: '1rem', fontWeight: 600 }}>Secure Administrative Portal</p>
+                            </div>
+
+                            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#2d5a8a', marginBottom: '8px' }}>Email Address</label>
+                                    <input
+                                        className="inc-card-input"
+                                        value={loginEmail}
+                                        onChange={(e) => setLoginEmail(e.target.value)}
+                                        type="email" required placeholder="name@indocreonix.com"
+                                        style={loginInputStyle}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#2d5a8a', marginBottom: '8px' }}>Password</label>
+                                    <input
+                                        className="inc-card-input"
+                                        value={loginPassword}
+                                        onChange={(e) => setLoginPassword(e.target.value)}
+                                        type="password" required placeholder="••••••••"
+                                        style={loginInputStyle}
+                                    />
+                                </div>
+                                <button type="submit" className="inc-primary-btn" style={loginPrimaryBtnStyle}>Sign In →</button>
+                            </form>
+
+                            <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                                <button type="button" className="inc-secondary-btn" onClick={() => navigate('/admin/super-admin/login')} style={loginSecondaryBtnStyle}>
+                                    Super Admin Portal
+                                </button>
+                            </div>
+                        </div>
+
+                        {status && <p style={loginOkStyle}>{status}</p>}
+                        {error && <p style={loginErrStyle}>{error}</p>}
+                    </section>
+                </div>
+
+                <div style={{
+                    position: 'relative', zIndex: 10,
+                    padding: '15px 40px',
+                    textAlign: 'center',
+                    borderTop: '1px solid rgba(0,140,255,0.05)',
+                    background: 'rgba(255,255,255,0.5)'
+                }}>
+                    <span style={{ fontSize: '12px', color: '#8aabb5', fontWeight: 600 }}>© 2026 {BRAND_NAME} Enterprise Solution</span>
+                </div>
+            </div>
         );
     }
 
     if (mode === 'super-admin-login') {
         return (
-            <>
-                <div style={authShellStyle}>
-                    <div style={authLayoutStyle}>
-                        {!isMobile && (
-                            <section style={authShowcaseStyle}>
-                                <div>
-                                    <p style={{ margin: 0, fontSize: '0.78rem', letterSpacing: '0.8px', textTransform: 'uppercase', opacity: 0.9 }}>Leadership Access Layer</p>
-                                    <h1 style={{ margin: '0.4rem 0 0', fontSize: '1.8rem', lineHeight: 1.2 }}>Super Administrator Command Console</h1>
-                                    <p style={{ marginTop: '0.7rem', fontSize: '0.95rem', opacity: 0.92 }}>
-                                        Provision new organization admins, switch organization context, and govern exam infrastructure at scale.
-                                    </p>
-                                </div>
-                                <div style={{ display: 'grid', gap: '0.55rem' }}>
-                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>1. Authenticate as super administrator</div>
-                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>2. Create and assign organization admins</div>
-                                    <div style={{ fontSize: '0.86rem', fontWeight: 600 }}>3. Switch controlled data context securely</div>
-                                </div>
-                            </section>
-                        )}
-                        <section style={authCardStyle}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.7rem' }}>
-                                <img src={BRAND_LOGO_URL} alt={`${BRAND_NAME} logo`} style={{ height: '38px', width: 'auto', objectFit: 'contain' }} />
-                                <div>
-                                    <div style={{ fontWeight: 800, color: '#133870' }}>{BRAND_NAME}</div>
-                                    <div style={{ ...mutedStyle, fontSize: '0.76rem' }}>Super Admin Authentication</div>
-                                </div>
-                            </div>
-                            <h2 style={{ marginTop: 0 }}>Super Admin Login</h2>
-                            <form onSubmit={handleLogin}>
-                                <label>Email</label>
-                                <input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} type="email" required style={inputStyle} />
-                                <label>Password</label>
-                                <input value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} type="password" minLength={6} required style={inputStyle} />
-                                <button type="submit" style={primaryBtnStyle}>Login</button>
-                            </form>
-                            <button type="button" onClick={() => navigate('/admin/login')} style={secondaryBtnStyle}>Go to Organization Admin Login</button>
-                            {status && <p style={okStyle}>{status}</p>}
-                            {error && <p style={errStyle}>{error}</p>}
-                        </section>
+            <div style={{ ...authShellStyle, background: '#f8f9ff' }}>
+                <div style={bgMeshStyle} />
+                <div style={orb1} />
+                <div style={orb2} />
+
+                <style>{`
+                    @keyframes inc-bg-shift { 0% { transform: scale(1); } 100% { transform: scale(1.05); } }
+                    @keyframes inc-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+                    @keyframes inc-shimmer-sweep { 0% { transform: translateX(-150%); } 100% { transform: translateX(450%); } }
+                `}</style>
+
+                <div style={{
+                    position: 'relative', zIndex: 10,
+                    padding: 'clamp(12px, 1.5vw, 18px) clamp(20px, 3vw, 40px)',
+                    borderBottom: '1px solid rgba(0,80,200,0.1)',
+                    background: 'rgba(255,255,255,0.85)',
+                    backdropFilter: 'blur(20px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <img src={BRAND_LOGO_URL} alt="logo" style={{ height: 'clamp(32px, 4vw, 42px)', width: 'auto' }} />
+                        <div style={{ fontSize: 'clamp(14px, 1.8vw, 18px)', fontWeight: 900, color: '#0f2b52' }}>
+                            {BRAND_NAME} <span style={{ color: '#0055cc', fontSize: '10px', fontWeight: 800 }}>SUPER ADMIN</span>
+                        </div>
                     </div>
                 </div>
-                <BrandSignature />
-            </>
+
+                <div style={{ ...authLayoutStyle, flex: 1 }}>
+                    <section style={authShowcaseStyle}>
+                        <div style={{
+                            flex: 1, display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center', gap: '2rem'
+                        }}>
+                             <div style={{
+                                width: 'clamp(200px, 25vw, 380px)',
+                                height: 'clamp(200px, 25vw, 380px)',
+                                borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #ffffff, #eaf4ff)',
+                                border: '1px solid rgba(0,80,200,0.15)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 25px 50px rgba(0,80,200,0.1)',
+                                animation: 'inc-float 6s ease-in-out infinite',
+                                position: 'relative', overflow: 'hidden'
+                            }}>
+                                <img src={BRAND_LOGO_URL} alt="Hero" style={{ width: '65%', height: 'auto', filter: 'drop-shadow(0 10px 20px rgba(0,80,200,0.2))' }} />
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: 'clamp(1.8rem, 3.5vw, 3rem)', fontWeight: 950, color: '#003a99' }}>{BRAND_NAME}</div>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#4a80b5', letterSpacing: '3px', textTransform: 'uppercase' }}>Command Console</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section style={authCardStyle}>
+                        <div style={{
+                            background: '#ffffff',
+                            padding: 'clamp(2rem, 5vw, 3.5rem)',
+                            borderRadius: '30px',
+                            border: '1px solid rgba(0,80,200,0.1)',
+                            boxShadow: '0 15px 40px rgba(0,80,200,0.05)'
+                        }}>
+                            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                                <h2 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0a2045' }}>Super Access</h2>
+                                <p style={{ color: '#5a80aa' }}>Restricted command center entry</p>
+                            </div>
+                            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <input className="inc-card-input" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} type="email" required placeholder="superadmin@indocreonix.com" style={loginInputStyle} />
+                                <input className="inc-card-input" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} type="password" required placeholder="••••••••" style={loginInputStyle} />
+                                <button type="submit" className="inc-primary-btn" style={{ ...loginPrimaryBtnStyle, background: '#0055cc' }}>Command Access →</button>
+                            </form>
+                            <button type="button" className="inc-secondary-btn" onClick={() => navigate('/admin/login')} style={{ ...loginSecondaryBtnStyle, marginTop: '1.5rem' }}>Back to Admin</button>
+                        </div>
+                        {status && <p style={loginOkStyle}>{status}</p>}
+                        {error && <p style={loginErrStyle}>{error}</p>}
+                    </section>
+                </div>
+
+                <div style={{ padding: '15px 40px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '11px', color: '#8aaabf', fontWeight: 600 }}>Super Admin Restricted Area</span>
+                </div>
+            </div>
         );
     }
 
@@ -2797,6 +3184,71 @@ const rowStyle: React.CSSProperties = {
     gridTemplateColumns: '1fr 1fr',
     gap: '0.5rem',
     marginTop: '0.4rem'
+};
+
+// ── Login-page-specific shared styles (WHITE/BLUE professional) ──────────────
+const loginInputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '0.72rem 1rem',
+    marginBottom: '0',
+    borderRadius: '10px',
+    border: '1.5px solid #d0e4f5',
+    background: '#f7fbff',
+    color: '#0f2b52',
+    fontSize: '0.93rem',
+    outline: 'none',
+    boxSizing: 'border-box',
+    transition: 'border-color 180ms ease, box-shadow 180ms ease'
+};
+
+const loginPrimaryBtnStyle: React.CSSProperties = {
+    width: '100%',
+    marginTop: '1.1rem',
+    padding: '0.82rem',
+    borderRadius: '10px',
+    border: 'none',
+    background: 'linear-gradient(120deg, #0077cc, #0099ff)',
+    color: '#fff',
+    fontWeight: 800,
+    fontSize: '0.93rem',
+    letterSpacing: '0.3px',
+    cursor: 'pointer',
+    boxShadow: '0 6px 20px rgba(0,120,220,0.25)',
+    transition: 'opacity 150ms ease, transform 150ms ease'
+};
+
+const loginSecondaryBtnStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '0.7rem',
+    borderRadius: '10px',
+    border: '1.5px solid #c8dff5',
+    background: '#f5faff',
+    color: '#2a6db5',
+    fontWeight: 700,
+    fontSize: '0.85rem',
+    cursor: 'pointer',
+    letterSpacing: '0.2px',
+    transition: 'background 150ms ease'
+};
+
+const loginOkStyle: React.CSSProperties = {
+    marginTop: '0.8rem',
+    color: '#1a7a4a',
+    background: '#eafaf2',
+    border: '1px solid #b5e8ce',
+    borderRadius: '8px',
+    padding: '0.55rem 0.75rem',
+    fontSize: '0.84rem'
+};
+
+const loginErrStyle: React.CSSProperties = {
+    marginTop: '0.8rem',
+    color: '#b53030',
+    background: '#fff0f0',
+    border: '1px solid #f5bcbc',
+    borderRadius: '8px',
+    padding: '0.55rem 0.75rem',
+    fontSize: '0.84rem'
 };
 
 export default AdminApp;
