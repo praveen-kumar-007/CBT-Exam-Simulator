@@ -1710,33 +1710,35 @@ const AdminApp: React.FC = () => {
                                     <label>Question text</label>
                                     <textarea value={questionText} onChange={(e) => setQuestionText(e.target.value)} required style={inputStyle} />
                                     {options.map((opt, i) => (
-                                        <div key={i}>
-                                            <label>Option {i + 1}</label>
-                                            <input
-                                                value={opt}
-                                                onChange={(e) => {
-                                                    const next = [...options];
-                                                    next[i] = e.target.value;
-                                                    setOptions(next);
-                                                }}
-                                                required
-                                                style={inputStyle}
-                                            />
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <label>Option {i + 1}</label>
+                                                <input
+                                                    value={opt}
+                                                    onChange={(e) => {
+                                                        const next = [...options];
+                                                        next[i] = e.target.value;
+                                                        setOptions(next);
+                                                    }}
+                                                    required
+                                                    style={{ ...inputStyle, marginBottom: 0 }}
+                                                />
+                                            </div>
+                                            <div style={{ flexShrink: 0, marginTop: '1.2rem' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
+                                                    <input
+                                                        type="radio"
+                                                        name="correctOptionIndex"
+                                                        checked={correctOptionIndex === i}
+                                                        onChange={() => setCorrectOptionIndex(i)}
+                                                        style={{ margin: 0, width: '16px', height: '16px', cursor: 'pointer' }}
+                                                    />
+                                                    Correct
+                                                </label>
+                                            </div>
                                         </div>
                                     ))}
                                     <div style={responsiveRowStyle}>
-                                        <div>
-                                            <label>Correct index (0-3)</label>
-                                            <input
-                                                value={correctOptionIndex}
-                                                onChange={(e) => setCorrectOptionIndex(Number(e.target.value))}
-                                                type="number"
-                                                min={0}
-                                                max={3}
-                                                required
-                                                style={inputStyle}
-                                            />
-                                        </div>
                                         <div>
                                             <label>Marks</label>
                                             <input value={marks} onChange={(e) => setMarks(Number(e.target.value))} type="number" min={1} required style={inputStyle} />
@@ -1769,34 +1771,36 @@ const AdminApp: React.FC = () => {
                                             <textarea value={editQuestionText} onChange={(e) => setEditQuestionText(e.target.value)} required style={inputStyle} />
 
                                             {editOptions.map((opt, i) => (
-                                                <div key={i}>
-                                                    <label>Option {i + 1}</label>
-                                                    <input
-                                                        value={opt}
-                                                        onChange={(e) => {
-                                                            const next = [...editOptions];
-                                                            next[i] = e.target.value;
-                                                            setEditOptions(next);
-                                                        }}
-                                                        required
-                                                        style={inputStyle}
-                                                    />
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <label>Option {i + 1}</label>
+                                                        <input
+                                                            value={opt}
+                                                            onChange={(e) => {
+                                                                const next = [...editOptions];
+                                                                next[i] = e.target.value;
+                                                                setEditOptions(next);
+                                                            }}
+                                                            required
+                                                            style={{ ...inputStyle, marginBottom: 0 }}
+                                                        />
+                                                    </div>
+                                                    <div style={{ flexShrink: 0, marginTop: '1.2rem' }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
+                                                            <input
+                                                                type="radio"
+                                                                name="editCorrectOptionIndex"
+                                                                checked={editCorrectOptionIndex === i}
+                                                                onChange={() => setEditCorrectOptionIndex(i)}
+                                                                style={{ margin: 0, width: '16px', height: '16px', cursor: 'pointer' }}
+                                                            />
+                                                            Correct
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             ))}
 
                                             <div style={responsiveRowStyle}>
-                                                <div>
-                                                    <label>Correct index (0-3)</label>
-                                                    <input
-                                                        value={editCorrectOptionIndex}
-                                                        onChange={(e) => setEditCorrectOptionIndex(Number(e.target.value))}
-                                                        type="number"
-                                                        min={0}
-                                                        max={3}
-                                                        required
-                                                        style={inputStyle}
-                                                    />
-                                                </div>
                                                 <div>
                                                     <label>Marks</label>
                                                     <input
@@ -1846,7 +1850,7 @@ const AdminApp: React.FC = () => {
                                     {filteredQuestions.map((question) => (
                                         <div key={question._id} style={itemStyle}>
                                             <strong>{question.questionText}</strong>
-                                            <p style={mutedStyle}>Correct: {question.correctOptionIndex} | Marks: {question.marks}</p>
+                                            <p style={mutedStyle}>Correct: Option {Number(question.correctOptionIndex) + 1} | Marks: {question.marks}</p>
                                             {question.imageUrl && (
                                                 <img
                                                     src={question.imageUrl}
