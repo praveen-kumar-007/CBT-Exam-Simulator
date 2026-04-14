@@ -7,7 +7,7 @@ import AdminApp from './admin/AdminApp';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const BRAND_NAME = 'Indocreonix';
-const BRAND_LOGO_URL = 'https://res.cloudinary.com/deiy8xksn/image/upload/v1773475385/logo_ujugop.png';
+const BRAND_LOGO_URL = '/brand-logo.png';
 
 // --- Helper Functions ---
 const formatTime = (seconds: number) => {
