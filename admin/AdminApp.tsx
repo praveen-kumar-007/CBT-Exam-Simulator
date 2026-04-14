@@ -198,6 +198,33 @@ const BRAND = {
     glassBorder: 'rgba(255,255,255,0.15)',
 };
 
+const Icon: React.FC<{ name: string; size?: number; color?: string }> = ({ name, size = 18, color = 'currentColor' }) => {
+    switch (name) {
+        case 'overview': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>;
+        case 'sections': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>;
+        case 'questions': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+        case 'add': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+        case 'students': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+        case 'responses': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
+        case 'config': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+        case 'activity': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+        case 'lightning': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
+        case 'insights': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
+        case 'reports': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>;
+        case 'security': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
+        case 'settings': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>;
+        case 'help': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+        case 'tenants': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18"/><path d="M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3z"/><path d="M19 21V10h-2v11"/><path d="M15 21V10h-2v11"/><path d="M11 21V10H9v11"/><path d="M7 21V10H5v11"/></svg>;
+        case 'warning': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+        case 'check': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+        case 'user': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+        case 'arrow-left': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>;
+        case 'arrow-right': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>;
+        case 'download': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+        default: return null;
+    }
+};
+
 type BrandSignatureProps = {
     showMenuButton?: boolean;
     isMenuOpen?: boolean;
@@ -1161,23 +1188,23 @@ const AdminApp: React.FC = () => {
     }, [mode, token, adminIdentity?.role, selectedTenantAdminId]);
 
     const navItems: Array<{ key: DashboardView; label: string; hint: string; icon: string }> = [
-        { key: 'overview', label: 'Overview', hint: 'Summary and quick actions', icon: 'ðŸ“Š' },
-        { key: 'sections', label: 'Sections', hint: 'Create and manage exam sections', icon: 'ðŸ“ ' },
-        { key: 'questions', label: 'Question Bank', hint: 'View and edit existing questions', icon: 'ðŸ—ƒï¸ ' },
-        { key: 'add-question', label: 'Add Question', hint: 'Create new questions for the exam', icon: 'âž•' },
-        { key: 'students', label: 'Students', hint: 'Account management and resets', icon: 'ðŸ‘¥' },
-        { key: 'responses', label: 'Responses', hint: 'View student submissions and answers', icon: 'ðŸ“ ' },
-        { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup', icon: 'âš™ï¸ ' },
-        { key: 'activity', label: 'Activity', hint: 'Recent submission timeline', icon: 'âš¡' },
-        { key: 'insights', label: 'Insights', hint: 'Data charts and trends', icon: 'ðŸ” ' },
-        { key: 'reports', label: 'Reports', hint: 'Export center and audit-ready summaries', icon: 'ðŸ“‹' },
-        { key: 'users', label: 'User Management', hint: 'Manage admin access and identity data', icon: 'ðŸ›¡ï¸ ' },
-        { key: 'settings', label: 'Platform Settings', hint: 'Govern platform behavior and preferences', icon: 'ðŸ”§' },
-        { key: 'help', label: 'Help Center', hint: 'Usage guide and best practices', icon: 'â “' }
+        { key: 'overview', label: 'Overview', hint: 'Summary and quick actions', icon: 'overview' },
+        { key: 'sections', label: 'Sections', hint: 'Create and manage exam sections', icon: 'sections' },
+        { key: 'questions', label: 'Question Bank', hint: 'View and edit existing questions', icon: 'questions' },
+        { key: 'add-question', label: 'Add Question', hint: 'Create new questions for the exam', icon: 'add' },
+        { key: 'students', label: 'Students', hint: 'Account management and resets', icon: 'students' },
+        { key: 'responses', label: 'Responses', hint: 'View student submissions and answers', icon: 'responses' },
+        { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup', icon: 'settings' },
+        { key: 'activity', label: 'Activity', hint: 'Recent submission timeline', icon: 'activity' },
+        { key: 'insights', label: 'Insights', hint: 'Data charts and trends', icon: 'insights' },
+        { key: 'reports', label: 'Reports', hint: 'Export center and audit-ready summaries', icon: 'reports' },
+        { key: 'users', label: 'User Management', hint: 'Manage admin access and identity data', icon: 'security' },
+        { key: 'settings', label: 'Platform Settings', hint: 'Govern platform behavior and preferences', icon: 'settings' },
+        { key: 'help', label: 'Help Center', hint: 'Usage guide and best practices', icon: 'help' }
     ];
 
     if (adminIdentity?.role === 'super_admin') {
-        navItems.splice(7, 0, { key: 'tenants', label: 'Organization Control', hint: 'Create and switch admin organizations', icon: 'ðŸ ¢' });
+        navItems.splice(7, 0, { key: 'tenants', label: 'Organization Control', hint: 'Create and switch admin organizations', icon: 'tenants' });
     }
 
     const menuSearchKey = menuSearch.trim().toLowerCase();
@@ -1245,8 +1272,8 @@ const AdminApp: React.FC = () => {
     };
 
     const responsiveGridStyle: React.CSSProperties = isMobile
-        ? { ...gridStyle, gridTemplateColumns: '1fr' }
-        : gridStyle;
+        ? { display: 'flex', flexDirection: 'column', gap: '1rem' }
+        : { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' };
 
     const responsiveRowStyle: React.CSSProperties = isMobile
         ? { ...rowStyle, gridTemplateColumns: '1fr' }
@@ -1384,7 +1411,7 @@ const AdminApp: React.FC = () => {
                                             width: '100%',
                                             marginTop: 0,
                                             textAlign: 'left',
-                                            padding: compact ? '0.6rem 0.5rem' : '0.65rem 0.75rem',
+                                            padding: compact ? '0.6rem 0.6rem' : (isMobile ? '0.9rem 1rem' : '0.65rem 0.85rem'),
                                             borderRadius: '10px',
                                             background: activeView === item.key
                                                 ? 'linear-gradient(90deg, #edf5ff 0%, #ffffff 100%)'
@@ -1399,11 +1426,11 @@ const AdminApp: React.FC = () => {
                                             boxShadow: activeView === item.key ? '0 4px 12px rgba(42,112,221,0.08)' : 'none'
                                         }}
                                     >
-                                        <div style={{ fontSize: '1.2rem', flexShrink: 0, filter: activeView === item.key ? 'none' : 'grayscale(1) opacity(0.7)' }}>
-                                            {item.icon}
+                                        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Icon name={item.icon} color={activeView === item.key ? '#2a70dd' : '#64748b'} size={20} />
                                         </div>
                                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: activeView === item.key ? '#1b4f95' : '#1e293b' }}>{item.label}</div>
+                                            <div style={{ fontWeight: 800, fontSize: isMobile ? '1rem' : '0.88rem', color: activeView === item.key ? '#1b4f95' : '#1e293b' }}>{item.label}</div>
                                             {!compact && <div style={{ fontSize: '0.7rem', opacity: 0.7, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.hint}</div>}
                                         </div>
                                     </button>
@@ -1800,7 +1827,7 @@ const AdminApp: React.FC = () => {
                                         style={loginInputStyle}
                                     />
                                 </div>
-                                <button type="submit" className="inc-primary-btn" style={loginPrimaryBtnStyle}>Sign In →</button>
+                                <button type="submit" className="inc-primary-btn" style={loginPrimaryBtnStyle}>Sign In <Icon name="arrow-right" size={18} /> </button>
                             </form>
 
                             <div style={{ marginTop: '2rem', textAlign: 'center' }}>
@@ -1898,7 +1925,7 @@ const AdminApp: React.FC = () => {
                             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 <input className="inc-card-input" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} type="email" required placeholder="superadmin@indocreonix.com" style={loginInputStyle} />
                                 <input className="inc-card-input" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} type="password" required placeholder="••••••••" style={loginInputStyle} />
-                                <button type="submit" className="inc-primary-btn" style={{ ...loginPrimaryBtnStyle, background: '#0055cc' }}>Command Access →</button>
+                                <button type="submit" className="inc-primary-btn" style={{ ...loginPrimaryBtnStyle, background: '#0055cc' }}>Command Access <Icon name="arrow-right" size={18} /> </button>
                             </form>
                             <button type="button" className="inc-secondary-btn" onClick={() => navigate('/admin/login')} style={{ ...loginSecondaryBtnStyle, marginTop: '1.5rem' }}>Back to Admin</button>
                         </div>
@@ -1961,10 +1988,10 @@ const AdminApp: React.FC = () => {
                                 width: '84%',
                                 maxWidth: '320px',
                                 height: '100%',
-                                background: 'linear-gradient(170deg, #fff8f2 0%, #fff1e7 100%)',
-                                borderRight: '1px solid #efcfb8',
+                                background: '#ffffff',
+                                borderRight: '1px solid #e2e8f0',
                                 boxShadow: '10px 0 28px rgba(17, 45, 92, 0.24)',
-                                padding: '0.85rem',
+                                padding: '1.25rem',
                                 overflowY: 'auto'
                             }}
                             onClick={(event) => event.stopPropagation()}
@@ -2095,13 +2122,13 @@ const AdminApp: React.FC = () => {
                                             onClick={() => openView('students')}
                                             style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.45rem 0.9rem', fontSize: '0.84rem', minWidth: 'fit-content' }}
                                         >
-                                            &larr; Back to Students
+                                            <Icon name="arrow-left" size={14} /> Back to Students
                                         </button>
                                         <button
                                             onClick={exportSelectedStudentCsv}
                                             style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.45rem 0.9rem', fontSize: '0.84rem', minWidth: 'fit-content' }}
                                         >
-                                            &#8681; Export Submissions CSV
+                                            <Icon name="download" size={14} /> Export Submissions CSV
                                         </button>
                                     </div>
                                 )}
@@ -2196,11 +2223,11 @@ const AdminApp: React.FC = () => {
                                                             <p style={{ margin: '0.15rem 0 0', fontWeight: 800, color: item.terminatedDueToCheating ? '#e11d48' : '#15803d', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                 {item.terminatedDueToCheating ? (
                                                                     <>
-                                                                        <span style={{ fontSize: '1rem' }}>⚠</span> Terminated
+                                                                        <Icon name="warning" color="#e11d48" size={16} /> Terminated
                                                                     </>
                                                                 ) : (
                                                                     <>
-                                                                        <span style={{ fontSize: '1rem' }}>✓</span> Clean
+                                                                        <Icon name="check" color="#15803d" size={16} /> Clean
                                                                     </>
                                                                 )}
                                                             </p>
@@ -2311,7 +2338,7 @@ const AdminApp: React.FC = () => {
                                         <input type="file" accept="image/*" onChange={(e) => setQuestionImage(e.target.files?.[0] || null)} style={inputStyle} />
                                     </div>
                                     
-                                    <button type="submit" style={{ ...primaryBtnStyle, marginTop: '1.5rem', width: '100%', padding: '0.8rem' }}>Create Question &rarr;</button>
+                                    <button type="submit" style={{ ...primaryBtnStyle, marginTop: '1.5rem', width: '100%', padding: '0.8rem' }}>Create Question <Icon name="arrow-right" size={18} /></button>
                                 </form>
                             </section>
                         )}
@@ -2323,7 +2350,9 @@ const AdminApp: React.FC = () => {
                                         <h3 style={{ margin: 0, marginBottom: '0.3rem' }}>Question Bank</h3>
                                         <p style={{ ...mutedStyle, margin: 0 }}>Review, search, and edit existing questions in your database.</p>
                                     </div>
-                                    <button onClick={() => openView('add-question')} style={{ ...primaryBtnStyle, padding: '0.45rem 1rem', fontSize: '0.9rem' }}>+ Add Question</button>
+                                    <button onClick={() => openView('add-question')} style={{ ...primaryBtnStyle, padding: '0.45rem 1rem', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'auto' }}>
+                                        <Icon name="add" size={16} /> Add Question
+                                    </button>
                                 </div>
                                 
                                 <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
@@ -2510,14 +2539,16 @@ const AdminApp: React.FC = () => {
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                        <button onClick={() => openView('students')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}>&larr; Exit View</button>
+                                        <button onClick={() => openView('students')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}><Icon name="arrow-left" size={16} /> Exit View</button>
                                         <button onClick={exportSelectedStudentCsv} style={{ ...primaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}>Export Detailed PDF/CSV</button>
                                     </div>
                                 </div>
                                 
                                 {!selectedStudent ? (
                                     <div style={{ padding: '4rem 2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
-                                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>ðŸ‘¤</div>
+                                        <div style={{ marginBottom: '1.5rem', opacity: 0.15 }}>
+                                            <Icon name="user" size={64} color="#1e293b" />
+                                        </div>
                                         <h4 style={{ color: '#334155', fontSize: '1.2rem', margin: '0 0 0.5rem 0' }}>No Student Selected</h4>
                                         <p style={{ ...mutedStyle, maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>Please select a student from the directory to analyze their exam performance, responses, and behavioral insights.</p>
                                         <button onClick={() => openView('students')} style={{ ...primaryBtnStyle, width: 'auto', padding: '0.6rem 2rem' }}>Go to Students Directory</button>
@@ -2533,7 +2564,12 @@ const AdminApp: React.FC = () => {
                                                 <div style={{ background: '#f8fafc', padding: '1.2rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                                                     <div>
                                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EXAM SECTION</span>
-                                                        <h4 style={{ margin: '0.2rem 0 0 0', color: '#1e293b', fontSize: '1.2rem' }}>{submission.section?.name || 'Standard Assessment'}</h4>
+                                                        <h4 style={{ margin: '0.2rem 0 0 0', color: '#1e293b', fontSize: '1.2rem' }}>
+                                                            {submission.section?.name || 'Standard Assessment'}
+                                                            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500, marginLeft: '12px', opacity: 0.8 }}>
+                                                                &mdash; {selectedStudent?.name}
+                                                            </span>
+                                                        </h4>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
                                                         <div style={{ textAlign: 'right' }}>
@@ -2542,7 +2578,7 @@ const AdminApp: React.FC = () => {
                                                         </div>
                                                         {submission.examMeta?.terminatedDueToCheating && (
                                                             <div style={{ background: '#fef2f2', color: '#dc2626', padding: '0.45rem 1rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, border: '1px solid #fee2e2', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <span style={{ fontSize: '1rem' }}>âš ï¸ </span> TERMINATED
+                                                                <Icon name="warning" color="#dc2626" size={16} /> TERMINATED
                                                             </div>
                                                         )}
                                                     </div>
@@ -2589,8 +2625,8 @@ const AdminApp: React.FC = () => {
 
                                                                    {(submission.examMeta?.terminationRemark || submission.remark) && (
                                                         <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>
-                                                                âš ï¸ 
+                                                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                <Icon name="warning" color="#c2410c" size={20} />
                                                             </div>
                                                             <div>
                                                                 <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>Administrative Remark</div>
@@ -2603,7 +2639,9 @@ const AdminApp: React.FC = () => {
                                                     {!!submission.examMeta?.questionInteractions?.length && (
                                                         <div style={{ marginBottom: '2.5rem' }}>
                                                             <h5 style={{ margin: '0 0 1.25rem 0', color: '#1e293b', fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                <span style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f0f9ff', border: '1px solid #e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.2rem' }}>âš¡</span> 
+                                                                <span style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f0f9ff', border: '1px solid #e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                    <Icon name="lightning" color="#3b82f6" size={20} />
+                                                                </span>
                                                                 <span style={{ whiteSpace: 'nowrap' }}>Sequence &amp; Micro-Interaction Tracking</span>
                                                             </h5>
                                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -2615,7 +2653,7 @@ const AdminApp: React.FC = () => {
                                                                                 <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#f59e0b' }}>{interaction.changeCount} SWAPS</span>
                                                                             </div>
                                                                             <div style={{ fontSize: '0.85rem', color: '#475569' }}>
-                                                                                Opt {interaction.firstSelectedOptionIndex ?? '-'} &rarr; <strong style={{ color: '#1e40af' }}>Opt {interaction.finalSelectedOptionIndex ?? '-'}</strong>
+                                                                                Opt {interaction.firstSelectedOptionIndex ?? '-'} <Icon name="arrow-right" size={12} /> <strong style={{ color: '#1e40af' }}>Opt {interaction.finalSelectedOptionIndex ?? '-'}</strong>
                                                                             </div>
                                                                         </div>
                                                                     )
@@ -2626,7 +2664,12 @@ const AdminApp: React.FC = () => {
 
                                                     {/* Full Width Answer Breakdown */}
                                                     <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
-                                                        <h5 style={{ margin: '0 0 1.5rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: 700 }}>Question-by-Question Breakdown</h5>
+                                                        <h5 style={{ margin: '0 0 1.5rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: 700 }}>
+                                                            Question-by-Question Breakdown
+                                                            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500, marginLeft: '10px' }}>
+                                                                &mdash; {selectedStudent?.name}
+                                                            </span>
+                                                        </h5>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                                             {submission.answers.map((answer, index) => (
                                                                 <div key={index} style={{ 
@@ -2777,7 +2820,7 @@ const AdminApp: React.FC = () => {
                                                         <strong>Option Swaps:</strong> {item.totalOptionChanges}
                                                         {item.terminatedDueToCheating && (
                                                             <span style={{ marginLeft: '1rem', color: '#dc2626', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#fef2f2', padding: '0.15rem 0.65rem', borderRadius: '999px', fontSize: '0.74rem', border: '1px solid #fee2e2' }}>
-                                                                <span style={{ fontSize: '1rem' }}>⚠</span> Terminated
+                                                                <Icon name="warning" color="#dc2626" size={14} /> Terminated
                                                             </span>
                                                         )}
                                                     </p>
@@ -3020,13 +3063,13 @@ const AdminApp: React.FC = () => {
                                                         <span style={{ fontSize: '1.25rem', fontWeight: 800, color: pctColor }}>{pct}%</span>
                                                     </div>
                                                     <p style={{ ...mutedStyle, margin: '0.4rem 0 0.3rem 0', fontSize: '0.82rem' }}>
-                                                        <strong>Total:</strong> {item.totalScore}/{item.totalMaxScore} pts &nbsp;·&nbsp;
-                                                        <strong>Sections:</strong> {item.submissionsCount} &nbsp;·&nbsp;
+                                                        <strong>Total:</strong> {item.totalScore}/{item.totalMaxScore} pts &nbsp;&middot;&nbsp;
+                                                        <strong>Sections:</strong> {item.submissionsCount} &nbsp;&middot;&nbsp;
                                                         <strong>Answered:</strong> {item.totalAttempted}/{item.totalQuestions}
-                                                        {item.terminatedDueToCheating && <span style={{ marginLeft: '0.5rem', color: '#dc2626', fontWeight: 700 }}>⚠ Flagged</span>}
+                                                        {item.terminatedDueToCheating && <span style={{ marginLeft: '0.5rem', color: '#dc2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Icon name="warning" size={14} color="#dc2626" /> Flagged</span>}
                                                     </p>
                                                     <p style={{ ...mutedStyle, fontSize: '0.8rem', margin: '0.2rem 0 0 0' }}>
-                                                        {(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name} (${s.score}/${s.maxScore})`).join(' · ') : '—'}
+                                                        {(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name} (${s.score}/${s.maxScore})`).join(' &middot; ') : '&mdash;'}
                                                     </p>
                                                     <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.2rem 0 0 0' }}>Last: {new Date(item.lastSubmittedAt).toLocaleString()}</p>
                                                 </div>
@@ -3209,9 +3252,10 @@ const pageStyle: React.CSSProperties = {
 const cardStyle: React.CSSProperties = {
     background: 'linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)',
     border: '1px solid #c8d9f5',
-    borderRadius: '12px',
-    padding: '0.85rem',
-    boxShadow: '0 10px 22px rgba(16, 45, 99, 0.09)'
+    borderRadius: '16px',
+    padding: '1.25rem',
+    boxShadow: '0 10px 22px rgba(16, 45, 99, 0.09)',
+    overflow: 'hidden'
 };
 
 const inputStyle: React.CSSProperties = {
