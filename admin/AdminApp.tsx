@@ -187,7 +187,7 @@ const DEFAULT_DASHBOARD_VIEW: DashboardView = 'overview';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const BRAND_NAME = 'Indocreonix';
-const BRAND_LOGO_URL = '/brand-logo.png';
+const BRAND_LOGO_URL = '/original_logo.png';
 const BRAND_MOTTO = 'Smart Assessment Infrastructure';
 const BRAND_TAG = 'Build · Scale · Lead';
 
