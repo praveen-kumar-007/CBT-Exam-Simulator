@@ -1,16 +1,24 @@
 
+import './src/css/index.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import App from './src/App';
 import { registerSW } from 'virtual:pwa-register';
 
-registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    // Automatically apply updates so users stay on latest exam build.
-    window.location.reload();
-  }
-});
+if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => registration.unregister());
+  });
+}
+
+if (import.meta.env.PROD) {
+  registerSW({
+    immediate: true,
+    onNeedRefresh() {
+      window.location.reload();
+    },
+  });
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

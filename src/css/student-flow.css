@@ -1,0 +1,219 @@
+/* Unified professional styling for the full student CBT flow pages */
+
+.student-flow-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(79, 70, 229, 0.09),
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(14, 165, 233, 0.08),
+      transparent 34%
+    ),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 60%, #f8fbff 100%);
+  padding: 1.1rem;
+}
+
+.student-flow-shell {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  padding: 1.35rem;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.08);
+}
+
+.student-flow-head p {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6366f1;
+}
+
+.student-flow-head h1 {
+  margin: 0.34rem 0 0;
+  color: #0f172a;
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  line-height: 1.14;
+}
+
+.student-flow-head span {
+  display: block;
+  margin-top: 0.3rem;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.student-flow-grid-two {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(250px, 1fr));
+  gap: 0.95rem;
+}
+
+.student-flow-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.student-flow-card h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.02rem;
+}
+
+.student-flow-list {
+  margin: 0.72rem 0 0;
+  padding-left: 1rem;
+  color: #334155;
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+}
+
+.student-flow-kpis {
+  margin-top: 0.72rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
+  gap: 0.72rem;
+}
+
+.student-flow-kpis > div {
+  border-radius: 14px;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+  padding: 0.84rem;
+}
+
+.student-flow-kpis > div > strong {
+  display: block;
+  font-size: 1.3rem;
+  color: #1d4ed8;
+}
+
+.student-flow-kpis > div > span {
+  display: block;
+  margin-top: 0.2rem;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.student-flow-kpis-large {
+  margin-top: 1rem;
+}
+
+.student-flow-metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
+  gap: 0.72rem;
+}
+
+.student-flow-metadata > div {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.75rem;
+}
+
+.student-flow-metadata strong {
+  display: block;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.student-flow-metadata span {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.student-flow-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.student-flow-primary,
+.student-flow-secondary {
+  border: none;
+  border-radius: 12px;
+  padding: 0.74rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.student-flow-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #ffffff;
+}
+
+.student-flow-primary:hover {
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+}
+
+.student-flow-secondary {
+  background: #e2e8f0;
+  color: #1f2937;
+}
+
+.student-flow-alert-page {
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(239, 68, 68, 0.09),
+      transparent 40%
+    ),
+    linear-gradient(180deg, #fff7f7 0%, #fff1f2 100%);
+}
+
+.student-flow-alert-shell {
+  max-width: 840px;
+}
+
+.student-flow-danger-card {
+  border-color: #fecaca;
+  background: #fff7ed;
+}
+
+@media (max-width: 900px) {
+  .student-flow-grid-two,
+  .student-flow-metadata,
+  .student-flow-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .student-flow-actions {
+    justify-content: stretch;
+  }
+
+  .student-flow-primary,
+  .student-flow-secondary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-flow-page {
+    padding: 0.72rem;
+  }
+
+  .student-flow-shell {
+    padding: 0.95rem;
+    border-radius: 18px;
+  }
+}

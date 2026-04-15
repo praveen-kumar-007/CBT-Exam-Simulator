@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 type Mode = 'admin-login' | 'super-admin-login' | 'dashboard';
-type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help' | 'profile';
+type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help' | 'profile' | 'demo-exam';
 
 type AdminIdentity = {
     id?: string;
@@ -9,7 +9,7 @@ type AdminIdentity = {
     email?: string;
     role?: string;
     tenantKey?: string | null;
-    phone?: string;
+    phone?: string | null;
     plan?: string;
     imageUrl?: string;
 };
@@ -182,7 +182,7 @@ type InsightsPayload = {
     timeline: InsightsTimelineItem[];
 };
 
-const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'add-question', 'students', 'responses', 'config', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help'];
+const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'add-question', 'students', 'responses', 'config', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help', 'demo-exam'];
 const DEFAULT_DASHBOARD_VIEW: DashboardView = 'overview';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -366,6 +366,8 @@ const AdminApp: React.FC = () => {
 
     const [status, setStatus] = useState('');
     const [error, setError] = useState('');
+    const [demoSeedStatus, setDemoSeedStatus] = useState('');
+    const [isDemoSeedLoading, setIsDemoSeedLoading] = useState(false);
     const [loginEmail, setLoginEmail] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
 
@@ -534,7 +536,8 @@ const AdminApp: React.FC = () => {
             withAuth &&
             adminIdentity?.role === 'super_admin' &&
             !path.includes('/managed-admins') &&
-            !path.includes('/super-admins')
+            !path.includes('/super-admins') &&
+            !path.includes('/demo-paper/seed')
         ) {
             if (!selectedTenantAdminId) {
                 throw new Error('Select an organization admin context first.');
@@ -556,6 +559,7 @@ const AdminApp: React.FC = () => {
         event.preventDefault();
         setError('');
         setStatus('');
+        setDemoSeedStatus('');
 
         try {
             const loginPath = mode === 'super-admin-login'
@@ -581,6 +585,30 @@ const AdminApp: React.FC = () => {
             navigate('/admin/dashboard/overview');
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Login failed');
+        }
+    };
+
+    const handleDemoSeed = async () => {
+        if (adminIdentity?.role !== 'super_admin') {
+            setDemoSeedStatus('Only super admins can seed the demo exam.');
+            return;
+        }
+
+        setIsDemoSeedLoading(true);
+        setDemoSeedStatus('');
+        setError('');
+
+        try {
+            const result = await api<{ success: boolean; message: string; data: unknown }>('/api/admin/demo-paper/seed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            setDemoSeedStatus(result.message || 'Demo paper seeded successfully.');
+        } catch (e) {
+            setDemoSeedStatus(e instanceof Error ? e.message : 'Failed to seed demo exam.');
+        } finally {
+            setIsDemoSeedLoading(false);
         }
     };
 
@@ -1251,6 +1279,7 @@ const AdminApp: React.FC = () => {
 
     if (adminIdentity?.role === 'super_admin') {
         navItems.splice(7, 0, { key: 'tenants', label: 'Organization Control', hint: 'Create and switch admin organizations', icon: 'tenants' });
+        navItems.push({ key: 'demo-exam', label: 'Demo Exam', hint: 'Manage and seed demo exam', icon: 'lightning' });
         navItems.push({ key: 'users', label: 'User Management', hint: 'Manage admin access and identity data', icon: 'security' });
     }
 
@@ -1259,7 +1288,7 @@ const AdminApp: React.FC = () => {
         { title: 'Overview', views: ['profile', 'overview', 'activity', 'insights'] },
         { title: 'Exam Workspace', views: ['sections', 'add-question', 'questions', 'students', 'config'] },
         { title: 'Operations', views: ['reports'] },
-        { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['users', 'settings', 'tenants'] : ['settings'] },
+        { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['demo-exam', 'users', 'settings', 'tenants'] : ['settings'] },
         { title: 'Support', views: ['help'] }
     ];
 
@@ -1285,6 +1314,7 @@ const AdminApp: React.FC = () => {
         .filter((section) => section.views.length > 0);
 
     const dashboardTitle: Record<DashboardView, string> = {
+        'demo-exam': 'Demo Exam Management',
         overview: 'Admin Overview',
         sections: 'Section Management',
         questions: 'Question Bank',
@@ -1303,6 +1333,7 @@ const AdminApp: React.FC = () => {
     };
 
     const dashboardSubtitle: Record<DashboardView, string> = {
+        'demo-exam': 'Seed or manage the demo exam for demonstration purposes.',
         overview: 'Monitor performance and jump to common admin tasks quickly.',
         sections: 'Organize section structure before adding questions.',
         questions: 'Search, review, and modify existing exam questions.',
@@ -1319,6 +1350,37 @@ const AdminApp: React.FC = () => {
         profile: 'Manage your administrator account details and contact information.',
         help: 'Follow the recommended workflow for smooth exam operations.'
     };
+
+    const renderDemoExamPanel = () => (
+        <section style={{ maxWidth: 540, margin: '2.5rem auto', background: '#fff', borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', padding: '2.5rem 2rem', border: '1px solid #e0e7ef' }}>
+            <h2 style={{ fontWeight: 800, fontSize: '1.35rem', color: '#1f4f99', marginBottom: '1.2rem' }}>Demo Exam Management</h2>
+            <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>Super admins can seed the demo exam for demonstration or testing. This will create a sample exam paper and questions for demo purposes.</p>
+            <button
+                type="button"
+                onClick={handleDemoSeed}
+                disabled={isDemoSeedLoading}
+                style={{
+                    background: 'linear-gradient(90deg, #2563eb 0%, #06b6d4 100%)',
+                    color: '#fff',
+                    fontWeight: 700,
+                    border: 'none',
+                    borderRadius: 12,
+                    padding: '0.85rem 1.6rem',
+                    fontSize: '1rem',
+                    cursor: isDemoSeedLoading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 8px rgba(37,99,235,0.08)',
+                    marginBottom: '1.2rem',
+                    transition: 'all 0.2s',
+                    minWidth: 180
+                }}
+            >
+                {isDemoSeedLoading ? 'Seeding Demo Exam…' : 'Seed Demo Exam'}
+            </button>
+            {demoSeedStatus && (
+                <div style={{ marginTop: '1.1rem', color: demoSeedStatus.toLowerCase().includes('fail') ? '#b91c1c' : '#166534', fontWeight: 700, fontSize: '1rem' }}>{demoSeedStatus}</div>
+            )}
+        </section>
+    );
 
     const responsiveGridStyle: React.CSSProperties = isMobile
         ? { display: 'flex', flexDirection: 'column', gap: '1rem' }
@@ -3387,6 +3449,7 @@ const AdminApp: React.FC = () => {
                             </>
                         )}
 
+                        {activeView === 'demo-exam' && renderDemoExamPanel()}
                         {activeView === 'help' && (
                             <section style={cardStyle}>
                                 <h3 style={{ marginTop: 0 }}>Help Center</h3>
@@ -3408,6 +3471,30 @@ const AdminApp: React.FC = () => {
                                         <p style={mutedStyle}>Set exam duration centrally in Exam Config; it is applied to student exam timers.</p>
                                     </div>
                                 </div>
+                                {adminIdentity?.role === 'super_admin' && (
+                                    <div style={{ marginTop: '1.5rem' }}>
+                                        <div style={{ marginBottom: '0.8rem', fontWeight: 700, color: '#1f4f99' }}>Super admin demo setup</div>
+                                        <button
+                                            type="button"
+                                            onClick={handleDemoSeed}
+                                            disabled={isDemoSeedLoading}
+                                            style={{
+                                                ...primaryBtnStyle,
+                                                width: 'auto',
+                                                padding: '0.7rem 1.2rem',
+                                                fontSize: '0.95rem',
+                                                cursor: isDemoSeedLoading ? 'not-allowed' : 'pointer'
+                                            }}
+                                        >
+                                            {isDemoSeedLoading ? 'Seeding demo exam…' : 'Seed Demo Exam'}
+                                        </button>
+                                        {demoSeedStatus && (
+                                            <p style={{ ...mutedStyle, marginTop: '0.85rem', color: demoSeedStatus.toLowerCase().includes('failed') ? '#b91c1c' : '#166534' }}>
+                                                {demoSeedStatus}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </section>
                         )}
                     </main>
