@@ -108,7 +108,10 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
     };
 
     const getQuestionStatus = (questionId: string): QuestionStatus => {
-        const isAnswered = !!answers[questionId];
+const isAnswered =
+        answers[questionId] !== undefined &&
+        answers[questionId] !== null &&
+        answers[questionId] !== '';
         const isMarked = markedForReview.includes(questionId);
         const isVisited = visited.includes(questionId);
 

@@ -141,7 +141,7 @@ const StudentApp: React.FC = () => {
 
             const submissionAnswers = section.questions.reduce<Array<{ questionId: string; selectedOptionIndex: number }>>((acc, question) => {
               const selectedValue = answers[question.id];
-              if (!selectedValue) {
+              if (selectedValue === undefined || selectedValue === null || selectedValue === '') {
                 return acc;
               }
 
