@@ -363,7 +363,7 @@ const AdminApp: React.FC = () => {
     const [isSidebarPinned, setIsSidebarPinned] = useState(false);
     const [token, setToken] = useState(localStorage.getItem('adminToken') || '');
     const [adminIdentity, setAdminIdentity] = useState<AdminIdentity | null>(readAdminIdentity());
-    const [desktopSidebarWidth, setDesktopSidebarWidth] = useState(280);
+    const [desktopSidebarWidth, setDesktopSidebarWidth] = useState(320);
     const [isResizing, setIsResizing] = useState(false);
 
     const [status, setStatus] = useState('');
@@ -383,6 +383,8 @@ const AdminApp: React.FC = () => {
     const [correctOptionIndex, setCorrectOptionIndex] = useState(0);
     const [marks, setMarks] = useState(1);
     const [questionImage, setQuestionImage] = useState<File | null>(null);
+    const [importQuestionFile, setImportQuestionFile] = useState<File | null>(null);
+    const [isImportingQuestions, setIsImportingQuestions] = useState(false);
     const [questions, setQuestions] = useState<QuestionItem[]>([]);
     const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
     const [editSectionId, setEditSectionId] = useState('');
@@ -991,6 +993,39 @@ const AdminApp: React.FC = () => {
             await loadQuestions();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to create question');
+        }
+    };
+
+    const importQuestions = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!importQuestionFile) {
+            setError('Please select an Excel file to upload.');
+            return;
+        }
+
+        setError('');
+        setStatus('');
+        setIsImportingQuestions(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('questionFile', importQuestionFile);
+
+            const result = await api<{ message: string }>('/api/admin/questions/import', {
+                method: 'POST',
+                body: formData,
+            });
+
+            setImportQuestionFile(null);
+            setStatus(result.message || 'Questions imported from Excel successfully.');
+            await loadSections();
+            if (selectedSectionId) {
+                await loadQuestions();
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to import questions from Excel');
+        } finally {
+            setIsImportingQuestions(false);
         }
     };
 
@@ -2138,11 +2173,11 @@ const AdminApp: React.FC = () => {
                         <aside
                             style={{
                                 position: 'absolute',
-                                top: 0,
+                                top: '68px',
                                 left: 0,
                                 width: '84%',
                                 maxWidth: '320px',
-                                height: '100%',
+                                height: 'calc(100% - 68px)',
                                 background: '#ffffff',
                                 borderRight: '1px solid #e2e8f0',
                                 boxShadow: '10px 0 28px rgba(17, 45, 92, 0.24)',
@@ -2218,6 +2253,7 @@ const AdminApp: React.FC = () => {
                         <section
                             style={{
                                 ...cardStyle,
+                                position: 'relative',
                                 background: 'linear-gradient(90deg, rgba(243,247,255,0.95), rgba(255,244,242,0.95))',
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -2311,6 +2347,21 @@ const AdminApp: React.FC = () => {
                                     Session Active
                                 </span>
                             </div>
+                            <button
+                                onClick={logout}
+                                style={{
+                                    display: isMobile ? 'none' : 'inline-flex',
+                                    position: 'absolute',
+                                    top: '1.1rem',
+                                    right: '1rem',
+                                    ...dangerBtnStyle,
+                                    padding: '0.55rem 0.9rem',
+                                    borderRadius: '999px',
+                                    minWidth: 'fit-content'
+                                }}
+                            >
+                                Logout
+                            </button>
                         </section>
 
                         {status && <p style={okStyle}>{status}</p>}
@@ -2471,6 +2522,46 @@ const AdminApp: React.FC = () => {
                                         <option key={section._id} value={section._id}>{section.name}</option>
                                     ))}
                                 </select>
+
+                                <div style={{ padding: '1rem', borderRadius: '16px', background: '#f8fafc', border: '1px solid #dbe4ef', margin: '1.5rem 0' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+                                        <div style={{ minWidth: '220px' }}>
+                                            <p style={{ margin: 0, fontWeight: 700, color: '#0f172a' }}>Excel import for bulk questions</p>
+                                            <p style={{ margin: '0.35rem 0 0', color: '#475569', fontSize: '0.95rem' }}>
+                                                Download the sample Excel template, then fill questions with section rows, options, and the correct option. The upload parser ignores the header row and creates the section automatically.
+                                            </p>
+                                        </div>
+                                        <a href="/question-import-sample.xlsx" download style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.65rem 1rem', background: '#1d4ed8', color: '#fff', borderRadius: '999px', textDecoration: 'none', fontWeight: 700 }}>
+                                            Download sample Excel
+                                        </a>
+                                    </div>
+
+                                    <form onSubmit={importQuestions} style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
+                                        <input
+                                            type="file"
+                                            accept=".xlsx,.xls"
+                                            onChange={(e) => setImportQuestionFile(e.target.files?.[0] || null)}
+                                            style={{ padding: '0.8rem', borderRadius: '10px', border: '1px solid #cbd5e1', width: '100%' }}
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={isImportingQuestions}
+                                            style={{
+                                                ...primaryBtnStyle,
+                                                width: '100%',
+                                                padding: '0.85rem',
+                                                opacity: isImportingQuestions ? 0.65 : 1,
+                                            }}
+                                        >
+                                            {isImportingQuestions ? 'Importing questions…' : 'Upload Excel and Import'}
+                                        </button>
+                                        {importQuestionFile && (
+                                            <p style={{ margin: 0, color: '#334155', fontSize: '0.92rem' }}>
+                                                Selected file: {importQuestionFile.name}
+                                            </p>
+                                        )}
+                                    </form>
+                                </div>
 
                                 <form onSubmit={createQuestion}>
                                     <label>Question text</label>
