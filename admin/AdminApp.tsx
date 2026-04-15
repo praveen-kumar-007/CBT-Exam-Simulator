@@ -224,8 +224,9 @@ const Icon: React.FC<{ name: string; size?: number; color?: string }> = ({ name,
         case 'security': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
         case 'settings': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>;
         case 'help': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+        case 'calendar': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+        case 'clock': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>;
         case 'tenants': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18"/><path d="M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3z"/><path d="M19 21V10h-2v11"/><path d="M15 21V10h-2v11"/><path d="M11 21V10H9v11"/><path d="M7 21V10H5v11"/></svg>;
-        case 'warning': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
         case 'check': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
         case 'user': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
         case 'arrow-left': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>;
@@ -403,6 +404,9 @@ const AdminApp: React.FC = () => {
     const [examDuration, setExamDuration] = useState(60);
     const [examinerName, setExaminerName] = useState('CBT Examination Cell');
     const [examStartAt, setExamStartAt] = useState('');
+    const [isExamStartPickerOpen, setIsExamStartPickerOpen] = useState(false);
+    const [examStartDate, setExamStartDate] = useState('');
+    const [examStartTime, setExamStartTime] = useState('');
     const [examAutoSubmitAfterTime, setExamAutoSubmitAfterTime] = useState(true);
     const [examForceEndedAt, setExamForceEndedAt] = useState<string | null>(null);
     const [examConfigUpdatedAt, setExamConfigUpdatedAt] = useState('');
@@ -677,12 +681,44 @@ const AdminApp: React.FC = () => {
         return local.toISOString().slice(0, 16);
     };
 
+    const getExamStartParts = (value: string) => {
+        if (!value) return { date: '', time: '' };
+        const [date, time] = value.split('T');
+        return { date: date || '', time: time || '09:00' };
+    };
+
+    const openExamStartPicker = () => {
+        const parts = getExamStartParts(examStartAt);
+        setExamStartDate(parts.date || new Date().toISOString().slice(0, 10));
+        setExamStartTime(parts.time || '09:00');
+        setIsExamStartPickerOpen(true);
+    };
+
+    const applyExamStartPicker = () => {
+        if (!examStartDate) {
+            setError('Please choose a valid exam start date.');
+            return;
+        }
+        setExamStartAt(`${examStartDate}T${examStartTime || '09:00'}`);
+        setIsExamStartPickerOpen(false);
+    };
+
+    const clearExamStart = () => {
+        setExamStartAt('');
+        setExamStartDate('');
+        setExamStartTime('09:00');
+        setIsExamStartPickerOpen(false);
+    };
+
     const loadExamConfig = async () => {
         try {
             const result = await api<{ data: ExamConfig }>('/api/admin/exam-config');
             setExamDuration(result.data?.durationInMinutes || 60);
             setExaminerName(result.data?.examinerName || 'CBT Examination Cell');
-            setExamStartAt(formatLocalDateTime(result.data?.startAt || null));
+            const localStart = formatLocalDateTime(result.data?.startAt || null);
+            setExamStartAt(localStart);
+            setExamStartDate(localStart ? localStart.slice(0, 10) : '');
+            setExamStartTime(localStart ? localStart.slice(11, 16) : '09:00');
             setExamAutoSubmitAfterTime(result.data?.autoSubmitAfterTime ?? true);
             setExamForceEndedAt(result.data?.forceEndedAt || null);
             setExamConfigUpdatedAt(result.data?.updatedAt || '');
@@ -850,9 +886,12 @@ const AdminApp: React.FC = () => {
                 }
             );
 
+            const localStart = formatLocalDateTime(result.data?.startAt || null);
             setExamDuration(result.data?.durationInMinutes || examDuration);
             setExaminerName(result.data?.examinerName || examinerName.trim());
-            setExamStartAt(formatLocalDateTime(result.data?.startAt || null));
+            setExamStartAt(localStart);
+            setExamStartDate(localStart ? localStart.slice(0, 10) : '');
+            setExamStartTime(localStart ? localStart.slice(11, 16) : '09:00');
             setExamAutoSubmitAfterTime(result.data?.autoSubmitAfterTime ?? true);
             setExamForceEndedAt(result.data?.forceEndedAt || null);
             setExamConfigUpdatedAt(result.data?.updatedAt || '');
@@ -3039,13 +3078,155 @@ const AdminApp: React.FC = () => {
                                         style={inputStyle}
                                         required
                                     />
-                                    <label>Exam Start Date &amp; Time</label>
-                                    <input
-                                        type="datetime-local"
-                                        value={examStartAt}
-                                        onChange={(e) => setExamStartAt(e.target.value)}
-                                        style={inputStyle}
-                                    />
+                                                            <label>Exam Start Date &amp; Time</label>
+                                <div style={{ position: 'relative', width: '100%' }}>
+                                    <button
+                                        type="button"
+                                        onClick={openExamStartPicker}
+                                        style={{
+                                            ...inputStyle,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            width: '100%',
+                                            cursor: 'pointer',
+                                            background: '#f8fbff',
+                                            border: '1px solid #c8d7f2',
+                                            color: '#0f172a'
+                                        }}
+                                    >
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.65rem' }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', borderRadius: '12px', background: '#e0efff' }}>
+                                                <Icon name="calendar" size={18} color="#1765c1" />
+                                            </span>
+                                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                                                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#102e56' }}>{examStartAt ? new Date(examStartAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Set exam start time'}</span>
+                                                <span style={{ fontSize: '0.78rem', color: '#5b708f' }}>{examStartAt ? 'Review or update the schedule' : 'Tap to pick date and time'}</span>
+                                            </span>
+                                        </span>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#1848a0' }}>
+                                            <Icon name="clock" size={18} color="#1848a0" />
+                                            <span style={{ fontWeight: 700 }}>Open</span>
+                                        </span>
+                                    </button>
+
+                                    {isExamStartPickerOpen && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '110%',
+                                            right: 0,
+                                            left: 0,
+                                            background: '#fff',
+                                            border: '1px solid rgba(15, 23, 42, 0.08)',
+                                            borderRadius: '18px',
+                                            padding: '1rem',
+                                            boxShadow: '0 22px 60px rgba(15, 23, 42, 0.12)',
+                                            zIndex: 25
+                                        }}>
+                                            <div style={{ display: 'grid', gap: '1rem' }}>
+                                                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                                    <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                                                        <label style={{ marginBottom: '0.5rem', display: 'block', fontWeight: 700, color: '#102e56' }}>Date</label>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.85rem', border: '1px solid #dbe4ef', borderRadius: '14px', background: '#f8fbff' }}>
+                                                            <Icon name="calendar" size={18} color="#0f4fa8" />
+                                                            <input
+                                                                type="date"
+                                                                value={examStartDate}
+                                                                onChange={(e) => setExamStartDate(e.target.value)}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    border: 'none',
+                                                                    outline: 'none',
+                                                                    fontSize: '0.95rem',
+                                                                    background: 'transparent',
+                                                                    color: '#102e56'
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+                                                        <label style={{ marginBottom: '0.5rem', display: 'block', fontWeight: 700, color: '#102e56' }}>Time</label>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.85rem', border: '1px solid #dbe4ef', borderRadius: '14px', background: '#f8fbff' }}>
+                                                            <Icon name="clock" size={18} color="#0f4fa8" />
+                                                            <input
+                                                                type="time"
+                                                                value={examStartTime}
+                                                                onChange={(e) => setExamStartTime(e.target.value)}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    border: 'none',
+                                                                    outline: 'none',
+                                                                    fontSize: '0.95rem',
+                                                                    background: 'transparent',
+                                                                    color: '#102e56'
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                                                    <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={applyExamStartPicker}
+                                                            style={{
+                                                                ...primaryBtnStyle,
+                                                                width: 'auto',
+                                                                padding: '0.85rem 1.1rem',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '0.55rem'
+                                                            }}
+                                                        >
+                                                            <Icon name="check" size={18} color="#fff" />
+                                                            OK
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsExamStartPickerOpen(false)}
+                                                            style={{
+                                                                ...secondaryBtnStyle,
+                                                                width: 'auto',
+                                                                padding: '0.85rem 1.1rem',
+                                                                borderRadius: '14px',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '0.55rem'
+                                                            }}
+                                                        >
+                                                            <Icon name="close" size={18} color="#164c82" />
+                                                            Cancel
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={clearExamStart}
+                                                            style={{
+                                                                ...dangerBtnStyle,
+                                                                width: 'auto',
+                                                                padding: '0.85rem 1.1rem',
+                                                                borderRadius: '14px',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '0.55rem'
+                                                            }}
+                                                        >
+                                                            <Icon name="close" size={18} color="#fff" />
+                                                            Clear
+                                                        </button>
+                                                    </div>
+                                                    <div style={{ padding: '0.95rem 1rem', borderRadius: '16px', background: '#eef5ff', border: '1px solid #c7ddfb' }}>
+                                                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#1d3f71', fontWeight: 700 }}>Selected schedule</p>
+                                                        <p style={{ margin: '0.4rem 0 0', color: '#334155' }}>{examStartDate ? `${new Date(`${examStartDate}T${examStartTime}`).toLocaleDateString([], { dateStyle: 'long' })} at ${examStartTime}` : 'No schedule chosen yet.'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginTop: '0.6rem' }}>
                                         <input
                                             type="checkbox"

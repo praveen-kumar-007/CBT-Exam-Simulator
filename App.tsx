@@ -192,6 +192,7 @@ const StudentApp: React.FC = () => {
       }
 
       setGameState(effectiveMeta.terminatedDueToCheating ? GameState.Disqualified : GameState.Finished);
+      setTimeRemaining(0);
       await exitFullScreenSafely();
     },
     [allQuestions, answers, examData.sections, questionInteractions, sectionIds, sectionSessionIds, studentToken, totalOptionChanges],
@@ -241,6 +242,7 @@ const StudentApp: React.FC = () => {
         const examConfig = await getStudentExamConfig(studentToken);
         if (isSubscribed && examConfig.forceEndedAt) {
           setExamForceEndedAt(examConfig.forceEndedAt);
+          setTimeRemaining(0);
           handleSubmitExam({
             terminationRemark: 'The exam was forcibly ended by the administrator.',
             cheatingAttempts: antiCheat.violationCount,
