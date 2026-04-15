@@ -210,30 +210,30 @@ const BRAND = {
 
 const Icon: React.FC<{ name: string; size?: number; color?: string }> = ({ name, size = 18, color = 'currentColor' }) => {
     switch (name) {
-        case 'overview': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>;
-        case 'sections': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>;
-        case 'questions': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
-        case 'add': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
-        case 'students': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-        case 'responses': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
-        case 'config': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
-        case 'activity': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
-        case 'lightning': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
-        case 'insights': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
-        case 'reports': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>;
-        case 'security': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
-        case 'settings': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>;
-        case 'help': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
-        case 'calendar': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
-        case 'clock': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>;
-        case 'tenants': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18"/><path d="M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3z"/><path d="M19 21V10h-2v11"/><path d="M15 21V10h-2v11"/><path d="M11 21V10H9v11"/><path d="M7 21V10H5v11"/></svg>;
-        case 'check': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
-        case 'user': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
-        case 'arrow-left': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>;
-        case 'arrow-right': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>;
-        case 'download': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
-        case 'menu': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
-        case 'close': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+        case 'overview': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>;
+        case 'sections': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M3 12h18" /><path d="M3 18h18" /></svg>;
+        case 'questions': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
+        case 'add': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
+        case 'students': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+        case 'responses': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>;
+        case 'config': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>;
+        case 'activity': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>;
+        case 'lightning': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>;
+        case 'insights': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
+        case 'reports': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></svg>;
+        case 'security': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;
+        case 'settings': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /></svg>;
+        case 'help': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
+        case 'calendar': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="3" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>;
+        case 'clock': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 15" /></svg>;
+        case 'tenants': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18" /><path d="M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3z" /><path d="M19 21V10h-2v11" /><path d="M15 21V10h-2v11" /><path d="M11 21V10H9v11" /><path d="M7 21V10H5v11" /></svg>;
+        case 'check': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>;
+        case 'user': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>;
+        case 'arrow-left': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg>;
+        case 'arrow-right': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>;
+        case 'download': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>;
+        case 'menu': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>;
+        case 'close': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
         default: return null;
     }
 };
@@ -735,6 +735,49 @@ const AdminApp: React.FC = () => {
                 return;
             }
             setError(message);
+        }
+    };
+
+    const getHelpPromptText = () => `Role: You are an expert Academic Content Creator and Data Specialist.
+
+Task: Please generate a full-length, high-quality mock examination paper for the [INSERT EXAM NAME HERE].
+
+Syllabus & Pattern Instructions:
+
+Official Pattern: Research and use the most recent official exam pattern for [INSERT EXAM NAME HERE]. This must include the exact number of sections and the precise number of questions per section (e.g., if it is RRB JE, generate 100 questions; if SSC CGL, generate 100 questions).
+
+Subject Mapping: Replace the placeholder section names with the actual subjects for this exam (e.g., General Awareness, Mathematics, General Intelligence & Reasoning, etc.).
+
+Difficulty Level: Ensure the questions match the specific technical and educational level required for this exam.
+
+Formatting Instructions (Strict):
+
+File Type: You must output the final result as a downloadable .xlsx (Excel) file.
+
+Column Structure: Follow the column headers from the attached sample exactly:
+
+Section: The subject name (enter this only once at the beginning of each new section).
+
+Question: The full text of the question.
+
+Option1, Option2, Option3, Option4: Four distinct answer choices.
+
+Correct Option: The label of the correct answer (Format: "Option1", "Option2", etc.).
+
+Marks: The marks assigned per question based on the exam's marking scheme.
+
+Execution: Please analyze the attached sample file for the style and then generate the complete dataset for the [INSERT EXAM NAME HERE]. Ensure every single question is unique and factually accurate
+
+this is a prompt that ai can generate that xlsx into proper exam wise paper
+
+so add this prompt in help center and also write steps to use this`;
+
+    const copyHelpPrompt = async () => {
+        try {
+            await navigator.clipboard.writeText(getHelpPromptText());
+            setStatus('Help prompt copied to clipboard.');
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Failed to copy prompt.');
         }
     };
 
@@ -1604,10 +1647,10 @@ const AdminApp: React.FC = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(50px, auto) 1fr', gap: '8px', lineHeight: '1.4' }}>
                         <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>Role:</span>
                         <span style={{ fontSize: '0.74rem', color: '#13366c', fontWeight: 800 }}>{adminIdentity?.role === 'super_admin' ? 'Super Admin' : 'Org Admin'}</span>
-                        
+
                         <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>View:</span>
                         <span style={{ fontSize: '0.74rem', color: '#3b82f6', fontWeight: 800 }}>{dashboardTitle[activeView]}</span>
-                        
+
                         <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>Context:</span>
                         <span style={{ fontSize: '0.74rem', color: '#13366c', fontWeight: 700 }}>
                             {selectedTenantAdminId ? 'Organization' : (adminIdentity?.role === 'super_admin' ? 'Global' : 'Internal')}
@@ -1907,7 +1950,7 @@ const AdminApp: React.FC = () => {
                                     border: '1px dashed rgba(0,153,255,0.12)',
                                     animation: 'inc-ring-spin-fast 20s linear infinite reverse'
                                 }} />
-                                
+
                                 <div style={{
                                     position: 'relative',
                                     width: 'clamp(280px, 35vw, 480px)',
@@ -1934,7 +1977,7 @@ const AdminApp: React.FC = () => {
 
                             <div style={{ textAlign: 'center' }}>
                                 <div style={{
-                                    fontSize: 'clamp(3rem, 6vw, 6rem)', 
+                                    fontSize: 'clamp(3rem, 6vw, 6rem)',
                                     fontWeight: 1000,
                                     letterSpacing: '-2px',
                                     textTransform: 'uppercase',
@@ -1944,7 +1987,7 @@ const AdminApp: React.FC = () => {
                                     position: 'relative'
                                 }}>
                                     {/* Google-style Multi-color brand title */}
-                                    <span style={{ 
+                                    <span style={{
                                         background: 'linear-gradient(135deg, #4285F4 0%, #EA4335 30%, #FBBC05 60%, #34A853 100%)',
                                         WebkitBackgroundClip: 'text',
                                         WebkitTextFillColor: 'transparent',
@@ -1953,7 +1996,7 @@ const AdminApp: React.FC = () => {
                                     }}>
                                         {BRAND_NAME}
                                     </span>
-                                    
+
                                     {/* Shine overlay */}
                                     <div style={{
                                         position: 'absolute', inset: 0,
@@ -2017,9 +2060,9 @@ const AdminApp: React.FC = () => {
                             <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1.2rem' }}>
                                     <img src={BRAND_LOGO_URL} alt="card logo" style={{ height: '36px' }} />
-                                    <span style={{ 
-                                        fontSize: '1.4rem', 
-                                        fontWeight: 1000, 
+                                    <span style={{
+                                        fontSize: '1.4rem',
+                                        fontWeight: 1000,
                                         letterSpacing: '0.5px',
                                         background: 'linear-gradient(90deg, #4285F4, #EA4335, #FBBC05, #34A853)',
                                         WebkitBackgroundClip: 'text',
@@ -2114,7 +2157,7 @@ const AdminApp: React.FC = () => {
                             flex: 1, display: 'flex', flexDirection: 'column',
                             alignItems: 'center', justifyContent: 'center', gap: '2rem'
                         }}>
-                             <div style={{
+                            <div style={{
                                 width: 'clamp(200px, 25vw, 380px)',
                                 height: 'clamp(200px, 25vw, 380px)',
                                 borderRadius: '50%',
@@ -2626,7 +2669,7 @@ const AdminApp: React.FC = () => {
                                 <form onSubmit={createQuestion}>
                                     <label>Question text</label>
                                     <textarea value={questionText} onChange={(e) => setQuestionText(e.target.value)} required style={inputStyle} rows={4} placeholder="Type the actual question statement here..." />
-                                    
+
                                     <div style={{ marginTop: '1rem' }}>
                                         <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>Multiple Choice Options</label>
                                         {options.map((opt, i) => (
@@ -2670,7 +2713,7 @@ const AdminApp: React.FC = () => {
                                         <label>Question Image Attachment (optional)</label>
                                         <input type="file" accept="image/*" onChange={(e) => setQuestionImage(e.target.files?.[0] || null)} style={inputStyle} />
                                     </div>
-                                    
+
                                     <button type="submit" style={{ ...primaryBtnStyle, marginTop: '1.5rem', width: '100%', padding: '0.8rem' }}>Create Question <Icon name="arrow-right" size={18} /></button>
                                 </form>
                             </section>
@@ -2687,7 +2730,7 @@ const AdminApp: React.FC = () => {
                                         <Icon name="add" size={16} /> Add Question
                                     </button>
                                 </div>
-                                
+
                                 <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
                                     <label style={{ fontWeight: 600 }}>Filter by Section</label>
                                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
@@ -2880,7 +2923,7 @@ const AdminApp: React.FC = () => {
                                         <button onClick={exportSelectedStudentCsv} style={{ ...primaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}>Export Detailed PDF/CSV</button>
                                     </div>
                                 </div>
-                                
+
                                 {!selectedStudent ? (
                                     <div style={{ padding: '4rem 2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
                                         <div style={{ marginBottom: '1.5rem', opacity: 0.15 }}>
@@ -2960,7 +3003,7 @@ const AdminApp: React.FC = () => {
                                                         </div>
                                                     </div>
 
-                                                                   {(submission.examMeta?.terminationRemark || submission.remark) && (
+                                                    {(submission.examMeta?.terminationRemark || submission.remark) && (
                                                         <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                                                             <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                                 <Icon name="warning" color="#c2410c" size={20} />
@@ -3009,9 +3052,9 @@ const AdminApp: React.FC = () => {
                                                         </h5>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                                             {submission.answers.map((answer, index) => (
-                                                                <div key={index} style={{ 
-                                                                    padding: '1.5rem', 
-                                                                    background: answer.isCorrect ? '#f0fdf4' : '#fff1f2', 
+                                                                <div key={index} style={{
+                                                                    padding: '1.5rem',
+                                                                    background: answer.isCorrect ? '#f0fdf4' : '#fff1f2',
                                                                     border: answer.isCorrect ? '1px solid #dcfce7' : '1px solid #ffe4e6',
                                                                     borderRadius: '16px',
                                                                     position: 'relative'
@@ -3019,7 +3062,7 @@ const AdminApp: React.FC = () => {
                                                                     <div style={{ position: 'absolute', top: '-10px', left: '20px', background: answer.isCorrect ? '#22c55e' : '#ef4444', color: '#fff', padding: '2px 10px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800 }}>
                                                                         QUESTION {index + 1}
                                                                     </div>
-                                                                    
+
                                                                     <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b', marginBottom: '1.2rem', lineHeight: '1.5' }}>
                                                                         {answer.questionText}
                                                                     </div>
@@ -3078,155 +3121,155 @@ const AdminApp: React.FC = () => {
                                         style={inputStyle}
                                         required
                                     />
-                                                            <label>Exam Start Date &amp; Time</label>
-                                <div style={{ position: 'relative', width: '100%' }}>
-                                    <button
-                                        type="button"
-                                        onClick={openExamStartPicker}
-                                        style={{
-                                            ...inputStyle,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            width: '100%',
-                                            cursor: 'pointer',
-                                            background: '#f8fbff',
-                                            border: '1px solid #c8d7f2',
-                                            color: '#0f172a'
-                                        }}
-                                    >
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.65rem' }}>
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', borderRadius: '12px', background: '#e0efff' }}>
-                                                <Icon name="calendar" size={18} color="#1765c1" />
+                                    <label>Exam Start Date &amp; Time</label>
+                                    <div style={{ position: 'relative', width: '100%' }}>
+                                        <button
+                                            type="button"
+                                            onClick={openExamStartPicker}
+                                            style={{
+                                                ...inputStyle,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                width: '100%',
+                                                cursor: 'pointer',
+                                                background: '#f8fbff',
+                                                border: '1px solid #c8d7f2',
+                                                color: '#0f172a'
+                                            }}
+                                        >
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.65rem' }}>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', borderRadius: '12px', background: '#e0efff' }}>
+                                                    <Icon name="calendar" size={18} color="#1765c1" />
+                                                </span>
+                                                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                                                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#102e56' }}>{examStartAt ? new Date(examStartAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Set exam start time'}</span>
+                                                    <span style={{ fontSize: '0.78rem', color: '#5b708f' }}>{examStartAt ? 'Review or update the schedule' : 'Tap to pick date and time'}</span>
+                                                </span>
                                             </span>
-                                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
-                                                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#102e56' }}>{examStartAt ? new Date(examStartAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Set exam start time'}</span>
-                                                <span style={{ fontSize: '0.78rem', color: '#5b708f' }}>{examStartAt ? 'Review or update the schedule' : 'Tap to pick date and time'}</span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#1848a0' }}>
+                                                <Icon name="clock" size={18} color="#1848a0" />
+                                                <span style={{ fontWeight: 700 }}>Open</span>
                                             </span>
-                                        </span>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#1848a0' }}>
-                                            <Icon name="clock" size={18} color="#1848a0" />
-                                            <span style={{ fontWeight: 700 }}>Open</span>
-                                        </span>
-                                    </button>
+                                        </button>
 
-                                    {isExamStartPickerOpen && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '110%',
-                                            right: 0,
-                                            left: 0,
-                                            background: '#fff',
-                                            border: '1px solid rgba(15, 23, 42, 0.08)',
-                                            borderRadius: '18px',
-                                            padding: '1rem',
-                                            boxShadow: '0 22px 60px rgba(15, 23, 42, 0.12)',
-                                            zIndex: 25
-                                        }}>
-                                            <div style={{ display: 'grid', gap: '1rem' }}>
-                                                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                                    <div style={{ flex: '1 1 180px', minWidth: 0 }}>
-                                                        <label style={{ marginBottom: '0.5rem', display: 'block', fontWeight: 700, color: '#102e56' }}>Date</label>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.85rem', border: '1px solid #dbe4ef', borderRadius: '14px', background: '#f8fbff' }}>
-                                                            <Icon name="calendar" size={18} color="#0f4fa8" />
-                                                            <input
-                                                                type="date"
-                                                                value={examStartDate}
-                                                                onChange={(e) => setExamStartDate(e.target.value)}
-                                                                style={{
-                                                                    flex: 1,
-                                                                    border: 'none',
-                                                                    outline: 'none',
-                                                                    fontSize: '0.95rem',
-                                                                    background: 'transparent',
-                                                                    color: '#102e56'
-                                                                }}
-                                                            />
+                                        {isExamStartPickerOpen && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '110%',
+                                                right: 0,
+                                                left: 0,
+                                                background: '#fff',
+                                                border: '1px solid rgba(15, 23, 42, 0.08)',
+                                                borderRadius: '18px',
+                                                padding: '1rem',
+                                                boxShadow: '0 22px 60px rgba(15, 23, 42, 0.12)',
+                                                zIndex: 25
+                                            }}>
+                                                <div style={{ display: 'grid', gap: '1rem' }}>
+                                                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                                        <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                                                            <label style={{ marginBottom: '0.5rem', display: 'block', fontWeight: 700, color: '#102e56' }}>Date</label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.85rem', border: '1px solid #dbe4ef', borderRadius: '14px', background: '#f8fbff' }}>
+                                                                <Icon name="calendar" size={18} color="#0f4fa8" />
+                                                                <input
+                                                                    type="date"
+                                                                    value={examStartDate}
+                                                                    onChange={(e) => setExamStartDate(e.target.value)}
+                                                                    style={{
+                                                                        flex: 1,
+                                                                        border: 'none',
+                                                                        outline: 'none',
+                                                                        fontSize: '0.95rem',
+                                                                        background: 'transparent',
+                                                                        color: '#102e56'
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+                                                            <label style={{ marginBottom: '0.5rem', display: 'block', fontWeight: 700, color: '#102e56' }}>Time</label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.85rem', border: '1px solid #dbe4ef', borderRadius: '14px', background: '#f8fbff' }}>
+                                                                <Icon name="clock" size={18} color="#0f4fa8" />
+                                                                <input
+                                                                    type="time"
+                                                                    value={examStartTime}
+                                                                    onChange={(e) => setExamStartTime(e.target.value)}
+                                                                    style={{
+                                                                        flex: 1,
+                                                                        border: 'none',
+                                                                        outline: 'none',
+                                                                        fontSize: '0.95rem',
+                                                                        background: 'transparent',
+                                                                        color: '#102e56'
+                                                                    }}
+                                                                />
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-                                                        <label style={{ marginBottom: '0.5rem', display: 'block', fontWeight: 700, color: '#102e56' }}>Time</label>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0.85rem', border: '1px solid #dbe4ef', borderRadius: '14px', background: '#f8fbff' }}>
-                                                            <Icon name="clock" size={18} color="#0f4fa8" />
-                                                            <input
-                                                                type="time"
-                                                                value={examStartTime}
-                                                                onChange={(e) => setExamStartTime(e.target.value)}
-                                                                style={{
-                                                                    flex: 1,
-                                                                    border: 'none',
-                                                                    outline: 'none',
-                                                                    fontSize: '0.95rem',
-                                                                    background: 'transparent',
-                                                                    color: '#102e56'
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
 
-                                                <div style={{ display: 'grid', gap: '0.85rem' }}>
-                                                    <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap' }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={applyExamStartPicker}
-                                                            style={{
-                                                                ...primaryBtnStyle,
-                                                                width: 'auto',
-                                                                padding: '0.85rem 1.1rem',
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: '0.55rem'
-                                                            }}
-                                                        >
-                                                            <Icon name="check" size={18} color="#fff" />
-                                                            OK
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setIsExamStartPickerOpen(false)}
-                                                            style={{
-                                                                ...secondaryBtnStyle,
-                                                                width: 'auto',
-                                                                padding: '0.85rem 1.1rem',
-                                                                borderRadius: '14px',
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: '0.55rem'
-                                                            }}
-                                                        >
-                                                            <Icon name="close" size={18} color="#164c82" />
-                                                            Cancel
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={clearExamStart}
-                                                            style={{
-                                                                ...dangerBtnStyle,
-                                                                width: 'auto',
-                                                                padding: '0.85rem 1.1rem',
-                                                                borderRadius: '14px',
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: '0.55rem'
-                                                            }}
-                                                        >
-                                                            <Icon name="close" size={18} color="#fff" />
-                                                            Clear
-                                                        </button>
-                                                    </div>
-                                                    <div style={{ padding: '0.95rem 1rem', borderRadius: '16px', background: '#eef5ff', border: '1px solid #c7ddfb' }}>
-                                                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#1d3f71', fontWeight: 700 }}>Selected schedule</p>
-                                                        <p style={{ margin: '0.4rem 0 0', color: '#334155' }}>{examStartDate ? `${new Date(`${examStartDate}T${examStartTime}`).toLocaleDateString([], { dateStyle: 'long' })} at ${examStartTime}` : 'No schedule chosen yet.'}</p>
+                                                    <div style={{ display: 'grid', gap: '0.85rem' }}>
+                                                        <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={applyExamStartPicker}
+                                                                style={{
+                                                                    ...primaryBtnStyle,
+                                                                    width: 'auto',
+                                                                    padding: '0.85rem 1.1rem',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: '0.55rem'
+                                                                }}
+                                                            >
+                                                                <Icon name="check" size={18} color="#fff" />
+                                                                OK
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setIsExamStartPickerOpen(false)}
+                                                                style={{
+                                                                    ...secondaryBtnStyle,
+                                                                    width: 'auto',
+                                                                    padding: '0.85rem 1.1rem',
+                                                                    borderRadius: '14px',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: '0.55rem'
+                                                                }}
+                                                            >
+                                                                <Icon name="close" size={18} color="#164c82" />
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={clearExamStart}
+                                                                style={{
+                                                                    ...dangerBtnStyle,
+                                                                    width: 'auto',
+                                                                    padding: '0.85rem 1.1rem',
+                                                                    borderRadius: '14px',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: '0.55rem'
+                                                                }}
+                                                            >
+                                                                <Icon name="close" size={18} color="#fff" />
+                                                                Clear
+                                                            </button>
+                                                        </div>
+                                                        <div style={{ padding: '0.95rem 1rem', borderRadius: '16px', background: '#eef5ff', border: '1px solid #c7ddfb' }}>
+                                                            <p style={{ margin: 0, fontSize: '0.9rem', color: '#1d3f71', fontWeight: 700 }}>Selected schedule</p>
+                                                            <p style={{ margin: '0.4rem 0 0', color: '#334155' }}>{examStartDate ? `${new Date(`${examStartDate}T${examStartTime}`).toLocaleDateString([], { dateStyle: 'long' })} at ${examStartTime}` : 'No schedule chosen yet.'}</p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
+                                        )}
+                                    </div>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginTop: '0.6rem' }}>
                                         <input
                                             type="checkbox"
@@ -3811,48 +3854,70 @@ const AdminApp: React.FC = () => {
                         {activeView === 'help' && (
                             <section style={cardStyle}>
                                 <h3 style={{ marginTop: 0 }}>Help Center</h3>
-                                <div style={listStyle}>
-                                    <div style={itemStyle}>
-                                        <strong>1. Setup Sections</strong>
-                                        <p style={mutedStyle}>Create sections first, then add questions to each section.</p>
+                                <div style={{ display: 'grid', gap: '1.5rem' }}>
+                                    <div style={{ padding: '1.2rem', borderRadius: '18px', background: '#f7fbff', border: '1px solid #d1dff5' }}>
+                                        <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Question By AI</h4>
+                                        <p style={{ margin: '0.75rem 0 0', color: '#334155', lineHeight: 1.75 }}>
+                                            This section presents a ready-to-use AI prompt for generating exam question papers in XLSX format. Copy the prompt, paste it into your AI assistant, then verify generated output before importing it into the system.
+                                        </p>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+                                            <p style={{ margin: 0, color: '#0f3c79', fontWeight: 600 }}>Copy the AI prompt and use it in any compatible content generation tool.</p>
+                                            <button
+                                                type="button"
+                                                onClick={copyHelpPrompt}
+                                                style={{
+                                                    ...secondaryBtnStyle,
+                                                    width: 'auto',
+                                                    padding: '0.75rem 1.1rem',
+                                                    borderRadius: '999px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '0.5rem'
+                                                }}
+                                            >
+                                                Copy Prompt
+                                            </button>
+                                        </div>
+                                        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginTop: '1rem', padding: '1rem', borderRadius: '16px', background: '#0f1d3f', color: '#eef2ff', fontSize: '0.82rem', lineHeight: 1.6, maxHeight: '320px', overflowY: 'auto' }}>
+                                            {getHelpPromptText()}
+                                        </pre>
                                     </div>
-                                    <div style={itemStyle}>
-                                        <strong>2. Build Question Bank</strong>
-                                        <p style={mutedStyle}>Use the Questions page to create and review MCQ quality before publishing sections.</p>
+
+                                    <div style={{ padding: '1.2rem', borderRadius: '18px', background: '#ffffff', border: '1px solid #e4e9f7' }}>
+                                        <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Universal Admin Guide</h4>
+                                        <p style={{ marginTop: '0.75rem', color: '#334155', lineHeight: 1.75 }}>
+                                            Use this Help Center to manage the full lifecycle of an exam: from question creation and paper upload to exam scheduling, student access, monitoring, and result review. The guidance below is written for any administrator using this platform.
+                                        </p>
+                                        <div style={{ marginTop: '1rem', color: '#334155', lineHeight: 1.75 }}>
+                                            <p style={{ margin: '0.75rem 0 0.25rem', fontWeight: 600 }}>Step-by-step admin workflow:</p>
+                                            <ol style={{ marginTop: 0, paddingLeft: '1.25rem', color: '#334155', lineHeight: 1.85 }}>
+                                                <li><strong>Set up sections</strong> first. Define each exam section and decide how many questions each section will contain.</li>
+                                                <li><strong>Add questions</strong> manually in the question bank or use the AI prompt to generate a full XLSX question file.</li>
+                                                <li><strong>Upload the exam paper</strong> on the section or question upload page if you have prepared an XLSX file.</li>
+                                                <li><strong>Configure exam timing</strong> precisely, including start date, start time, duration, negative marking, and allowed sections.</li>
+                                                <li><strong>Save the exam configuration</strong> and verify the details before publishing to students.</li>
+                                                <li><strong>Manage students</strong> by adding them, assigning batches, and confirming their access status.</li>
+                                                <li><strong>Start the exam</strong> when ready, then monitor student progress and submissions continuously.</li>
+                                                <li><strong>End the exam</strong> manually or when the timer expires, then export results and review analytics.</li>
+                                            </ol>
+                                        </div>
                                     </div>
-                                    <div style={itemStyle}>
-                                        <strong>3. Monitor Student Performance</strong>
-                                        <p style={mutedStyle}>Use Students page to inspect submissions and export reports as CSV.</p>
-                                    </div>
-                                    <div style={itemStyle}>
-                                        <strong>4. Configure Duration</strong>
-                                        <p style={mutedStyle}>Set exam duration centrally in Exam Config; it is applied to student exam timers.</p>
+
+                                    <div style={{ padding: '1.2rem', borderRadius: '18px', background: '#f9fbff', border: '1px solid #c8d9f5' }}>
+                                        <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Admin tasks and best practices</h4>
+                                        <ul style={{ marginTop: '0.85rem', paddingLeft: '1.15rem', color: '#334155', lineHeight: 1.85 }}>
+                                            <li>Always confirm the exam pattern and section distribution before uploading or generating questions.</li>
+                                            <li>Use the AI prompt as a starting point, then verify the generated questions for correctness, grammar, and answer keys.</li>
+                                            <li>Keep the exam start time in local time and re-check the scheduled duration after saving.</li>
+                                            <li>Use the student management section to verify student registration and access before launching the exam.</li>
+                                            <li>If an exam is ended early, ensure the system timer is reset by using the End Exam action and refreshing the interface.</li>
+                                        </ul>
+                                        <p style={{ marginTop: '1rem', color: '#0f3c79', fontWeight: 600 }}>
+                                            Tip: Treat this software as an exam operations dashboard. Every major action is grouped by task: questions, sections, config, students, responses, and help.
+                                        </p>
                                     </div>
                                 </div>
-                                {adminIdentity?.role === 'super_admin' && (
-                                    <div style={{ marginTop: '1.5rem' }}>
-                                        <div style={{ marginBottom: '0.8rem', fontWeight: 700, color: '#1f4f99' }}>Super admin demo setup</div>
-                                        <button
-                                            type="button"
-                                            onClick={handleDemoSeed}
-                                            disabled={isDemoSeedLoading}
-                                            style={{
-                                                ...primaryBtnStyle,
-                                                width: 'auto',
-                                                padding: '0.7rem 1.2rem',
-                                                fontSize: '0.95rem',
-                                                cursor: isDemoSeedLoading ? 'not-allowed' : 'pointer'
-                                            }}
-                                        >
-                                            {isDemoSeedLoading ? 'Seeding demo exam…' : 'Seed Demo Exam'}
-                                        </button>
-                                        {demoSeedStatus && (
-                                            <p style={{ ...mutedStyle, marginTop: '0.85rem', color: demoSeedStatus.toLowerCase().includes('failed') ? '#b91c1c' : '#166534' }}>
-                                                {demoSeedStatus}
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
                             </section>
                         )}
                     </main>
