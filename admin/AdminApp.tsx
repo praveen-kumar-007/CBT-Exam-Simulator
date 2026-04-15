@@ -835,6 +835,7 @@ const AdminApp: React.FC = () => {
         }
 
         try {
+            const formattedStartAt = examStartAt ? new Date(examStartAt).toISOString() : null;
             const result = await api<{ data: ExamConfig }>(
                 '/api/admin/exam-config',
                 {
@@ -843,7 +844,7 @@ const AdminApp: React.FC = () => {
                     body: JSON.stringify({
                         durationInMinutes: examDuration,
                         examinerName: examinerName.trim(),
-                        startAt: examStartAt || null,
+                        startAt: formattedStartAt,
                         autoSubmitAfterTime: examAutoSubmitAfterTime,
                     })
                 }
