@@ -2259,7 +2259,9 @@ const AdminApp: React.FC = () => {
                                 justifyContent: 'space-between',
                                 gap: '0.75rem',
                                 alignItems: 'center',
-                                flexWrap: 'wrap'
+                                flexWrap: 'wrap',
+                                paddingRight: '148px',
+                                minHeight: '130px'
                             }}
                         >
                             <div>
@@ -2272,7 +2274,13 @@ const AdminApp: React.FC = () => {
                                 <p style={{ ...mutedStyle, marginTop: '0.2rem' }}>{dashboardSubtitle[activeView]}</p>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{
+                                display: isMobile ? 'grid' : 'flex',
+                                gap: '0.55rem',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gridTemplateColumns: isMobile ? 'repeat(auto-fit, minmax(120px, 1fr))' : undefined
+                            }}>
                                 {!isMobile && (
                                     <button
                                         onClick={() => {
@@ -2352,12 +2360,24 @@ const AdminApp: React.FC = () => {
                                 style={{
                                     display: isMobile ? 'none' : 'inline-flex',
                                     position: 'absolute',
-                                    top: '1.1rem',
+                                    top: '1rem',
                                     right: '1rem',
-                                    ...dangerBtnStyle,
-                                    padding: '0.55rem 0.9rem',
+                                    width: 'auto',
+                                    marginTop: 0,
+                                    padding: '0.75rem 1.1rem',
                                     borderRadius: '999px',
-                                    minWidth: 'fit-content'
+                                    minWidth: '110px',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    fontSize: '0.95rem',
+                                    fontWeight: 700,
+                                    background: '#c03535',
+                                    color: '#fff',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    zIndex: 5,
+                                    boxShadow: '0 8px 24px rgba(192,53,53,0.18)',
+                                    transition: 'transform 180ms ease, box-shadow 180ms ease'
                                 }}
                             >
                                 Logout
@@ -2514,14 +2534,6 @@ const AdminApp: React.FC = () => {
                             <section style={cardStyle}>
                                 <h3>Create New Question</h3>
                                 <p style={mutedStyle}>Draft question text, upload attachments, and configure marks. Select a target section first.</p>
-                                
-                                <label style={{ display: 'block', marginTop: '1rem', fontWeight: 600 }}>Target Exam Section</label>
-                                <select value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)} style={inputStyle}>
-                                    <option value="">-- Choose a section --</option>
-                                    {sections.map((section) => (
-                                        <option key={section._id} value={section._id}>{section.name}</option>
-                                    ))}
-                                </select>
 
                                 <div style={{ padding: '1rem', borderRadius: '16px', background: '#f8fafc', border: '1px solid #dbe4ef', margin: '1.5rem 0' }}>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
@@ -2562,6 +2574,14 @@ const AdminApp: React.FC = () => {
                                         )}
                                     </form>
                                 </div>
+
+                                <label style={{ display: 'block', marginTop: '1rem', fontWeight: 600 }}>Target Exam Section</label>
+                                <select value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)} style={inputStyle}>
+                                    <option value="">-- Choose a section --</option>
+                                    {sections.map((section) => (
+                                        <option key={section._id} value={section._id}>{section.name}</option>
+                                    ))}
+                                </select>
 
                                 <form onSubmit={createQuestion}>
                                     <label>Question text</label>
@@ -3162,8 +3182,8 @@ const AdminApp: React.FC = () => {
                                         <h4 style={{ marginTop: 0 }}>Section Performance (Bar)</h4>
                                         <div style={{ display: 'grid', gap: '0.55rem' }}>
                                             {sectionPerformance.length === 0 && <p style={mutedStyle}>No section analytics available.</p>}
-                                            {sectionPerformance.map((item) => (
-                                                <div key={item.sectionName}>
+                                            {sectionPerformance.map((item, idx) => (
+                                                <div key={`${item.sectionName ?? 'unknown'}-${idx}`}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <span style={{ color: '#224777', fontWeight: 700, fontSize: '0.84rem' }}>{item.sectionName}</span>
                                                         <span style={mutedStyle}>{item.avgPercent}% ({item.attempts} attempts)</span>
