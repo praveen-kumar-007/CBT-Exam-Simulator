@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export interface ViolationEntry {
   type: string;
@@ -70,7 +70,7 @@ export const useAntiCheat = ({
       const now = Date.now();
       // Debounce violations to prevent cascade false-positives (e.g., blur + visibilitychange firing together)
       if (now - lastViolationTimeRef.current < 2000) {
-          return;
+        return;
       }
       lastViolationTimeRef.current = now;
 
@@ -98,7 +98,7 @@ export const useAntiCheat = ({
       } else {
         const remaining = maxViolations - newCount;
         setWarningMessage(
-          `⚠️ VIOLATION DETECTED: ${message}\n\nWarning ${newCount}/${maxViolations} — ${remaining} more violation${remaining > 1 ? 's' : ''} will auto-submit your exam!`
+          `⚠️ VIOLATION DETECTED: ${message}\n\nWarning ${newCount}/${maxViolations} — ${remaining} more violation${remaining > 1 ? "s" : ""} will auto-submit your exam!`,
         );
 
         if (warningTimeoutRef.current) {
@@ -109,7 +109,7 @@ export const useAntiCheat = ({
         }, 5000);
       }
     },
-    [maxViolations, onAutoSubmit]
+    [maxViolations, onAutoSubmit],
   );
 
   const dismissWarning = useCallback(() => {
@@ -131,7 +131,10 @@ export const useAntiCheat = ({
       }
       hasEnteredFullScreenRef.current = true;
     } catch (err) {
-      console.warn('Failed to enter full-screen (might be unsupported on this device):', err);
+      console.warn(
+        "Failed to enter full-screen (might be unsupported on this device):",
+        err,
+      );
       // Fallback for mobile devices (like iOS Safari) that block requestFullscreen
       hasEnteredFullScreenRef.current = true;
     }
@@ -147,7 +150,7 @@ export const useAntiCheat = ({
         }
       }
     } catch (err) {
-      console.warn('Failed to exit full-screen:', err);
+      console.warn("Failed to exit full-screen:", err);
     }
   }, []);
 
@@ -179,7 +182,7 @@ export const useAntiCheat = ({
       if (!isFull && hasEnteredFullScreenRef.current) {
         // Count as violation only if still tracking
         if (trackViolationsRef.current && !autoSubmittedRef.current) {
-          addViolation('fullscreen_exit', 'You exited full-screen mode');
+          addViolation("fullscreen_exit", "You exited full-screen mode");
         }
         // ALWAYS try to re-enter full-screen, even on disqualified screen
         setTimeout(() => {
@@ -190,45 +193,51 @@ export const useAntiCheat = ({
 
     // --- Visibility change detection (tab switching) ---
     const handleVisibilityChange = () => {
-      if (document.hidden && trackViolationsRef.current && !autoSubmittedRef.current) {
-        addViolation('tab_switch', 'You switched to another tab or window');
+      if (
+        document.hidden &&
+        trackViolationsRef.current &&
+        !autoSubmittedRef.current
+      ) {
+        addViolation("tab_switch", "You switched to another tab or window");
       }
     };
 
     // --- Window blur detection ---
     const handleWindowBlur = () => {
       if (trackViolationsRef.current && !autoSubmittedRef.current) {
-        addViolation('window_blur', 'You switched away from the exam window');
+        addViolation("window_blur", "You switched away from the exam window");
       }
     };
 
     // --- Keyboard shortcut blocking (ALWAYS active while enabled, even after disqualification) ---
     const handleKeyDown = (e: KeyboardEvent) => {
       const blockedCombinations = [
-        { key: 'Tab', alt: true },
-        { key: 'Tab', ctrl: true },
-        { key: 'F4', alt: true },
-        { key: 'w', ctrl: true },
-        { key: 'n', ctrl: true },
-        { key: 't', ctrl: true },
-        { key: 'I', ctrl: true, shift: true },
-        { key: 'i', ctrl: true, shift: true },
-        { key: 'J', ctrl: true, shift: true },
-        { key: 'j', ctrl: true, shift: true },
-        { key: 'C', ctrl: true, shift: true },
-        { key: 'c', ctrl: true, shift: true },
-        { key: 'F12' },
-        { key: 'u', ctrl: true },
-        { key: 's', ctrl: true },
-        { key: 'p', ctrl: true },
-        { key: 'a', ctrl: true },
-        { key: 'PrintScreen' },
-        { key: 'Escape' },
+        { key: "Tab", alt: true },
+        { key: "Tab", ctrl: true },
+        { key: "F4", alt: true },
+        { key: "w", ctrl: true },
+        { key: "n", ctrl: true },
+        { key: "t", ctrl: true },
+        { key: "I", ctrl: true, shift: true },
+        { key: "i", ctrl: true, shift: true },
+        { key: "J", ctrl: true, shift: true },
+        { key: "j", ctrl: true, shift: true },
+        { key: "C", ctrl: true, shift: true },
+        { key: "c", ctrl: true, shift: true },
+        { key: "F12" },
+        { key: "u", ctrl: true },
+        { key: "s", ctrl: true },
+        { key: "p", ctrl: true },
+        { key: "a", ctrl: true },
+        { key: "PrintScreen" },
+        { key: "Escape" },
       ];
 
       for (const combo of blockedCombinations) {
-        const keyMatch = e.key === combo.key || e.key.toLowerCase() === combo.key?.toLowerCase();
-        const ctrlMatch = combo.ctrl ? (e.ctrlKey || e.metaKey) : true;
+        const keyMatch =
+          e.key === combo.key ||
+          e.key.toLowerCase() === combo.key?.toLowerCase();
+        const ctrlMatch = combo.ctrl ? e.ctrlKey || e.metaKey : true;
         const altMatch = combo.alt ? e.altKey : true;
         const shiftMatch = combo.shift ? e.shiftKey : true;
 
@@ -237,10 +246,14 @@ export const useAntiCheat = ({
           e.stopPropagation();
 
           // Only add violation if still tracking and not Escape
-          if (e.key !== 'Escape' && trackViolationsRef.current && !autoSubmittedRef.current) {
+          if (
+            e.key !== "Escape" &&
+            trackViolationsRef.current &&
+            !autoSubmittedRef.current
+          ) {
             addViolation(
-              'blocked_keyboard',
-              `Blocked keyboard shortcut: ${e.ctrlKey ? 'Ctrl+' : ''}${e.shiftKey ? 'Shift+' : ''}${e.altKey ? 'Alt+' : ''}${e.key}`
+              "blocked_keyboard",
+              `Blocked keyboard shortcut: ${e.ctrlKey ? "Ctrl+" : ""}${e.shiftKey ? "Shift+" : ""}${e.altKey ? "Alt+" : ""}${e.key}`,
             );
           }
           return;
@@ -252,7 +265,7 @@ export const useAntiCheat = ({
     const handleContextMenu = (e: Event) => {
       e.preventDefault();
       if (trackViolationsRef.current && !autoSubmittedRef.current) {
-        addViolation('right_click', 'Right-click is disabled during the exam');
+        addViolation("right_click", "Right-click is disabled during the exam");
       }
     };
 
@@ -267,7 +280,9 @@ export const useAntiCheat = ({
         document.documentElement.requestFullscreen?.().catch(() => {});
         // Also try alternatives for cross-browser
         if ((document.documentElement as any).webkitRequestFullscreen) {
-            (document.documentElement as any).webkitRequestFullscreen()?.catch(() => {});
+          (document.documentElement as any)
+            .webkitRequestFullscreen()
+            ?.catch(() => {});
         }
       }
     };
@@ -284,53 +299,56 @@ export const useAntiCheat = ({
       // Show warning only if actively taking the exam and not auto-submitting
       if (trackViolationsRef.current && !autoSubmittedRef.current) {
         e.preventDefault();
-        e.returnValue = ''; // Setting returnValue triggers the browser's confirmation dialog
-        return '';
+        e.returnValue = ""; // Setting returnValue triggers the browser's confirmation dialog
+        return "";
       }
     };
 
     const handlePageHide = () => {
       if (trackViolationsRef.current && !autoSubmittedRef.current) {
-        addViolation('page_hide', 'You left or closed the exam page');
+        addViolation("page_hide", "You left or closed the exam page");
       }
     };
 
     // --- Attach event listeners ---
-    document.addEventListener('fullscreenchange', handleFullScreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullScreenChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleWindowBlur);
-    document.addEventListener('keydown', handleKeyDown, true);
-    document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('copy', handleCopyPaste);
-    document.addEventListener('cut', handleCopyPaste);
-    document.addEventListener('paste', handleCopyPaste);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('pagehide', handlePageHide);
-    document.addEventListener('click', handleGlobalClick, true);
+    document.addEventListener("fullscreenchange", handleFullScreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullScreenChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("copy", handleCopyPaste);
+    document.addEventListener("cut", handleCopyPaste);
+    document.addEventListener("paste", handleCopyPaste);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("click", handleGlobalClick, true);
 
     // Disable text selection
-    document.body.style.userSelect = 'none';
-    (document.body.style as any).webkitUserSelect = 'none';
+    document.body.style.userSelect = "none";
+    (document.body.style as any).webkitUserSelect = "none";
 
     return () => {
-      document.removeEventListener('fullscreenchange', handleFullScreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullScreenChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleWindowBlur);
-      document.removeEventListener('keydown', handleKeyDown, true);
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('copy', handleCopyPaste);
-      document.removeEventListener('cut', handleCopyPaste);
-      document.removeEventListener('paste', handleCopyPaste);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handlePageHide);
-      document.removeEventListener('click', handleGlobalClick, true);
+      document.removeEventListener("fullscreenchange", handleFullScreenChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        handleFullScreenChange,
+      );
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("copy", handleCopyPaste);
+      document.removeEventListener("cut", handleCopyPaste);
+      document.removeEventListener("paste", handleCopyPaste);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("click", handleGlobalClick, true);
       clearInterval(enforceFullScreenInterval);
 
       // Restore text selection
-      document.body.style.userSelect = '';
-      (document.body.style as any).webkitUserSelect = '';
+      document.body.style.userSelect = "";
+      (document.body.style as any).webkitUserSelect = "";
 
       if (warningTimeoutRef.current) {
         clearTimeout(warningTimeoutRef.current);
