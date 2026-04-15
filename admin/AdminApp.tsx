@@ -12,6 +12,7 @@ type AdminIdentity = {
     phone?: string | null;
     plan?: string;
     imageUrl?: string;
+    studentLimit?: number;
 };
 
 type ManagedAdminItem = {
@@ -20,6 +21,7 @@ type ManagedAdminItem = {
     email: string;
     phone?: string;
     studentLimit: number;
+    studentCount: number;
     tenantKey: string;
     createdAt: string;
 };
@@ -407,7 +409,10 @@ const AdminApp: React.FC = () => {
     const [insights, setInsights] = useState<InsightsPayload | null>(null);
     const [menuSearch, setMenuSearch] = useState('');
     const [managedAdmins, setManagedAdmins] = useState<ManagedAdminItem[]>([]);
-    const [selectedTenantAdminId, setSelectedTenantAdminId] = useState('');
+    const [selectedTenantAdminId, setSelectedTenantAdminId] = useState(() => {
+        if (typeof window === 'undefined') return '';
+        return localStorage.getItem('selectedTenantAdminId') || '';
+    });
     const [newTenantAdminName, setNewTenantAdminName] = useState('');
     const [newTenantAdminEmail, setNewTenantAdminEmail] = useState('');
     const [newTenantAdminPassword, setNewTenantAdminPassword] = useState('');
@@ -508,6 +513,14 @@ const AdminApp: React.FC = () => {
             navigate('/admin/login');
         }
     }, [mode, token]);
+
+    useEffect(() => {
+        if (selectedTenantAdminId) {
+            localStorage.setItem('selectedTenantAdminId', selectedTenantAdminId);
+        } else {
+            localStorage.removeItem('selectedTenantAdminId');
+        }
+    }, [selectedTenantAdminId]);
 
     useEffect(() => {
         if (status && !status.endsWith('...')) {
@@ -697,7 +710,15 @@ const AdminApp: React.FC = () => {
             setManagedAdmins(result.data || []);
 
             if (!selectedTenantAdminId && result.data?.length) {
-                setSelectedTenantAdminId(result.data[0]._id);
+                const storedTenantAdminId = typeof window !== 'undefined'
+                    ? localStorage.getItem('selectedTenantAdminId') || ''
+                    : '';
+
+                if (storedTenantAdminId && result.data.some((item) => item._id === storedTenantAdminId)) {
+                    setSelectedTenantAdminId(storedTenantAdminId);
+                } else {
+                    setSelectedTenantAdminId(result.data[0]._id);
+                }
             }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load managed admins');
@@ -733,6 +754,29 @@ const AdminApp: React.FC = () => {
             await loadManagedAdmins();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to create organization admin');
+        }
+    };
+
+    const updateManagedAdminLimit = async (adminId: string) => {
+        const newLimitValue = window.prompt('Enter new student limit for this organization admin:');
+        if (!newLimitValue) return;
+
+        const parsedLimit = parseInt(newLimitValue, 10);
+        if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+            setError('Student limit must be a whole number greater than 0.');
+            return;
+        }
+
+        try {
+            await api(`/api/admin/managed-admins/${adminId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentLimit: parsedLimit }),
+            });
+            setStatus('Student limit updated successfully.');
+            await loadManagedAdmins();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to update student limit');
         }
     };
 
@@ -933,16 +977,10 @@ const AdminApp: React.FC = () => {
                 formData.append('questionImage', questionImage);
             }
 
-            const res = await fetch(`${API_BASE}/api/admin/questions`, {
+            await api('/api/admin/questions', {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData
+                body: formData,
             });
-
-            const body = await res.json();
-            if (!res.ok || body.success === false) {
-                throw new Error(body.message || 'Failed to create question');
-            }
 
             setQuestionText('');
             setOptions(['', '', '', '']);
@@ -1031,16 +1069,10 @@ const AdminApp: React.FC = () => {
                 formData.append('questionImage', editQuestionImage);
             }
 
-            const res = await fetch(`${API_BASE}/api/admin/questions/${editingQuestionId}`, {
+            await api(`/api/admin/questions/${editingQuestionId}`, {
                 method: 'PUT',
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData
+                body: formData,
             });
-
-            const body = await res.json();
-            if (!res.ok || body.success === false) {
-                throw new Error(body.message || 'Failed to update question');
-            }
 
             setStatus('Question updated successfully with all details.');
             setSelectedSectionId(editSectionId);
@@ -1093,7 +1125,10 @@ const AdminApp: React.FC = () => {
 
         try {
             const response = await fetch(`${API_BASE}/api/admin/students/${selectedStudent._id}/submissions/export`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'x-organization-admin-id': selectedTenantAdminId,
+                },
             });
 
             if (!response.ok) {
@@ -1120,7 +1155,10 @@ const AdminApp: React.FC = () => {
     const exportAllDetailedCsv = async () => {
         try {
             const response = await fetch(`${API_BASE}/api/admin/submissions/export/detailed`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'x-organization-admin-id': selectedTenantAdminId,
+                },
             });
 
             if (!response.ok) {
@@ -1242,13 +1280,14 @@ const AdminApp: React.FC = () => {
 
     useEffect(() => {
         if (mode === 'dashboard' && token) {
-            setAdminIdentity(readAdminIdentity());
+            const currentAdminIdentity = readAdminIdentity();
+            setAdminIdentity(currentAdminIdentity);
 
-            if (adminIdentity?.role === 'super_admin') {
+            if (currentAdminIdentity?.role === 'super_admin') {
                 loadManagedAdmins().catch(() => { });
             }
 
-            const canLoadTenantData = adminIdentity?.role !== 'super_admin' || Boolean(selectedTenantAdminId);
+            const canLoadTenantData = currentAdminIdentity?.role !== 'super_admin' || Boolean(selectedTenantAdminId);
 
             if (canLoadTenantData) {
                 loadSections().catch(() => { });
@@ -1259,7 +1298,7 @@ const AdminApp: React.FC = () => {
                 loadExamConfig().catch(() => { });
             }
         }
-    }, [mode, token, adminIdentity?.role, selectedTenantAdminId]);
+    }, [mode, token, selectedTenantAdminId]);
 
     const navItems: Array<{ key: DashboardView; label: string; hint: string; icon: string }> = [
         { key: 'profile', label: 'My Profile', hint: 'View your account and plan details', icon: 'user' },
@@ -2313,6 +2352,16 @@ const AdminApp: React.FC = () => {
                                         </p>
                                         <button onClick={() => openView('config')} style={primaryBtnStyle}>Open Config Page</button>
                                     </section>
+                                    {adminIdentity?.role === 'admin' && (
+                                        <section style={cardStyle}>
+                                            <h3 style={{ marginTop: 0 }}>Student Seats</h3>
+                                            <p style={{ ...mutedStyle, marginTop: '-0.25rem' }}>Current student seat usage for your organization.</p>
+                                            <p style={mutedStyle}>Used: <strong>{analytics?.studentsCount ?? 0}</strong></p>
+                                            <p style={mutedStyle}>Limit: <strong>{adminIdentity?.studentLimit ?? 0}</strong></p>
+                                            <p style={mutedStyle}>Remaining: <strong>{Math.max((adminIdentity?.studentLimit ?? 0) - (analytics?.studentsCount ?? 0), 0)}</strong></p>
+                                            <button onClick={loadAnalytics} style={secondaryBtnStyle}>Refresh Student Count</button>
+                                        </section>
+                                    )}
                                 </div>
 
                                 <section style={cardStyle}>
@@ -3396,6 +3445,8 @@ const AdminApp: React.FC = () => {
                                                         <p style={mutedStyle}>{item.email}</p>
                                                         <p style={mutedStyle}>Phone: {item.phone || 'N/A'}</p>
                                                         <p style={mutedStyle}>Organization Code: {item.tenantKey}</p>
+                                                        <p style={mutedStyle}>Student Limit: {item.studentLimit ?? 0}</p>
+                                                        <p style={mutedStyle}>Students Used: {item.studentCount ?? 0}</p>
                                                         <p style={mutedStyle}>Created: {new Date(item.createdAt).toLocaleString()}</p>
                                                         <button
                                                             onClick={() => {
@@ -3407,18 +3458,32 @@ const AdminApp: React.FC = () => {
                                                             Use This Organization Context
                                                         </button>
                                                         {adminIdentity?.role === 'super_admin' && (
-                                                            <button
-                                                                onClick={() => deleteManagedAdmin(item._id)}
-                                                                style={{
-                                                                    ...dangerBtnStyle,
-                                                                    fontSize: '0.74rem',
-                                                                    padding: '0.25rem 0.6rem',
-                                                                    margin: '0.5rem 0 0 0',
-                                                                    width: 'auto'
-                                                                }}
-                                                            >
-                                                                Delete Admin
-                                                            </button>
+                                                            <>
+                                                                <button
+                                                                    onClick={() => updateManagedAdminLimit(item._id)}
+                                                                    style={{
+                                                                        ...secondaryBtnStyle,
+                                                                        fontSize: '0.74rem',
+                                                                        padding: '0.25rem 0.6rem',
+                                                                        margin: '0.5rem 0 0 0',
+                                                                        width: 'auto'
+                                                                    }}
+                                                                >
+                                                                    Edit Seat Limit
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => deleteManagedAdmin(item._id)}
+                                                                    style={{
+                                                                        ...dangerBtnStyle,
+                                                                        fontSize: '0.74rem',
+                                                                        padding: '0.25rem 0.6rem',
+                                                                        margin: '0.5rem 0 0 0',
+                                                                        width: 'auto'
+                                                                    }}
+                                                                >
+                                                                    Delete Admin
+                                                                </button>
+                                                            </>
                                                         )}
                                                     </div>
                                                 ))}

@@ -1,6 +1,5 @@
 import React from 'react';
 import LegacyApp from '../App';
-import { adminFeaturePages } from './admin/pageRegistry';
 import AdminLoginPage from './pages/AdminLoginPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import StudentDisqualifiedPage from './pages/StudentDisqualifiedPage';
@@ -10,11 +9,6 @@ import StudentLoginPage from './pages/StudentLoginPage';
 import StudentResultPage from './pages/StudentResultPage';
 import StudentReviewPage from './pages/StudentReviewPage';
 import SuperAdminLoginPage from './pages/SuperAdminLoginPage';
-
-const getAdminFeatureComponent = (pathname: string): React.ComponentType | null => {
-    const page = adminFeaturePages.find((item) => item.route.toLowerCase() === pathname.toLowerCase());
-    return page?.component ?? null;
-};
 
 const AppLayout: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <main className="min-h-screen bg-slate-100 text-slate-900 antialiased">
@@ -38,58 +32,37 @@ const App: React.FC = () => {
         return <LegacyApp />;
     }
 
-    const pathname = window.location.pathname;
+    const pathname = window.location.pathname.toLowerCase();
 
-    if (pathname.toLowerCase() === '/admin/login') {
-        return (
-            <AppLayout title="Admin Login Page">
-                <AdminLoginPage />
-            </AppLayout>
-        );
+    if (pathname.startsWith('/admin')) {
+        return <LegacyApp />;
     }
 
-    if (pathname.toLowerCase() === '/admin/super-admin/login') {
-        return (
-            <AppLayout title="Super Admin Login Page">
-                <SuperAdminLoginPage />
-            </AppLayout>
-        );
-    }
-
-    const AdminFeatureComponent = getAdminFeatureComponent(pathname);
-    if (AdminFeatureComponent) {
-        return (
-            <AppLayout title="Admin Feature Page">
-                <AdminFeatureComponent />
-            </AppLayout>
-        );
-    }
-
-    if (pathname.toLowerCase() === '/student/login') {
+    if (pathname === '/student/login') {
         return <StudentLoginPage />;
     }
 
-    if (pathname.toLowerCase() === '/student/instructions') {
+    if (pathname === '/student/instructions') {
         return <StudentInstructionPage />;
     }
 
-    if (pathname.toLowerCase() === '/student/dashboard') {
+    if (pathname === '/student/dashboard') {
         return <StudentDashboardPage />;
     }
 
-    if (pathname.toLowerCase() === '/student/exam-card') {
+    if (pathname === '/student/exam-card') {
         return <StudentExamCardPage />;
     }
 
-    if (pathname.toLowerCase() === '/student/review') {
+    if (pathname === '/student/review') {
         return <StudentReviewPage />;
     }
 
-    if (pathname.toLowerCase() === '/student/result') {
+    if (pathname === '/student/result') {
         return <StudentResultPage />;
     }
 
-    if (pathname.toLowerCase() === '/student/disqualified') {
+    if (pathname === '/student/disqualified') {
         return <StudentDisqualifiedPage />;
     }
 
