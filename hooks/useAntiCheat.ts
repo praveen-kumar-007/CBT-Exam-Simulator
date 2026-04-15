@@ -289,6 +289,12 @@ export const useAntiCheat = ({
       }
     };
 
+    const handlePageHide = () => {
+      if (trackViolationsRef.current && !autoSubmittedRef.current) {
+        addViolation('page_hide', 'You left or closed the exam page');
+      }
+    };
+
     // --- Attach event listeners ---
     document.addEventListener('fullscreenchange', handleFullScreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullScreenChange);
@@ -300,6 +306,7 @@ export const useAntiCheat = ({
     document.addEventListener('cut', handleCopyPaste);
     document.addEventListener('paste', handleCopyPaste);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
     document.addEventListener('click', handleGlobalClick, true);
 
     // Disable text selection
@@ -317,6 +324,7 @@ export const useAntiCheat = ({
       document.removeEventListener('cut', handleCopyPaste);
       document.removeEventListener('paste', handleCopyPaste);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
       document.removeEventListener('click', handleGlobalClick, true);
       clearInterval(enforceFullScreenInterval);
 

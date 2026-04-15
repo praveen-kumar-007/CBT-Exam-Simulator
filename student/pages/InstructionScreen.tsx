@@ -29,6 +29,9 @@ const InstructionScreen: React.FC<InstructionScreenProps> = ({ onStart, examData
                         <li><span className="mr-2 inline-block h-5 w-5 rounded-sm bg-gradient-to-br from-green-500 to-purple-500 align-middle"></span> You have answered the question, but marked it for review.</li>
                     </ul>
                     <p>4. You can click on the {`>`} arrow which appears to the left of question palette to collapse the question palette, thereby maximizing the question window.</p>
+                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        <strong>Important:</strong> Once the exam begins, do not leave this page, open the notification panel, switch apps, or lock your screen. Any such action will immediately terminate and auto-submit your exam.
+                    </div>
                 </div>
 
                 <div className="mt-6 border-t p-4">

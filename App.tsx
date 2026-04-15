@@ -212,7 +212,7 @@ const StudentApp: React.FC = () => {
   const antiCheat = useAntiCheat({
     enabled: isProtectionActive,
     trackViolations: isExamActive,
-    maxViolations: 3,
+    maxViolations: 1,
     onAutoSubmit: handleAutoSubmit,
   });
 
