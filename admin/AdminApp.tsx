@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import NotificationBanner from '../src/components/NotificationBanner';
 
 type Mode = 'admin-login' | 'super-admin-login' | 'dashboard';
 type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help' | 'profile' | 'demo-exam';
@@ -369,9 +370,17 @@ const AdminApp: React.FC = () => {
 
     const [status, setStatus] = useState('');
     const [error, setError] = useState('');
-    const [demoSeedStatus, setDemoSeedStatus] = useState('');
     const [isDemoSeedLoading, setIsDemoSeedLoading] = useState(false);
     const [loginEmail, setLoginEmail] = useState('');
+
+    const bannerSectionLabel = useMemo(() => {
+        if (mode === 'admin-login') return 'Terminal Login';
+        if (mode === 'super-admin-login') return 'Super Admin Portal';
+        return `Dashboard • ${dashboardTitle[activeView] || 'Admin'}`;
+    }, [mode, activeView]);
+
+    const bannerMessage = error ? error : status ? status : null;
+    const bannerType = error ? 'error' : status ? 'success' : 'info';
     const [loginPassword, setLoginPassword] = useState('');
 
     const [sections, setSections] = useState<SectionItem[]>([]);
@@ -604,7 +613,6 @@ const AdminApp: React.FC = () => {
         event.preventDefault();
         setError('');
         setStatus('');
-        setDemoSeedStatus('');
 
         try {
             const loginPath = mode === 'super-admin-login'
@@ -635,12 +643,12 @@ const AdminApp: React.FC = () => {
 
     const handleDemoSeed = async () => {
         if (adminIdentity?.role !== 'super_admin') {
-            setDemoSeedStatus('Only super admins can seed the demo exam.');
+            setError('Only super admins can seed the demo exam.');
             return;
         }
 
         setIsDemoSeedLoading(true);
-        setDemoSeedStatus('');
+        setStatus('');
         setError('');
 
         try {
@@ -649,9 +657,9 @@ const AdminApp: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
             });
 
-            setDemoSeedStatus(result.message || 'Demo paper seeded successfully.');
+            setStatus(result.message || 'Demo paper seeded successfully.');
         } catch (e) {
-            setDemoSeedStatus(e instanceof Error ? e.message : 'Failed to seed demo exam.');
+            setError(e instanceof Error ? e.message : 'Failed to seed demo exam.');
         } finally {
             setIsDemoSeedLoading(false);
         }
@@ -1971,9 +1979,6 @@ so add this prompt in help center and also write steps to use this`;
             >
                 {isDemoSeedLoading ? 'Seeding Demo Exam…' : 'Seed Demo Exam'}
             </button>
-            {demoSeedStatus && (
-                <div style={{ marginTop: '1.1rem', color: demoSeedStatus.toLowerCase().includes('fail') ? '#b91c1c' : '#166534', fontWeight: 700, fontSize: '1rem' }}>{demoSeedStatus}</div>
-            )}
         </section>
     );
 
@@ -2324,6 +2329,11 @@ so add this prompt in help center and also write steps to use this`;
                         box-shadow: 0 10px 25px rgba(0,120,220,0.35) !important;
                     }
                 `}</style>
+                <NotificationBanner
+                    message={bannerMessage}
+                    type={bannerType}
+                    sectionLabel={bannerSectionLabel}
+                />
 
                 {/* Navbar */}
                 <div style={{
@@ -2541,9 +2551,6 @@ so add this prompt in help center and also write steps to use this`;
                                 </button>
                             </div>
                         </div>
-
-                        {status && <p style={loginOkStyle}>{status}</p>}
-                        {error && <p style={loginErrStyle}>{error}</p>}
                     </section>
                 </div>
 
@@ -2572,6 +2579,11 @@ so add this prompt in help center and also write steps to use this`;
                     @keyframes inc-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
                     @keyframes inc-shimmer-sweep { 0% { transform: translateX(-150%); } 100% { transform: translateX(450%); } }
                 `}</style>
+                <NotificationBanner
+                    message={bannerMessage}
+                    type={bannerType}
+                    sectionLabel={bannerSectionLabel}
+                />
 
                 <div style={{
                     position: 'relative', zIndex: 10,
@@ -2634,8 +2646,6 @@ so add this prompt in help center and also write steps to use this`;
                             </form>
                             <button type="button" className="inc-secondary-btn" onClick={() => navigate('/admin/login')} style={{ ...loginSecondaryBtnStyle, marginTop: '1.5rem' }}>Back to Admin</button>
                         </div>
-                        {status && <p style={loginOkStyle}>{status}</p>}
-                        {error && <p style={loginErrStyle}>{error}</p>}
                     </section>
                 </div>
 
@@ -2658,6 +2668,11 @@ so add this prompt in help center and also write steps to use this`;
                         setIsSidebarPinned((prev) => !prev);
                     }
                 }}
+            />
+            <NotificationBanner
+                message={bannerMessage}
+                type={bannerType}
+                sectionLabel={bannerSectionLabel}
             />
             <div style={{ ...pageStyle, alignItems: 'stretch', paddingTop: '0.2rem' }}>
                 {isMobile && isNavMenuOpen && (
@@ -2902,9 +2917,6 @@ so add this prompt in help center and also write steps to use this`;
                                 Logout
                             </button>
                         </section>
-
-                        {status && <p style={okStyle}>{status}</p>}
-                        {error && <p style={errStyle}>{error}</p>}
 
                         {activeView === 'overview' && (
                             <>

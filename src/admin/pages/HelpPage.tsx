@@ -1,5 +1,6 @@
 ﻿import React, { useMemo, useState } from 'react';
 import FeaturePageShell from '../../components/FeaturePageShell';
+import NotificationBanner from '../../components/NotificationBanner';
 
 type HelpTopicKey =
     | 'overview'
@@ -257,6 +258,20 @@ const HelpPage: React.FC = () => {
     const [copyStatus, setCopyStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const allExpanded = expandedTopics.size === helpTopics.length;
 
+    const activeSectionLabel = useMemo(() => {
+        if (allExpanded) {
+            return 'Live section: Help Center — all topics are open';
+        }
+
+        if (expandedTopics.size === 1) {
+            const activeKey = Array.from(expandedTopics)[0];
+            const topic = helpTopics.find((item) => item.key === activeKey);
+            return topic ? `Live section: ${topic.title}` : 'Live section: Help Center';
+        }
+
+        return 'Live section: Help Center';
+    }, [expandedTopics, allExpanded]);
+
     const toggleTopic = (key: HelpTopicKey) => {
         setExpandedTopics((current) => {
             const next = new Set(current);
@@ -334,6 +349,11 @@ const HelpPage: React.FC = () => {
     return (
         <section className="space-y-6">
             <FeaturePageShell title="Help Center" description="Comprehensive universal admin guide for the exam management software." />
+            <NotificationBanner
+                message={copyStatus?.message ?? null}
+                type={copyStatus?.type ?? 'info'}
+                sectionLabel={activeSectionLabel}
+            />
 
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -368,7 +388,7 @@ const HelpPage: React.FC = () => {
                 <div className="mt-4 rounded-2xl bg-slate-900 p-5 text-sm text-slate-100 shadow-lg">
                     <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-6">{promptText}</pre>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="mt-4 flex items-center gap-3">
                     <button
                         type="button"
                         onClick={copyPrompt}
@@ -376,19 +396,6 @@ const HelpPage: React.FC = () => {
                     >
                         Copy Prompt
                     </button>
-                    {copyStatus && (
-                        <div
-                            className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${
-                                copyStatus.type === 'success'
-                                    ? 'bg-emerald-500 text-white'
-                                    : 'bg-rose-500 text-white'
-                            }`}
-                            role="status"
-                            aria-live="polite"
-                        >
-                            {copyStatus.message}
-                        </div>
-                    )}
                 </div>
             </section>
         </section>

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import NotificationBanner from '../components/NotificationBanner';
 
 const StudentLoginPage: React.FC = () => {
     const [studentName, setStudentName] = useState('');
     const [rollNumber, setRollNumber] = useState('');
     const [organizationCode, setOrganizationCode] = useState('');
     const [submitted, setSubmitted] = useState(false);
+    const [bannerStatus, setBannerStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const nameValue = studentName.trim();
     const rollValue = rollNumber.trim();
@@ -21,8 +23,15 @@ const StudentLoginPage: React.FC = () => {
         setSubmitted(true);
 
         if (!nameValue || !rollValue || !orgValue || nameValue.length < 2 || rollValue.length < 2 || orgValue.length < 3) {
+            setBannerStatus({
+                message: 'Please fix the highlighted fields before continuing.',
+                type: 'error',
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
+
+        setBannerStatus({ message: 'Login validated. Redirecting to dashboard...', type: 'success' });
 
         if (typeof window !== 'undefined') {
             window.location.pathname = '/student/dashboard';
@@ -35,6 +44,12 @@ const StudentLoginPage: React.FC = () => {
             <div className="bg-blob bg-blob-2" />
             <div className="bg-blob bg-blob-3" />
             <div className="dot-pattern" />
+
+            <NotificationBanner
+                message={bannerStatus?.message ?? null}
+                type={bannerStatus?.type ?? 'info'}
+                sectionLabel="Student Login"
+            />
 
             <header className="student-login-topbar">
                 <div className="student-login-topbar-inner glass-card">
