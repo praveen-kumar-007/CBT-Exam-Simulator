@@ -75,6 +75,10 @@ export const useAntiCheat = ({
     window.visualViewport?.height ?? window.innerHeight,
   );
   const protectionGraceUntilRef = useRef<number>(0);
+  const touchEdgeGestureRef = useRef<{
+    edge: 'top' | 'bottom' | null;
+    startY: number;
+  }>({ edge: null, startY: 0 });
 
   // Keep the ref in sync with the prop
   useEffect(() => {
@@ -273,6 +277,59 @@ export const useAntiCheat = ({
         );
       }
       enterFullScreen().catch(() => {});
+    };
+
+    const handleTouchStartEdgeSwipe = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const y = touch.clientY;
+      const edgeThreshold = 40;
+
+      if (y <= edgeThreshold) {
+        touchEdgeGestureRef.current = { edge: 'top', startY: y };
+      } else if (window.innerHeight - y <= edgeThreshold) {
+        touchEdgeGestureRef.current = { edge: 'bottom', startY: y };
+      } else {
+        touchEdgeGestureRef.current = { edge: null, startY: 0 };
+      }
+    };
+
+    const handleTouchMoveEdgeSwipe = (e: TouchEvent) => {
+      const gesture = touchEdgeGestureRef.current;
+      if (!gesture.edge || e.touches.length !== 1) {
+        return;
+      }
+
+      const y = e.touches[0].clientY;
+      const deltaY = y - gesture.startY;
+      const threshold = 60;
+
+      if (gesture.edge === 'top' && deltaY > threshold) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (trackViolationsRef.current && !autoSubmittedRef.current) {
+          addViolation(
+            'window_blur',
+            'Top-edge system drawer gesture blocked during the exam.',
+          );
+        }
+        touchEdgeGestureRef.current = { edge: null, startY: 0 };
+      }
+
+      if (gesture.edge === 'bottom' && deltaY < -threshold) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (trackViolationsRef.current && !autoSubmittedRef.current) {
+          addViolation(
+            'window_blur',
+            'Bottom-edge system drawer gesture blocked during the exam.',
+          );
+        }
+        touchEdgeGestureRef.current = { edge: null, startY: 0 };
+      }
+    };
+
+    const handleTouchEndEdgeSwipe = () => {
+      touchEdgeGestureRef.current = { edge: null, startY: 0 };
     };
 
     // --- Handle resize/orientation to catch mobile quick settings or control panel openings ---
@@ -502,6 +559,18 @@ export const useAntiCheat = ({
     document.addEventListener("click", handleGlobalClick, true);
     document.addEventListener("touchstart", handleGlobalClick, true);
     document.addEventListener("pointerdown", handleGlobalClick, true);
+    document.addEventListener(
+      "touchstart",
+      handleTouchStartEdgeSwipe as any,
+      ({ passive: false } as any),
+    );
+    document.addEventListener(
+      "touchmove",
+      handleTouchMoveEdgeSwipe as any,
+      ({ passive: false } as any),
+    );
+    document.addEventListener("touchend", handleTouchEndEdgeSwipe);
+    document.addEventListener("touchcancel", handleTouchEndEdgeSwipe);
 
     // Disable text selection
     document.body.style.userSelect = "none";
@@ -530,6 +599,18 @@ export const useAntiCheat = ({
       document.removeEventListener("click", handleGlobalClick, true);
       document.removeEventListener("touchstart", handleGlobalClick, true);
       document.removeEventListener("pointerdown", handleGlobalClick, true);
+      document.removeEventListener(
+        "touchstart",
+        handleTouchStartEdgeSwipe as any,
+        false,
+      );
+      document.removeEventListener(
+        "touchmove",
+        handleTouchMoveEdgeSwipe as any,
+        false,
+      );
+      document.removeEventListener("touchend", handleTouchEndEdgeSwipe);
+      document.removeEventListener("touchcancel", handleTouchEndEdgeSwipe);
       clearInterval(enforceFullScreenInterval);
 
       // Restore text selection
