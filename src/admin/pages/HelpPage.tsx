@@ -254,7 +254,7 @@ const helpTopics: HelpTopic[] = [
 
 const HelpPage: React.FC = () => {
     const [expandedTopics, setExpandedTopics] = useState<Set<HelpTopicKey>>(new Set(['help']));
-    const [copyStatus, setCopyStatus] = useState('');
+    const [copyStatus, setCopyStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const allExpanded = expandedTopics.size === helpTopics.length;
 
     const toggleTopic = (key: HelpTopicKey) => {
@@ -281,11 +281,11 @@ const HelpPage: React.FC = () => {
     const copyPrompt = async () => {
         try {
             await navigator.clipboard.writeText(promptText);
-            setCopyStatus('Prompt copied to clipboard.');
-            window.setTimeout(() => setCopyStatus(''), 3000);
+            setCopyStatus({ message: 'Prompt copied to clipboard.', type: 'success' });
+            window.setTimeout(() => setCopyStatus(null), 3000);
         } catch {
-            setCopyStatus('Unable to copy prompt.');
-            window.setTimeout(() => setCopyStatus(''), 3000);
+            setCopyStatus({ message: 'Unable to copy prompt.', type: 'error' });
+            window.setTimeout(() => setCopyStatus(null), 3000);
         }
     };
 
@@ -368,7 +368,7 @@ const HelpPage: React.FC = () => {
                 <div className="mt-4 rounded-2xl bg-slate-900 p-5 text-sm text-slate-100 shadow-lg">
                     <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-6">{promptText}</pre>
                 </div>
-                <div className="mt-4 flex items-center gap-3">
+                <div className="mt-4 flex flex-wrap items-center gap-3">
                     <button
                         type="button"
                         onClick={copyPrompt}
@@ -376,7 +376,19 @@ const HelpPage: React.FC = () => {
                     >
                         Copy Prompt
                     </button>
-                    {copyStatus && <span className="text-sm text-emerald-400">{copyStatus}</span>}
+                    {copyStatus && (
+                        <div
+                            className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${
+                                copyStatus.type === 'success'
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'bg-rose-500 text-white'
+                            }`}
+                            role="status"
+                            aria-live="polite"
+                        >
+                            {copyStatus.message}
+                        </div>
+                    )}
                 </div>
             </section>
         </section>
