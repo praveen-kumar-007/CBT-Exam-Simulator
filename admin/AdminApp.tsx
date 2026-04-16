@@ -1953,6 +1953,13 @@ so add this prompt in help center and also write steps to use this`;
 
     const bannerMessage = error ? error : status ? status : null;
     const bannerType = error ? 'error' : status ? 'success' : 'info';
+    const handleBannerDismiss = () => {
+        if (error) {
+            setError('');
+        } else if (status) {
+            setStatus('');
+        }
+    };
 
     const renderDemoExamPanel = () => (
         <section style={{ maxWidth: 540, margin: '2.5rem auto', background: '#fff', borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', padding: '2.5rem 2rem', border: '1px solid #e0e7ef' }}>
@@ -2333,6 +2340,7 @@ so add this prompt in help center and also write steps to use this`;
                     message={bannerMessage}
                     type={bannerType}
                     sectionLabel={bannerSectionLabel}
+                    onDismiss={handleBannerDismiss}
                 />
 
                 {/* Navbar */}
@@ -2583,6 +2591,7 @@ so add this prompt in help center and also write steps to use this`;
                     message={bannerMessage}
                     type={bannerType}
                     sectionLabel={bannerSectionLabel}
+                    onDismiss={handleBannerDismiss}
                 />
 
                 <div style={{
@@ -2673,6 +2682,7 @@ so add this prompt in help center and also write steps to use this`;
                 message={bannerMessage}
                 type={bannerType}
                 sectionLabel={bannerSectionLabel}
+                onDismiss={handleBannerDismiss}
             />
             <div style={{ ...pageStyle, alignItems: 'stretch', paddingTop: '0.2rem' }}>
                 {isMobile && isNavMenuOpen && (

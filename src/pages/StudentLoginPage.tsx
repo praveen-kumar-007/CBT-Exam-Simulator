@@ -49,6 +49,7 @@ const StudentLoginPage: React.FC = () => {
                 message={bannerStatus?.message ?? null}
                 type={bannerStatus?.type ?? 'info'}
                 sectionLabel="Student Login"
+                onDismiss={() => setBannerStatus(null)}
             />
 
             <header className="student-login-topbar">

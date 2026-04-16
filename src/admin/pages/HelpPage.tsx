@@ -353,6 +353,7 @@ const HelpPage: React.FC = () => {
                 message={copyStatus?.message ?? null}
                 type={copyStatus?.type ?? 'info'}
                 sectionLabel={activeSectionLabel}
+                onDismiss={() => setCopyStatus(null)}
             />
 
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
