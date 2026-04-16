@@ -283,14 +283,36 @@ export const useAntiCheat = ({
       const touch = e.touches[0];
       const y = touch.clientY;
       const edgeThreshold = 40;
+      const now = Date.now();
+      const inGracePeriod = now < protectionGraceUntilRef.current;
 
       if (y <= edgeThreshold) {
         touchEdgeGestureRef.current = { edge: 'top', startY: y };
-      } else if (window.innerHeight - y <= edgeThreshold) {
-        touchEdgeGestureRef.current = { edge: 'bottom', startY: y };
-      } else {
-        touchEdgeGestureRef.current = { edge: null, startY: 0 };
+        if (trackViolationsRef.current && !autoSubmittedRef.current && !inGracePeriod) {
+          e.preventDefault();
+          e.stopPropagation();
+          addViolation(
+            'edge_gesture',
+            'Top-edge notification or control panel gesture blocked during the exam.',
+          );
+        }
+        return;
       }
+
+      if (window.innerHeight - y <= edgeThreshold) {
+        touchEdgeGestureRef.current = { edge: 'bottom', startY: y };
+        if (trackViolationsRef.current && !autoSubmittedRef.current && !inGracePeriod) {
+          e.preventDefault();
+          e.stopPropagation();
+          addViolation(
+            'edge_gesture',
+            'Bottom-edge notification or control panel gesture blocked during the exam.',
+          );
+        }
+        return;
+      }
+
+      touchEdgeGestureRef.current = { edge: null, startY: 0 };
     };
 
     const handleTouchMoveEdgeSwipe = (e: TouchEvent) => {
@@ -308,7 +330,7 @@ export const useAntiCheat = ({
         e.stopPropagation();
         if (trackViolationsRef.current && !autoSubmittedRef.current) {
           addViolation(
-            'window_blur',
+            'edge_gesture',
             'Top-edge system drawer gesture blocked during the exam.',
           );
         }
@@ -320,7 +342,7 @@ export const useAntiCheat = ({
         e.stopPropagation();
         if (trackViolationsRef.current && !autoSubmittedRef.current) {
           addViolation(
-            'window_blur',
+            'edge_gesture',
             'Bottom-edge system drawer gesture blocked during the exam.',
           );
         }
@@ -562,15 +584,15 @@ export const useAntiCheat = ({
     document.addEventListener(
       "touchstart",
       handleTouchStartEdgeSwipe as any,
-      ({ passive: false } as any),
+      ({ passive: false, capture: true } as any),
     );
     document.addEventListener(
       "touchmove",
       handleTouchMoveEdgeSwipe as any,
-      ({ passive: false } as any),
+      ({ passive: false, capture: true } as any),
     );
-    document.addEventListener("touchend", handleTouchEndEdgeSwipe);
-    document.addEventListener("touchcancel", handleTouchEndEdgeSwipe);
+    document.addEventListener("touchend", handleTouchEndEdgeSwipe, true);
+    document.addEventListener("touchcancel", handleTouchEndEdgeSwipe, true);
 
     // Disable text selection
     document.body.style.userSelect = "none";
@@ -602,15 +624,15 @@ export const useAntiCheat = ({
       document.removeEventListener(
         "touchstart",
         handleTouchStartEdgeSwipe as any,
-        false,
+        true,
       );
       document.removeEventListener(
         "touchmove",
         handleTouchMoveEdgeSwipe as any,
-        false,
+        true,
       );
-      document.removeEventListener("touchend", handleTouchEndEdgeSwipe);
-      document.removeEventListener("touchcancel", handleTouchEndEdgeSwipe);
+      document.removeEventListener("touchend", handleTouchEndEdgeSwipe, true);
+      document.removeEventListener("touchcancel", handleTouchEndEdgeSwipe, true);
       clearInterval(enforceFullScreenInterval);
 
       // Restore text selection
