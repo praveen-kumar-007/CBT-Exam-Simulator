@@ -3591,7 +3591,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                         <div key={question._id} style={itemStyle}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '0.75rem' }}>
-                                                    <strong style={{ fontSize: '0.98rem', lineHeight: 1.4, flex: 1 }}>{question.questionText}</strong>
+                                                    <strong style={{ fontSize: '0.98rem', lineHeight: 1.4, flex: 1, whiteSpace: 'pre-wrap' }}>{question.questionText}</strong>
                                                     <span style={{ color: '#556987', fontSize: '0.86rem', whiteSpace: 'nowrap' }}>
                                                         Marks: {question.marks}
                                                     </span>

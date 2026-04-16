@@ -212,7 +212,7 @@ const isAnswered =
 
                     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                            <p className="text-lg leading-8 text-slate-900">{currentQuestion.text}</p>
+                            <p className="text-lg leading-8 text-slate-900 whitespace-pre-wrap">{currentQuestion.text}</p>
                         </div>
 
                         <div className="mt-5 space-y-3.5">
@@ -231,7 +231,7 @@ const isAnswered =
                                             onChange={() => handleOptionChange(index)}
                                             className="h-4 w-4 text-blue-600 focus:ring-blue-400"
                                         />
-                                        <span className="flex-1 text-slate-700">{option}</span>
+                                        <span className="flex-1 text-slate-700 whitespace-pre-wrap">{option}</span>
                                         <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${selected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
                                             {selected ? 'Selected' : 'Choose'}
                                         </span>
