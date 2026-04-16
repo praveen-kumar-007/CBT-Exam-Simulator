@@ -82,7 +82,7 @@ export const useAntiCheat = ({
       securityLockTimeoutRef.current = setTimeout(() => {
         setIsSecurityLock(false);
         setSecurityLockReason(null);
-      }, 4000);
+      }, 8000);
     },
     [],
   );
@@ -111,7 +111,12 @@ export const useAntiCheat = ({
         type === "devtools_open" ||
         type === "right_click" ||
         type === "context_menu" ||
-        type === "blocked_keyboard"
+        type === "blocked_keyboard" ||
+        type === "fullscreen_exit" ||
+        type === "tab_switch" ||
+        type === "window_blur" ||
+        type === "window_resize" ||
+        type === "page_hide"
       ) {
         triggerSecurityLock(message);
       }
@@ -221,34 +226,55 @@ export const useAntiCheat = ({
       setIsFullScreen(isFull);
       isFullScreenRef.current = isFull;
 
-      if (!isFull && hasEnteredFullScreenRef.current) {
-        // Count as violation only if still tracking
+      if (!isFull) {
+        hasEnteredFullScreenRef.current = false;
         if (trackViolationsRef.current && !autoSubmittedRef.current) {
           addViolation("fullscreen_exit", "You exited full-screen mode");
         }
-        // ALWAYS try to re-enter full-screen, even on disqualified screen
         setTimeout(() => {
-          document.documentElement.requestFullscreen?.().catch(() => {});
+          enterFullScreen().catch(() => {});
         }, 300);
+      } else {
+        hasEnteredFullScreenRef.current = true;
       }
     };
 
-    // --- Visibility change detection (tab switching) ---
+    // --- Visibility change detection (tab switching, notifications, drawer open) ---
     const handleVisibilityChange = () => {
-      if (
-        document.hidden &&
-        trackViolationsRef.current &&
-        !autoSubmittedRef.current
-      ) {
-        addViolation("tab_switch", "You switched to another tab or window");
+      if (document.hidden) {
+        if (trackViolationsRef.current && !autoSubmittedRef.current) {
+          addViolation(
+            "tab_switch",
+            "The exam is no longer visible. Notifications or another app may be open.",
+          );
+        }
       }
     };
 
     // --- Window blur detection ---
     const handleWindowBlur = () => {
       if (trackViolationsRef.current && !autoSubmittedRef.current) {
-        addViolation("window_blur", "You switched away from the exam window");
+        addViolation(
+          "window_blur",
+          "You switched away from the exam window or opened a system control panel.",
+        );
       }
+      enterFullScreen().catch(() => {});
+    };
+
+    // --- Handle resize/orientation to catch mobile quick settings or control panel openings ---
+    const handleWindowResize = () => {
+      if (
+        trackViolationsRef.current &&
+        !autoSubmittedRef.current &&
+        !document.fullscreenElement
+      ) {
+        addViolation(
+          "window_resize",
+          "Screen layout changed during the exam. Please remain in full-screen mode.",
+        );
+      }
+      enterFullScreen().catch(() => {});
     };
 
     // --- Keyboard shortcut blocking (ALWAYS active while enabled, even after disqualification) ---
@@ -322,20 +348,14 @@ export const useAntiCheat = ({
 
     // --- Aggressive Full Screen Enforcement (Background & Interaction) ---
     const enforceFullScreen = () => {
-      if (hasEnteredFullScreenRef.current && !document.fullscreenElement) {
-        document.documentElement.requestFullscreen?.().catch(() => {});
-        // Also try alternatives for cross-browser
-        if ((document.documentElement as any).webkitRequestFullscreen) {
-          (document.documentElement as any)
-            .webkitRequestFullscreen()
-            ?.catch(() => {});
-        }
+      if (!document.fullscreenElement) {
+        enterFullScreen().catch(() => {});
       }
     };
 
     const enforceFullScreenInterval = setInterval(enforceFullScreen, 500);
 
-    // Any click on the page should attempt to restore full screen (bypasses browser gesture restrictions)
+    // Any click or touch should attempt to restore full screen (bypasses browser gesture restrictions)
     const handleGlobalClick = () => {
       enforceFullScreen();
     };
@@ -361,6 +381,7 @@ export const useAntiCheat = ({
     document.addEventListener("webkitfullscreenchange", handleFullScreenChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("resize", handleWindowResize);
     document.addEventListener("keydown", handleKeyDown, true);
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("copy", handleCopyPaste);
@@ -369,6 +390,8 @@ export const useAntiCheat = ({
     window.addEventListener("beforeunload", handleBeforeUnload);
     window.addEventListener("pagehide", handlePageHide);
     document.addEventListener("click", handleGlobalClick, true);
+    document.addEventListener("touchstart", handleGlobalClick, true);
+    document.addEventListener("pointerdown", handleGlobalClick, true);
 
     // Disable text selection
     document.body.style.userSelect = "none";
@@ -382,6 +405,7 @@ export const useAntiCheat = ({
       );
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("resize", handleWindowResize);
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("copy", handleCopyPaste);
@@ -390,6 +414,8 @@ export const useAntiCheat = ({
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("pagehide", handlePageHide);
       document.removeEventListener("click", handleGlobalClick, true);
+      document.removeEventListener("touchstart", handleGlobalClick, true);
+      document.removeEventListener("pointerdown", handleGlobalClick, true);
       clearInterval(enforceFullScreenInterval);
 
       // Restore text selection

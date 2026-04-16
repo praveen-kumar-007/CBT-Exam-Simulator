@@ -32,12 +32,19 @@ export interface ExamAnalytics {
   interactions: Record<string, QuestionInteraction>;
 }
 
+export interface SecurityEventEntry {
+  type: string;
+  message: string;
+  timestamp: string;
+}
+
 export interface SubmissionMeta {
   terminatedDueToCheating: boolean;
   terminationRemark: string;
   cheatingAttempts: number;
   totalOptionChanges: number;
   questionInteractions: QuestionInteraction[];
+  securityEvents?: SecurityEventEntry[];
 }
 
 export enum GameState {

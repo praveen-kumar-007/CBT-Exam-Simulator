@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminApp from './admin/AdminApp';
 import { examData as defaultExamData } from './data/questions';
-import { useAntiCheat } from './hooks/useAntiCheat';
+import { useAntiCheat, ViolationEntry } from './hooks/useAntiCheat';
 import { Answers, ExamData, GameState, Question, QuestionInteraction, Section, SubmissionMeta } from './types';
 import type { CalculatorMode } from './src/components/Calculator';
 import BrandSignature from './student/components/BrandSignature';
@@ -92,7 +92,7 @@ const StudentApp: React.FC = () => {
   }, []);
 
   const handleSubmitExam = useCallback(
-    async (overrideMeta: Partial<SubmissionMeta> = {}) => {
+    async (overrideMeta: Partial<SubmissionMeta> & { securityEvents?: { type: string; message: string; timestamp: string }[] } = {}) => {
       if (submitLockRef.current) {
         return;
       }
@@ -180,6 +180,7 @@ const StudentApp: React.FC = () => {
                   cheatingAttempts: effectiveMeta.cheatingAttempts,
                   totalOptionChanges: effectiveMeta.totalOptionChanges,
                   questionInteractions: sectionInteractions,
+                  securityEvents: effectiveMeta.securityEvents,
                 },
               }),
             });
@@ -202,12 +203,30 @@ const StudentApp: React.FC = () => {
   );
 
   const handleAutoSubmit = useCallback(
-    (context: { violationCount: number }) => {
-      const remark = 'Exam terminated due to cheating.';
+    (context: {
+      violationCount: number;
+      violations: ViolationEntry[];
+    }) => {
+      const timeline = context.violations
+        .map(
+          (event, index) =>
+            `${index + 1}. ${new Date(event.timestamp).toLocaleString()} — ${event.message}`,
+        )
+        .join('\n');
+
+      const remark =
+        `Exam terminated due to cheating after ${context.violationCount} violations. ` +
+        `Reason timeline:\n${timeline}`;
+
       void handleSubmitExam({
         terminatedDueToCheating: true,
         terminationRemark: remark,
         cheatingAttempts: context.violationCount,
+        securityEvents: context.violations.map((event) => ({
+          type: event.type,
+          message: event.message,
+          timestamp: event.timestamp.toISOString(),
+        })),
       });
     },
     [handleSubmitExam],
@@ -244,7 +263,7 @@ const StudentApp: React.FC = () => {
   const antiCheat = useAntiCheat({
     enabled: isProtectionActive,
     trackViolations: isExamActive,
-    maxViolations: 1,
+    maxViolations: 3,
     onAutoSubmit: handleAutoSubmit,
     onSecurityEvent: sendSecurityEvent,
   });
@@ -589,7 +608,19 @@ const StudentApp: React.FC = () => {
         </div>
       )}
       {antiCheat.isSecurityLock && (
-        <div className="fixed inset-0 z-50 bg-slate-950" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 text-white p-6">
+          <div className="max-w-xl rounded-3xl border border-white/20 bg-slate-900/95 p-6 text-center shadow-2xl">
+            <div className="mb-4 text-sm uppercase tracking-[0.24em] text-amber-300">Exam protection active</div>
+            <div className="text-lg font-semibold text-white">Access is temporarily blocked</div>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              {antiCheat.securityLockReason ||
+                'Your device or browser tried to leave the secure exam environment.'}
+            </p>
+            <div className="mt-5 rounded-2xl bg-slate-800 px-4 py-3 text-xs uppercase tracking-[0.18em] text-slate-200">
+              The exam will resume automatically when the environment is restored.
+            </div>
+          </div>
+        </div>
       )}
       {renderContent()}
 

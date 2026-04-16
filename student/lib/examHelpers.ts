@@ -104,6 +104,7 @@ export const makeDefaultSubmissionMeta = (): SubmissionMeta => ({
   cheatingAttempts: 0,
   totalOptionChanges: 0,
   questionInteractions: [],
+  securityEvents: [],
 });
 
 export const buildInteractionMap = (

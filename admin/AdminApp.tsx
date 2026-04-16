@@ -150,6 +150,7 @@ type RecentSubmission = {
     terminatedDueToCheating: boolean;
     cheatingAttempts: number;
     totalOptionChanges: number;
+    latestSecurityEvents?: SecurityEventItem[];
     sections: RecentSubmissionSection[];
 };
 
@@ -3837,28 +3838,28 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                                         </div>
                                                     </div>
 
-                                                    {(submission.examMeta?.terminationRemark || submission.remark) && (
-                                                        <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                                            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                <Icon name="warning" color="#c2410c" size={20} />
-                                                            </div>
-                                                            <div>
-                                                                <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>Administrative Remark</div>
-                                                                <p style={{ margin: 0, fontSize: '0.95rem', color: '#9a3412', lineHeight: '1.6', fontWeight: 500 }}>{submission.examMeta?.terminationRemark || submission.remark}</p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {(submission.examMeta?.securityEvents?.length ?? 0) > 0 && (
-                                                        <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px' }}>
-                                                            <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.75rem' }}>Security Events</div>
-                                                            <div style={{ display: 'grid', gap: '0.75rem' }}>
-                                                                {submission.examMeta?.securityEvents?.map((event, idx) => (
-                                                                    <div key={idx} style={{ padding: '0.85rem', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0' }}>
-                                                                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{event.type.replace(/_/g, ' ')}</div>
-                                                                        <div style={{ fontSize: '0.85rem', color: '#475569', marginTop: '0.35rem' }}>{event.message}</div>
-                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem' }}>{new Date(event.timestamp).toLocaleString()}</div>
-                                                                    </div>
-                                                                ))}
+                                                    {((submission.examMeta?.terminationRemark || submission.remark) || (submission.examMeta?.securityEvents?.length ?? 0) > 0) && (
+                                                        <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px' }}>
+                                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                                                <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                    <Icon name="warning" color="#c2410c" size={20} />
+                                                                </div>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.75rem' }}>Administrative Remark</div>
+                                                                    <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#9a3412', lineHeight: '1.85', fontSize: '0.95rem', fontWeight: 500 }}>
+                                                                        {submission.examMeta?.terminationRemark && (
+                                                                            <li style={{ marginBottom: (submission.examMeta?.securityEvents?.length ?? 0) ? '0.75rem' : 0 }}>
+                                                                                {submission.examMeta.terminationRemark}
+                                                                            </li>
+                                                                        )}
+                                                                        {submission.examMeta?.securityEvents?.map((event, idx) => (
+                                                                            <li key={idx} style={{ marginBottom: idx !== ((submission.examMeta?.securityEvents?.length ?? 0) - 1) ? '0.55rem' : 0 }}>
+                                                                                <span style={{ fontWeight: 700, color: '#0f172a' }}>{new Date(event.timestamp).toLocaleString()}</span>
+                                                                                <span style={{ marginLeft: '0.5rem', color: '#475569' }}>{event.message}</span>
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )}
@@ -4197,6 +4198,11 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                                     </p>
                                                     <p style={{ ...mutedStyle, fontSize: '0.79rem', margin: '0.1rem 0 0' }}>{(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name}: ${s.score}/${s.maxScore}`).join(' · ') : '—'}</p>
                                                     <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.1rem 0 0' }}>Last: {item.lastSubmittedAt ? new Date(item.lastSubmittedAt).toLocaleString() : '—'}</p>
+                                                    {item.latestSecurityEvents && item.latestSecurityEvents.length > 0 && (
+                                                        <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.35rem 0 0', color: '#7e22ce' }}>
+                                                            <strong>Last Attempt:</strong> {item.latestSecurityEvents[0].message} &mdash; {new Date(item.latestSecurityEvents[0].timestamp).toLocaleString()}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -4533,6 +4539,11 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                                         {(item.sections ?? []).length > 0 ? (item.sections ?? []).map(s => `${s.name} (${s.score}/${s.maxScore})`).join(' &middot; ') : '&mdash;'}
                                                     </p>
                                                     <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.2rem 0 0 0' }}>Last: {new Date(item.lastSubmittedAt).toLocaleString()}</p>
+                                                    {item.latestSecurityEvents && item.latestSecurityEvents.length > 0 && (
+                                                        <p style={{ ...mutedStyle, fontSize: '0.76rem', margin: '0.2rem 0 0 0', color: '#7c3aed' }}>
+                                                            <strong>Last Incident:</strong> {item.latestSecurityEvents[0].message}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             );
                                         })}
