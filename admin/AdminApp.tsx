@@ -430,6 +430,32 @@ const AdminApp: React.FC = () => {
     const [newSuperAdminPassword, setNewSuperAdminPassword] = useState('');
     const [newSuperAdminPhone, setNewSuperAdminPhone] = useState('');
 
+    type ModalDialogType =
+        | 'examPrompt'
+        | 'updateManagedAdminLimit'
+        | 'deleteManagedAdmin'
+        | 'deleteQuestion'
+        | 'deleteStudent'
+        | 'resetAllStudents'
+        | 'deleteSection'
+        | 'editSection';
+
+    type ModalState = {
+        type: ModalDialogType;
+        title: string;
+        message: string;
+        inputLabel?: string;
+        inputValue?: string;
+        inputPlaceholder?: string;
+        targetId?: string;
+        targetItem?: SectionItem | QuestionItem | StudentItem;
+    };
+
+    const [modalState, setModalState] = useState<ModalState | null>(null);
+    const [sectionModalName, setSectionModalName] = useState('');
+    const [sectionModalDescription, setSectionModalDescription] = useState('');
+    const [sectionModalActive, setSectionModalActive] = useState(true);
+
     const activeSection = useMemo(
         () => sections.find((section) => section._id === selectedSectionId) || null,
         [sections, selectedSectionId]
@@ -738,7 +764,8 @@ const AdminApp: React.FC = () => {
         }
     };
 
-    const getHelpPromptText = () => `Role: You are an expert Academic Content Creator and Data Specialist.
+    const getHelpPromptText = (examName?: string) => {
+        const prompt = `Role: You are an expert Academic Content Creator and Data Specialist.
 
 Task: Please generate a full-length, high-quality mock examination paper for the [INSERT EXAM NAME HERE].
 
@@ -772,12 +799,430 @@ this is a prompt that ai can generate that xlsx into proper exam wise paper
 
 so add this prompt in help center and also write steps to use this`;
 
+        return examName
+            ? prompt.replace(/\[INSERT EXAM NAME HERE\]/g, examName.trim())
+            : prompt;
+    };
+
     const copyHelpPrompt = async () => {
         try {
             await navigator.clipboard.writeText(getHelpPromptText());
             setStatus('Help prompt copied to clipboard.');
         } catch (error) {
             setError(error instanceof Error ? error.message : 'Failed to copy prompt.');
+        }
+    };
+
+    const getPromptForExam = () => {
+        openModal({
+            type: 'examPrompt',
+            title: 'Generate Exam Prompt',
+            message: 'Enter the exam name you want to generate questions for:',
+            inputLabel: 'Exam Name',
+            inputValue: '',
+            inputPlaceholder: 'e.g. SSC CGL 2026'
+        });
+    };
+
+    type HelpTopic = {
+        key: string;
+        title: string;
+        description: string;
+        steps: string[];
+        tips?: string[];
+    };
+
+    const helpTopics: HelpTopic[] = [
+        {
+            key: 'overview',
+            title: 'Overview (Home)',
+            description: 'This landing page provides a real-time snapshot of your exam program, including active students, submission volumes, and critical warnings. It is intended to help you assess readiness and quickly navigate to the feature you need next.',
+            steps: [
+                'Start on the dashboard to confirm the overall exam health before you make any changes.',
+                'Read each summary card carefully: student count, questions available, submissions completed, and any exam alerts.',
+                'Use the quick action links to move directly into Sections, Questions, Students, Exam Config, or Reports.',
+                'Review any banner notices or warnings that tell you if a configuration item is incomplete or if a student requires attention.',
+                'If the exam is already live, monitor active sessions and completion progress from the overview. That helps you catch issues early.',
+            ],
+            tips: ['Treat the dashboard like a daily status report: use it to decide where to focus first.'],
+        },
+        {
+            key: 'sections',
+            title: 'Sections',
+            description: 'Sections define the structure of your exam. Each section should reflect a distinct subject, topic, or part of the assessment, and section names must remain consistent across the entire exam workflow.',
+            steps: [
+                'Open the Sections page and create each section with a clear name and optional description.',
+                'Use consistent labels such as Mathematics, English, Logical Reasoning, or Technical Skills so the section appears clearly across reports and configuration screens.',
+                'If a section already exists, edit it carefully and then verify the section mapping in the Question Bank and Exam Config pages.',
+                'If you need to remove a section, choose deactivate first. That preserves historical exam records and avoids breaking active exam setups.',
+                'Review the section order and names again before you start creating questions, because section structure often determines exam flow and scoring logic.',
+            ],
+            tips: ['Well-defined sections make the exam easier to manage and produce cleaner performance reports later on.'],
+        },
+        {
+            key: 'questions',
+            title: 'Question Bank',
+            description: 'The Questions page is the central repository for all exam items. Use this area to review existing questions, search by keyword, update content, and ensure every item is linked to the correct section.',
+            steps: [
+                'Browse the Question Bank to review existing questions and verify the current item count per section.',
+                'Use filters and search tools to locate questions by section, keywords, or difficulty.',
+                'Edit any question to improve wording, correct answers, marks, or section assignments.',
+                'When importing questions in bulk, validate the file before upload and compare the imported section names against the section master list.',
+                'After saving edits or imports, re-open the question detail to confirm the changes persisted and are displayed correctly.',
+            ],
+            tips: ['Maintain consistent formatting across questions so students see a reliable, professional exam experience.'],
+        },
+        {
+            key: 'add-question',
+            title: 'Add Question',
+            description: 'Use the Add Question page to create new exam questions manually. This is the best place for careful question creation with full control over section assignment, answer choices, and scoring.',
+            steps: [
+                'Select the appropriate section from the dropdown before entering content.',
+                'Write the full question prompt clearly and keep it free of ambiguity.',
+                'Enter exactly four answer options and make sure each distractor is plausible but distinct.',
+                'Select the correct answer choice and assign the marks value clearly.',
+                'Save the question and then verify it appears correctly in the Question Bank within the chosen section.',
+                'If the platform allows it, preview the question as a student to check formatting and clarity.',
+            ],
+            tips: ['Quality matters more than quantity: accurate, unambiguous questions reduce grading problems later.'],
+        },
+        {
+            key: 'students',
+            title: 'Students',
+            description: 'The Students page is where you add and manage exam candidates and their access credentials. Use this page to ensure every student can log in and take the exam on the scheduled date.',
+            steps: [
+                'Add individual student records or import students in bulk using the provided template.',
+                'Confirm that each student has a valid email, unique identifier, and correct login credentials.',
+                'Check the student list for duplicates or incomplete records and fix them before the exam begins.',
+                'If a student has trouble logging in, use this page to reset credentials or provide them with the correct access details.',
+                'On exam day, verify the student status list so you know who is ready, who has pending access issues, and who has already started.',
+            ],
+            tips: ['Communicate precise login instructions and exam schedules to students in advance to avoid last-minute confusion.'],
+        },
+        {
+            key: 'responses',
+            title: 'Responses',
+            description: 'The Responses page allows you to review student submissions in detail, check answer choices, and confirm score calculations. It is essential for verifying exam integrity and resolving grading questions.',
+            steps: [
+                'After the exam, open Responses to see the complete list of student submissions.',
+                'Select an individual submission to review answer-level detail, time taken, and score calculations.',
+                'Pay special attention to any submissions marked as terminated or flagged for suspicious activity.',
+                'Use the export functionality to download response data for offline review or archival purposes.',
+                'Compare the responses with your expected answer set and make notes on any questions that may need revision in future exams.',
+            ],
+            tips: ['Use this page to identify whether score anomalies are caused by content issues, student behavior, or system events.'],
+        },
+        {
+            key: 'config',
+            title: 'Exam Config',
+            description: 'Exam Config is where you define the timing, duration, and delivery rules for the exam. Accurate configuration here ensures students receive the expected exam experience and that the system closes submissions properly.',
+            steps: [
+                'Enter the exam name, start date, start time, and total duration.',
+                'Review how each setting affects student access and timer behavior, especially if you have timed sections or auto-submit enabled.',
+                'Confirm whether auto-submit should release at the end of time or whether manual closing is needed for your workflow.',
+                'Save the exam configuration and double-check that the new values appear correctly on the screen.',
+                'If you need to stop the exam early, use the force end option cautiously and record the reason for the early termination.',
+            ],
+            tips: ['Always verify the exam schedule immediately after saving; a small time or date error can disrupt the entire exam.'],
+        },
+        {
+            key: 'activity',
+            title: 'Activity',
+            description: 'The Activity page provides an audit trail of system events, configuration changes, and student actions. It is your first place to investigate when something unexpected happens.',
+            steps: [
+                'Open Activity to see the most recent actions taken by admins and students.',
+                'Use filters or search terms to find specific events such as exam launches, student logins, or configuration updates.',
+                'Review timestamps carefully to understand the order in which events occurred.',
+                'If a student reports an issue, use this log to verify the exact time and type of event that occurred.',
+                'Keep activity review habits as part of your standard post-exam checklist.',
+            ],
+            tips: ['Activity logs are also helpful for compliance and audit reporting, so keep this page in mind for incident follow-up.'],
+        },
+        {
+            key: 'insights',
+            title: 'Insights',
+            description: 'Insights present data about exam performance, including score categories, section success, and top students. Use it to understand how candidates performed and where the exam may need improvement.',
+            steps: [
+                'Open Insights after grading is complete to review summary charts and metrics.',
+                'Examine score distributions to identify whether questions were too easy or too difficult.',
+                'Review section-level performance to see which exam areas students found easiest or hardest.',
+                'Look at timeline metrics for submission patterns and any unusual spikes in activity.',
+                'Use these findings to update future exam strategy and adjust question difficulty if needed.',
+            ],
+            tips: ['Insights are the best place to gather evidence before making changes to the question bank or section structure.'],
+        },
+        {
+            key: 'reports',
+            title: 'Reports',
+            description: 'Reports allow you to export exam summaries, student performance data, and other audit-ready documentation. They are useful for sharing results with stakeholders and preserving records.',
+            steps: [
+                'Choose the report type that best matches your needs: score summaries, participation data, or item-level analytics.',
+                'Set the date range and any filters needed for the report output.',
+                'Generate the report and review it on screen before exporting.',
+                'Export to CSV or Excel and name the file with the exam date and report type for easy retrieval.',
+                'Share the exported report with administrators, teachers, or stakeholders as needed.',
+            ],
+            tips: ['Use consistent file naming and save reports in a shared location for future comparisons.'],
+        },
+        {
+            key: 'users',
+            title: 'Users',
+            description: 'The Users page manages administrator and staff access to the portal. Here you can create accounts, assign roles, and revoke access when it is no longer needed.',
+            steps: [
+                'Add new users with the correct administrative role and contact details.',
+                'Assign access levels that match each user’s responsibilities.',
+                'Update or remove accounts if a team member leaves or no longer needs access.',
+                'Reset passwords or login credentials for users who are locked out.',
+                'Review the full user list periodically for any outdated or inactive accounts.',
+            ],
+            tips: ['Use the least-privilege principle: give users only the permissions they need.'],
+        },
+        {
+            key: 'settings',
+            title: 'Settings',
+            description: 'Settings control platform-wide defaults, communication details, and user preferences. This page helps you ensure the admin portal behaves consistently with your organization’s policies.',
+            steps: [
+                'Review global settings and confirm that branding, notifications, and behavior defaults are correct.',
+                'Update support information, contact email, and help text if these are exposed to users.',
+                'Adjust any security, password, or login settings based on organizational policy.',
+                'Save changes and test them immediately to make sure they are working as expected.',
+                'Keep a record of settings changes so you can revert if needed later.',
+            ],
+            tips: ['Use consistent system-level settings across exam cycles to avoid unexpected behavior.'],
+        },
+        {
+            key: 'tenants',
+            title: 'Tenants',
+            description: 'Tenants separate different organizations, schools, or client accounts in the same platform. Use this page to keep data isolated and manage resources per tenant.',
+            steps: [
+                'Create a new tenant when you need a separate organization, department, or client instance.',
+                'Assign users, student limits, and configuration permissions to the tenant.',
+                'Review tenant-level settings and ensure the organization has the correct scope of access.',
+                'Use tenant isolation to prevent different groups from affecting each other’s data.',
+                'If you need to audit a tenant, use this page to identify the entity and its assigned users.',
+            ],
+            tips: ['Tenants are useful for multi-client deployments and for keeping exam data separated across departments.'],
+        },
+        {
+            key: 'profile',
+            title: 'Profile',
+            description: 'The Profile page is your personal admin account control center. Use it to update your information, change passwords, and confirm account security.',
+            steps: [
+                'Review and update your personal name, email, and contact details.',
+                'Change your password regularly to keep the account secure.',
+                'Verify the profile email for notifications and audit logging.',
+                'Use profile settings for personal account changes only, not global settings.',
+                'If you detect any unusual activity, update your credentials and notify support immediately.',
+            ],
+            tips: ['A current profile helps ensure you receive important notifications and security messages.'],
+        },
+        {
+            key: 'demo-exam',
+            title: 'Demo Exam',
+            description: 'The Demo Exam page lets you run a full practice exam flow before going live. This is the safest way to verify settings, student experience, and submission behavior.',
+            steps: [
+                'Use a test student account to start the demo exam and confirm the full student workflow.',
+                'Verify that questions render correctly and that the timer behaves as expected.',
+                'Complete the demo submission and review the score and answer report for correctness.',
+                'Look for any configuration issues, such as section order, timing, or answer mapping problems.',
+                'Use the demo results to make final adjustments before launching the real exam.',
+            ],
+            tips: ['Run the demo exam with a colleague or second test account for a more realistic verification.'],
+        },
+        {
+            key: 'help',
+            title: 'Help Center',
+            description: 'This page is the centralized reference hub for all admin pages. It helps you find in-depth instructions without navigating away from the help center.',
+            steps: [
+                'Scroll through the list of topics and click any page name to expand its detailed instructions.',
+                'Use the Show All Help / Hide All Help button to reveal or collapse all sections quickly.',
+                'Read the step-by-step guidance for the particular workflow you are working on.',
+                'Return here whenever you need a refresher or when you want to compare processes across pages.',
+                'This page is intended to replace separate help screens by gathering all administrative guidance in one place.',
+            ],
+            tips: ['Use the help center as your primary admin reference page during exam preparation and review.'],
+        },
+    ];
+
+    const [expandedHelpTopics, setExpandedHelpTopics] = useState<Set<string>>(new Set(['help']));
+    const allHelpExpanded = expandedHelpTopics.size === helpTopics.length;
+
+    const toggleHelpTopic = (key: string) => {
+        setExpandedHelpTopics((current) => {
+            const next = new Set(current);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+            return next;
+        });
+    };
+
+    const toggleAllHelpTopics = () => {
+        setExpandedHelpTopics((current) => {
+            if (current.size === helpTopics.length) {
+                return new Set();
+            }
+            return new Set(helpTopics.map((topic) => topic.key));
+        });
+    };
+
+    const openModal = (state: ModalState) => setModalState(state);
+    const closeModal = () => setModalState(null);
+
+    const promptUpdateManagedAdminLimit = (adminId: string) => {
+        openModal({
+            type: 'updateManagedAdminLimit',
+            title: 'Update Student Limit',
+            message: 'Enter the new student limit for this organization admin.',
+            inputLabel: 'Student Limit',
+            inputValue: '',
+            inputPlaceholder: 'Enter a whole number',
+            targetId: adminId
+        });
+    };
+
+    const promptDeleteManagedAdmin = (adminId: string) => {
+        openModal({
+            type: 'deleteManagedAdmin',
+            title: 'Delete Organization Admin',
+            message: 'This action cannot be undone. Are you sure you want to delete this organization admin?',
+            targetId: adminId
+        });
+    };
+
+    const promptDeleteQuestion = (question: QuestionItem) => {
+        openModal({
+            type: 'deleteQuestion',
+            title: 'Delete Question',
+            message: 'Delete this question? This action cannot be undone.',
+            targetItem: question
+        });
+    };
+
+    const promptDeleteStudent = (student: StudentItem) => {
+        openModal({
+            type: 'deleteStudent',
+            title: 'Delete Student',
+            message: `Delete student ${student.name}? This will remove all submissions too.`,
+            targetItem: student
+        });
+    };
+
+    const promptDeleteSection = (section: SectionItem) => {
+        openModal({
+            type: 'deleteSection',
+            title: 'Delete Section',
+            message: `Delete section ${section.name}? This action cannot be undone.`,
+            targetItem: section
+        });
+    };
+
+    const promptResetAllStudents = () => {
+        openModal({
+            type: 'resetAllStudents',
+            title: 'Reset All Students',
+            message: `Delete ALL ${students.length} students and all their submissions? This action cannot be undone.`,
+        });
+    };
+
+    const openEditSectionDialog = (section: SectionItem) => {
+        setSectionModalName(section.name);
+        setSectionModalDescription(section.description || '');
+        setSectionModalActive(section.isActive ?? true);
+        openModal({
+            type: 'editSection',
+            title: 'Update Section Details',
+            message: 'Edit the section information below and save your changes.',
+            targetItem: section
+        });
+    };
+
+    const handleModalConfirm = async () => {
+        if (!modalState) return;
+
+        setError('');
+        setStatus('');
+
+        try {
+            switch (modalState.type) {
+                case 'examPrompt': {
+                    const examName = modalState.inputValue?.trim() || '';
+                    if (!examName) {
+                        setError('Exam name is required.');
+                        return;
+                    }
+                    await navigator.clipboard.writeText(getHelpPromptText(examName));
+                    setStatus(`Prompt for "${examName}" copied to clipboard.`);
+                    closeModal();
+                    return;
+                }
+                case 'updateManagedAdminLimit': {
+                    const newLimitValue = modalState.inputValue?.trim() || '';
+                    const parsedLimit = parseInt(newLimitValue, 10);
+                    if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+                        setError('Student limit must be a whole number greater than 0.');
+                        return;
+                    }
+                    if (!modalState.targetId) {
+                        setError('No organization admin selected.');
+                        return;
+                    }
+                    await updateManagedAdminLimit(modalState.targetId, parsedLimit);
+                    closeModal();
+                    return;
+                }
+                case 'deleteManagedAdmin': {
+                    if (!modalState.targetId) {
+                        setError('No organization admin selected.');
+                        return;
+                    }
+                    await deleteManagedAdmin(modalState.targetId);
+                    closeModal();
+                    return;
+                }
+                case 'deleteQuestion': {
+                    if (!modalState.targetItem) {
+                        setError('No question selected.');
+                        return;
+                    }
+                    await deleteQuestion(modalState.targetItem as QuestionItem);
+                    closeModal();
+                    return;
+                }
+                case 'deleteStudent': {
+                    if (!modalState.targetItem) {
+                        setError('No student selected.');
+                        return;
+                    }
+                    await deleteStudent(modalState.targetItem as StudentItem);
+                    closeModal();
+                    return;
+                }
+                case 'deleteSection': {
+                    if (!modalState.targetItem) {
+                        setError('No section selected.');
+                        return;
+                    }
+                    await deleteSection(modalState.targetItem as SectionItem);
+                    closeModal();
+                    return;
+                }
+                case 'resetAllStudents': {
+                    await resetAllStudentsData();
+                    closeModal();
+                    return;
+                }
+                case 'editSection': {
+                    await submitSectionEdit();
+                    return;
+                }
+                default:
+                    return;
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Action failed.');
         }
     };
 
@@ -838,16 +1283,7 @@ so add this prompt in help center and also write steps to use this`;
         }
     };
 
-    const updateManagedAdminLimit = async (adminId: string) => {
-        const newLimitValue = window.prompt('Enter new student limit for this organization admin:');
-        if (!newLimitValue) return;
-
-        const parsedLimit = parseInt(newLimitValue, 10);
-        if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
-            setError('Student limit must be a whole number greater than 0.');
-            return;
-        }
-
+    const updateManagedAdminLimit = async (adminId: string, parsedLimit: number) => {
         try {
             await api(`/api/admin/managed-admins/${adminId}`, {
                 method: 'PUT',
@@ -888,7 +1324,6 @@ so add this prompt in help center and also write steps to use this`;
     };
 
     const deleteManagedAdmin = async (adminId: string) => {
-        if (!window.confirm('Are you sure you want to delete this organization admin? This action cannot be undone.')) return;
         try {
             await api(`/api/admin/managed-admins/${adminId}`, { method: 'DELETE' });
             setStatus('Admin account deleted successfully.');
@@ -989,29 +1424,43 @@ so add this prompt in help center and also write steps to use this`;
     };
 
     const updateSection = async (section: SectionItem) => {
-        const name = window.prompt('Section name', section.name);
-        if (!name) return;
-        const description = window.prompt('Description', section.description || '') || '';
-        const active = window.prompt('Active? yes/no', section.isActive ? 'yes' : 'no');
-        const isActive = String(active || '').toLowerCase() !== 'no';
+        openEditSectionDialog(section);
+    };
+
+    const submitSectionEdit = async () => {
+        if (!modalState?.targetItem || modalState.type !== 'editSection') {
+            setError('No section selected for update.');
+            return;
+        }
+
+        const section = modalState.targetItem as SectionItem;
+        if (!sectionModalName.trim()) {
+            setError('Section name is required.');
+            return;
+        }
 
         try {
             await api(`/api/admin/sections/${section._id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, description, isActive })
+                body: JSON.stringify({
+                    name: sectionModalName.trim(),
+                    description: sectionModalDescription.trim(),
+                    isActive: sectionModalActive
+                })
             });
             setStatus('Section updated successfully.');
             await loadSections();
+            setSectionModalName('');
+            setSectionModalDescription('');
+            setSectionModalActive(true);
+            closeModal();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to update section');
         }
     };
 
     const deleteSection = async (section: SectionItem) => {
-        const ok = window.confirm(`Delete section ${section.name}?`);
-        if (!ok) return;
-
         try {
             await api(`/api/admin/sections/${section._id}`, { method: 'DELETE' });
             setStatus('Section deleted successfully.');
@@ -1202,9 +1651,6 @@ so add this prompt in help center and also write steps to use this`;
     };
 
     const deleteQuestion = async (question: QuestionItem) => {
-        const ok = window.confirm('Delete this question?');
-        if (!ok) return;
-
         try {
             await api(`/api/admin/questions/${question._id}`, { method: 'DELETE' });
             setStatus('Question deleted successfully.');
@@ -1301,9 +1747,6 @@ so add this prompt in help center and also write steps to use this`;
     };
 
     const deleteStudent = async (student: StudentItem) => {
-        const ok = window.confirm(`Delete student ${student.name}? This will remove all submissions too.`);
-        if (!ok) return;
-
         setError('');
 
         try {
@@ -1329,11 +1772,6 @@ so add this prompt in help center and also write steps to use this`;
             setStatus('No students available to reset.');
             return;
         }
-
-        const confirmed = window.confirm(
-            `Delete ALL ${students.length} students and all their submissions? This action cannot be undone.`
-        );
-        if (!confirmed) return;
 
         setError('');
         setStatus('Resetting all student data...');
@@ -2222,26 +2660,6 @@ so add this prompt in help center and also write steps to use this`;
                 }}
             />
             <div style={{ ...pageStyle, alignItems: 'stretch', paddingTop: '0.2rem' }}>
-                {!isMobile && !isDesktopSidebarVisible && (
-                    <div
-                        onMouseEnter={() => setIsSidebarHovering(true)}
-                        style={{
-                            position: 'fixed',
-                            top: '72px',
-                            left: 0,
-                            bottom: '0.3rem',
-                            width: '14px',
-                            zIndex: 50,
-                            borderTopRightRadius: '12px',
-                            borderBottomRightRadius: '12px',
-                            background: 'linear-gradient(180deg, rgba(35,117,207,0.75), rgba(26,76,153,0.75))',
-                            boxShadow: '4px 0 16px rgba(18, 54, 108, 0.28)',
-                            cursor: 'e-resize'
-                        }}
-                        aria-hidden="true"
-                    />
-                )}
-
                 {isMobile && isNavMenuOpen && (
                     <div
                         style={{
@@ -2272,6 +2690,24 @@ so add this prompt in help center and also write steps to use this`;
                             {renderSidebarContent(true)}
                         </aside>
                     </div>
+                )}
+
+                {!isMobile && !isDesktopSidebarVisible && (
+                    <div
+                        onMouseEnter={() => setIsSidebarHovering(true)}
+                        style={{
+                            position: 'fixed',
+                            top: '72px',
+                            left: 0,
+                            bottom: '0.3rem',
+                            width: '14px',
+                            zIndex: 50,
+                            background: 'transparent',
+                            boxShadow: 'none',
+                            cursor: 'pointer'
+                        }}
+                        aria-hidden="true"
+                    />
                 )}
 
                 {!isMobile && (
@@ -2605,7 +3041,7 @@ so add this prompt in help center and also write steps to use this`;
                                             <p style={mutedStyle}>Status: {section.isActive ? 'Active' : 'Inactive'}</p>
                                             <div style={responsiveRowStyle}>
                                                 <button onClick={() => updateSection(section)} style={primaryBtnStyle}>Update</button>
-                                                <button onClick={() => deleteSection(section)} style={dangerBtnStyle}>Delete</button>
+                                                <button onClick={() => promptDeleteSection(section)} style={dangerBtnStyle}>Delete</button>
                                             </div>
                                         </div>
                                     ))}
@@ -2851,7 +3287,7 @@ so add this prompt in help center and also write steps to use this`;
                                             <p style={mutedStyle}>{question.options.map((o, i) => `${i}. ${o}`).join(' | ')}</p>
                                             <div style={responsiveRowStyle}>
                                                 <button onClick={() => startQuestionEdit(question)} style={primaryBtnStyle}>Edit</button>
-                                                <button onClick={() => deleteQuestion(question)} style={dangerBtnStyle}>Delete</button>
+                                                <button onClick={() => promptDeleteQuestion(question)} style={dangerBtnStyle}>Delete</button>
                                             </div>
                                         </div>
                                     ))}
@@ -2865,7 +3301,7 @@ so add this prompt in help center and also write steps to use this`;
                                 <button onClick={loadStudents} style={primaryBtnStyle}>Refresh Students</button>
                                 {adminIdentity?.role === 'super_admin' && (
                                     <button
-                                        onClick={resetAllStudentsData}
+                                        onClick={promptResetAllStudents}
                                         style={{ ...dangerBtnStyle, marginTop: '0.45rem' }}
                                     >
                                         Reset All Students Data
@@ -2891,7 +3327,7 @@ so add this prompt in help center and also write steps to use this`;
                                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                                 <button onClick={() => { loadSubmissions(student); openView('responses'); }} style={{ ...primaryBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>View Responses</button>
                                                 {adminIdentity?.role === 'super_admin' && (
-                                                    <button onClick={() => deleteStudent(student)} style={{ ...dangerBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>Delete Student</button>
+                                                    <button onClick={() => promptDeleteStudent(student)} style={{ ...dangerBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>Delete Student</button>
                                                 )}
                                             </div>
                                         </div>
@@ -3796,7 +4232,7 @@ so add this prompt in help center and also write steps to use this`;
                                                         {adminIdentity?.role === 'super_admin' && (
                                                             <>
                                                                 <button
-                                                                    onClick={() => updateManagedAdminLimit(item._id)}
+                                                                    onClick={() => promptUpdateManagedAdminLimit(item._id)}
                                                                     style={{
                                                                         ...secondaryBtnStyle,
                                                                         fontSize: '0.74rem',
@@ -3808,7 +4244,7 @@ so add this prompt in help center and also write steps to use this`;
                                                                     Edit Seat Limit
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => deleteManagedAdmin(item._id)}
+                                                                    onClick={() => promptDeleteManagedAdmin(item._id)}
                                                                     style={{
                                                                         ...dangerBtnStyle,
                                                                         fontSize: '0.74rem',
@@ -3855,73 +4291,233 @@ so add this prompt in help center and also write steps to use this`;
                             <section style={cardStyle}>
                                 <h3 style={{ marginTop: 0 }}>Help Center</h3>
                                 <div style={{ display: 'grid', gap: '1.5rem' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1rem', borderRadius: '18px', background: '#eef4ff', border: '1px solid #d3e2fb' }}>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Help Center Navigation</h4>
+                                            <p style={{ margin: '0.6rem 0 0', color: '#334155', lineHeight: 1.7 }}>
+                                                Click any page name below to show detailed help for that page. Use the button to expand or collapse all help sections at once.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={toggleAllHelpTopics}
+                                            style={{
+                                                ...secondaryBtnStyle,
+                                                width: 'auto',
+                                                padding: '0.85rem 1.2rem',
+                                                borderRadius: '999px'
+                                            }}
+                                        >
+                                            {allHelpExpanded ? 'Hide All Help' : 'Show All Help'}
+                                        </button>
+                                    </div>
+
+                                    {helpTopics.map((topic) => (
+                                        <div key={topic.key} style={{ padding: '1.2rem', borderRadius: '18px', background: '#ffffff', border: '1px solid #e4e9f7' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleHelpTopic(topic.key)}
+                                                style={{
+                                                    ...secondaryBtnStyle,
+                                                    width: '100%',
+                                                    textAlign: 'left',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    padding: '1rem 1.1rem',
+                                                    borderRadius: '16px',
+                                                    background: '#f8f9ff',
+                                                    border: '1px solid #d8e2f4',
+                                                    fontWeight: 700,
+                                                    color: '#0f3c79'
+                                                }}
+                                            >
+                                                <span>{topic.title}</span>
+                                                <span style={{ fontSize: '0.95rem', color: '#475569' }}>{expandedHelpTopics.has(topic.key) ? 'Hide' : 'Show'}</span>
+                                            </button>
+
+                                            {expandedHelpTopics.has(topic.key) && (
+                                                <div style={{ marginTop: '1rem', color: '#334155', lineHeight: 1.75 }}>
+                                                    <p style={{ margin: '0 0 1rem 0' }}>{topic.description}</p>
+                                                    <ol style={{ margin: 0, paddingLeft: '1.25rem', lineHeight: 1.8 }}>
+                                                        {topic.steps.map((step, index) => (
+                                                            <li key={index} style={{ margin: '0.5rem 0' }}>{step}</li>
+                                                        ))}
+                                                    </ol>
+                                                    {topic.tips && topic.tips.length > 0 && (
+                                                        <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '16px', background: '#f8fbff', border: '1px solid #d8e5f8' }}>
+                                                            <p style={{ margin: '0 0 0.75rem 0', fontWeight: 700, color: '#0f3c79' }}>Tips</p>
+                                                            <ul style={{ margin: 0, paddingLeft: '1.2rem', lineHeight: 1.75 }}>
+                                                                {topic.tips.map((tip, index) => (
+                                                                    <li key={index} style={{ margin: '0.4rem 0' }}>{tip}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+
                                     <div style={{ padding: '1.2rem', borderRadius: '18px', background: '#f7fbff', border: '1px solid #d1dff5' }}>
                                         <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Question By AI</h4>
                                         <p style={{ margin: '0.75rem 0 0', color: '#334155', lineHeight: 1.75 }}>
-                                            This section presents a ready-to-use AI prompt for generating exam question papers in XLSX format. Copy the prompt, paste it into your AI assistant, then verify generated output before importing it into the system.
+                                            Use this ready-to-copy AI prompt to generate exam papers in XLSX format. After generating, verify the results manually before importing the file into the system.
                                         </p>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                                            <p style={{ margin: 0, color: '#0f3c79', fontWeight: 600 }}>Copy the AI prompt and use it in any compatible content generation tool.</p>
-                                            <button
-                                                type="button"
-                                                onClick={copyHelpPrompt}
-                                                style={{
-                                                    ...secondaryBtnStyle,
-                                                    width: 'auto',
-                                                    padding: '0.75rem 1.1rem',
-                                                    borderRadius: '999px',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '0.5rem'
-                                                }}
-                                            >
-                                                Copy Prompt
-                                            </button>
+                                            <p style={{ margin: 0, color: '#0f3c79', fontWeight: 600 }}>Copy the prompt and use it in a compatible AI tool.</p>
+                                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={copyHelpPrompt}
+                                                    style={{
+                                                        ...secondaryBtnStyle,
+                                                        width: 'auto',
+                                                        padding: '0.75rem 1.1rem',
+                                                        borderRadius: '999px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '0.5rem'
+                                                    }}
+                                                >
+                                                    Copy Prompt
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={getPromptForExam}
+                                                    style={{
+                                                        ...secondaryBtnStyle,
+                                                        width: 'auto',
+                                                        padding: '0.75rem 1.1rem',
+                                                        borderRadius: '999px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '0.5rem',
+                                                        background: '#e0f2fe',
+                                                        borderColor: '#7dd3fc',
+                                                        color: '#0369a1'
+                                                    }}
+                                                >
+                                                    Get Prompt
+                                                </button>
+                                            </div>
                                         </div>
                                         <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginTop: '1rem', padding: '1rem', borderRadius: '16px', background: '#0f1d3f', color: '#eef2ff', fontSize: '0.82rem', lineHeight: 1.6, maxHeight: '320px', overflowY: 'auto' }}>
                                             {getHelpPromptText()}
                                         </pre>
-                                    </div>
-
-                                    <div style={{ padding: '1.2rem', borderRadius: '18px', background: '#ffffff', border: '1px solid #e4e9f7' }}>
-                                        <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Universal Admin Guide</h4>
-                                        <p style={{ marginTop: '0.75rem', color: '#334155', lineHeight: 1.75 }}>
-                                            Use this Help Center to manage the full lifecycle of an exam: from question creation and paper upload to exam scheduling, student access, monitoring, and result review. The guidance below is written for any administrator using this platform.
-                                        </p>
-                                        <div style={{ marginTop: '1rem', color: '#334155', lineHeight: 1.75 }}>
-                                            <p style={{ margin: '0.75rem 0 0.25rem', fontWeight: 600 }}>Step-by-step admin workflow:</p>
-                                            <ol style={{ marginTop: 0, paddingLeft: '1.25rem', color: '#334155', lineHeight: 1.85 }}>
-                                                <li><strong>Set up sections</strong> first. Define each exam section and decide how many questions each section will contain.</li>
-                                                <li><strong>Add questions</strong> manually in the question bank or use the AI prompt to generate a full XLSX question file.</li>
-                                                <li><strong>Upload the exam paper</strong> on the section or question upload page if you have prepared an XLSX file.</li>
-                                                <li><strong>Configure exam timing</strong> precisely, including start date, start time, duration, negative marking, and allowed sections.</li>
-                                                <li><strong>Save the exam configuration</strong> and verify the details before publishing to students.</li>
-                                                <li><strong>Manage students</strong> by adding them, assigning batches, and confirming their access status.</li>
-                                                <li><strong>Start the exam</strong> when ready, then monitor student progress and submissions continuously.</li>
-                                                <li><strong>End the exam</strong> manually or when the timer expires, then export results and review analytics.</li>
-                                            </ol>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: '1.2rem', borderRadius: '18px', background: '#f9fbff', border: '1px solid #c8d9f5' }}>
-                                        <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Admin tasks and best practices</h4>
-                                        <ul style={{ marginTop: '0.85rem', paddingLeft: '1.15rem', color: '#334155', lineHeight: 1.85 }}>
-                                            <li>Always confirm the exam pattern and section distribution before uploading or generating questions.</li>
-                                            <li>Use the AI prompt as a starting point, then verify the generated questions for correctness, grammar, and answer keys.</li>
-                                            <li>Keep the exam start time in local time and re-check the scheduled duration after saving.</li>
-                                            <li>Use the student management section to verify student registration and access before launching the exam.</li>
-                                            <li>If an exam is ended early, ensure the system timer is reset by using the End Exam action and refreshing the interface.</li>
-                                        </ul>
-                                        <p style={{ marginTop: '1rem', color: '#0f3c79', fontWeight: 600 }}>
-                                            Tip: Treat this software as an exam operations dashboard. Every major action is grouped by task: questions, sections, config, students, responses, and help.
-                                        </p>
                                     </div>
                                 </div>
                             </section>
                         )}
                     </main>
                 </div>
+
+                {modalState && (
+                    <div
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 200,
+                            background: 'rgba(15, 23, 42, 0.45)',
+                            backdropFilter: 'blur(6px)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '1.25rem'
+                        }}
+                        onClick={closeModal}
+                    >
+                        <div
+                            onClick={(event) => event.stopPropagation()}
+                            style={{
+                                width: '100%',
+                                maxWidth: '540px',
+                                background: '#f8fbff',
+                                borderRadius: '24px',
+                                padding: '1.5rem',
+                                boxShadow: '0 32px 90px rgba(15, 23, 42, 0.18)',
+                                border: '1px solid rgba(96, 165, 250, 0.18)'
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
+                                <div>
+                                    <h3 style={{ margin: '0 0 0.45rem', color: '#0f3c79' }}>{modalState.title}</h3>
+                                    <p style={{ margin: 0, color: '#475569', lineHeight: 1.75 }}>{modalState.message}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#0f172a',
+                                        fontSize: '1.5rem',
+                                        lineHeight: 1,
+                                        cursor: 'pointer'
+                                    }}
+                                    aria-label="Close dialog"
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            {(modalState.type === 'examPrompt' || modalState.type === 'updateManagedAdminLimit') && (
+                                <>
+                                    <label style={{ marginBottom: '0.35rem', display: 'block', color: '#0f3c79', fontWeight: 700 }}>
+                                        {modalState.inputLabel}
+                                    </label>
+                                    <input
+                                        type={modalState.type === 'updateManagedAdminLimit' ? 'number' : 'text'}
+                                        min={modalState.type === 'updateManagedAdminLimit' ? 1 : undefined}
+                                        value={modalState.inputValue || ''}
+                                        onChange={(event) => setModalState((previous) => previous ? { ...previous, inputValue: event.target.value } : previous)}
+                                        placeholder={modalState.inputPlaceholder}
+                                        style={inputStyle}
+                                    />
+                                </>
+                            )}
+
+                            {modalState.type === 'editSection' && (
+                                <>
+                                    <label style={{ marginBottom: '0.35rem', display: 'block', color: '#0f3c79', fontWeight: 700 }}>Section Name</label>
+                                    <input
+                                        value={sectionModalName}
+                                        onChange={(event) => setSectionModalName(event.target.value)}
+                                        placeholder="Section title"
+                                        style={inputStyle}
+                                    />
+                                    <label style={{ marginBottom: '0.35rem', display: 'block', color: '#0f3c79', fontWeight: 700 }}>Section Description</label>
+                                    <textarea
+                                        value={sectionModalDescription}
+                                        onChange={(event) => setSectionModalDescription(event.target.value)}
+                                        placeholder="Optional description"
+                                        style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }}
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginTop: '0.5rem', color: '#0f3c79', fontWeight: 700 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={sectionModalActive}
+                                            onChange={(event) => setSectionModalActive(event.target.checked)}
+                                            style={{ width: '16px', height: '16px' }}
+                                        />
+                                        Keep section active
+                                    </label>
+                                </>
+                            )}
+
+                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.4rem' }}>
+                                <button type="button" onClick={closeModal} style={{ ...secondaryBtnStyle, width: 'auto', padding: '0.75rem 1rem' }}>
+                                    Cancel
+                                </button>
+                                <button type="button" onClick={handleModalConfirm} style={{ ...primaryBtnStyle, width: 'auto', padding: '0.75rem 1rem' }}>
+                                    {modalState.type === 'editSection' ? 'Save Section' : 'Confirm'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

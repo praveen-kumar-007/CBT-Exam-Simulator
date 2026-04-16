@@ -1,5 +1,31 @@
-import React, { useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import FeaturePageShell from '../../components/FeaturePageShell';
+
+type HelpTopicKey =
+    | 'overview'
+    | 'sections'
+    | 'questions'
+    | 'add-question'
+    | 'students'
+    | 'responses'
+    | 'config'
+    | 'activity'
+    | 'insights'
+    | 'reports'
+    | 'users'
+    | 'settings'
+    | 'tenants'
+    | 'profile'
+    | 'demo-exam'
+    | 'help';
+
+type HelpTopic = {
+    key: HelpTopicKey;
+    title: string;
+    description: string;
+    steps: string[];
+    tips?: string[];
+};
 
 const promptText = `Role: You are an expert Academic Content Creator and Data Specialist.
 
@@ -29,10 +55,228 @@ Correct Option: The label of the correct answer (Format: "Option1", "Option2", e
 
 Marks: The marks assigned per question based on the exam's marking scheme.
 
-Execution: Please analyze the attached sample file for the style and then generate the complete dataset for the [INSERT EXAM NAME HERE]. Ensure every single question is unique and factually accurate.`;
+Execution: Please analyze the attached sample file for the style and then generate the complete dataset for the [INSERT EXAM NAME HERE].`;
+
+const helpTopics: HelpTopic[] = [
+    {
+        key: 'overview',
+        title: 'Overview (Home)',
+        description: 'Use the dashboard page to view key exam metrics and quick links. It is the starting point for every administration workflow.',
+        steps: [
+            'Review the summary tiles to see total students, submissions, question counts, and active exam status.',
+            'Use the dashboard action cards or shortcut tiles to jump to other admin pages quickly.',
+            'Check notifications and alerts on the home page for items that require attention before the exam.',
+            'Use the dashboard to confirm the system is ready before you move into exam configuration and student setup.',
+        ],
+        tips: ['Treat the overview page as your daily status board, especially before the exam starts.'],
+    },
+    {
+        key: 'sections',
+        title: 'Sections',
+        description: 'Sections organize the exam into subject areas or groups. Create and manage these before adding questions to the question bank.',
+        steps: [
+            'Open the Sections page and add a section name and optional description.',
+            'Choose names that clearly identify the section, such as Mathematics, English, or Logical Reasoning.',
+            'Review section assignments for accuracy before associating questions or exam schedules.',
+            'Disable sections instead of deleting them if you want to preserve historical record and exam history.',
+        ],
+        tips: ['Use consistent section naming to avoid errors during question and exam configuration.'],
+    },
+    {
+        key: 'questions',
+        title: 'Question Bank',
+        description: 'The Questions page is where you review and manage the full question bank for all sections.',
+        steps: [
+            'Filter questions by section to review the relevant content quickly.',
+            'Edit existing questions to correct wording, answers, or marks.',
+            'Use search and sort tools to find questions by keyword or tag.',
+            'Validate imported questions after upload to confirm the section mapping is correct.',
+        ],
+        tips: ['Keep the question bank consistent and avoid duplicate questions across sections.'],
+    },
+    {
+        key: 'add-question',
+        title: 'Add Question',
+        description: 'Create individual questions with a full set of answer options and the correct option selected.',
+        steps: [
+            'Select the proper section for the question before entering content.',
+            'Write clear question text and provide exactly four answer options.',
+            'Mark the correct answer and include marks or difficulty if available.',
+            'Save the question and then review it in the Question Bank to confirm it appears correctly.',
+        ],
+        tips: ['Create new questions one at a time for controlled quality and review.'],
+    },
+    {
+        key: 'students',
+        title: 'Students',
+        description: 'Use the Students page to register candidates, manage their exam access, and confirm their login credentials.',
+        steps: [
+            'Add or import student records with name, email, and login details.',
+            'Verify account status for each student before the exam day.',
+            'Fix any duplicate or incomplete records immediately after import.',
+            'Use the student list to confirm who has access and who may need a reset.',
+        ],
+        tips: ['Notify students with exam login instructions and the exam schedule in advance.'],
+    },
+    {
+        key: 'responses',
+        title: 'Responses',
+        description: 'The Responses page shows student exam submissions, answers, scores, and any flagged behavior.',
+        steps: [
+            'Open the Responses page after the test to view completed submissions.',
+            'Review answer details and score breakdown for individual students.',
+            'Examine any flagged or terminated submissions for a reason and resolution.',
+            'Export response data if you need backup records or further offline analysis.',
+        ],
+        tips: ['Use response review to catch grading or behavioral issues quickly.'],
+    },
+    {
+        key: 'config',
+        title: 'Exam Config',
+        description: 'Exam configuration controls timing, duration, and delivery rules for the test.',
+        steps: [
+            'Set the exam start time, duration, and auto-submit behavior clearly.',
+            'Confirm section settings and the total exam configuration before publishing.',
+            'Check the schedule and timezone settings if you have candidates in multiple locations.',
+            'Apply configuration changes well before exam day to avoid last-minute issues.',
+        ],
+        tips: ['Keep auto-submit enabled unless you have a clear reason to manage submissions manually.'],
+    },
+    {
+        key: 'activity',
+        title: 'Activity',
+        description: 'The Activity page records system and user actions. Use it for troubleshooting and auditing.',
+        steps: [
+            'Review activity logs to see when exam settings or student records changed.',
+            'Use this history to confirm the sequence of events for any issue.',
+            'Monitor candidate login attempts and exam session activity.',
+            'Look for repeated failures or unusual actions around the exam window.',
+        ],
+        tips: ['Activity logs are useful for incident review and verifying administrative changes.'],
+    },
+    {
+        key: 'insights',
+        title: 'Insights',
+        description: 'Insights show exam performance trends, score distribution, and section-level strengths.',
+        steps: [
+            'Open Insights after submissions are available to review performance metrics.',
+            'Compare section averages and score buckets to identify weak or strong areas.',
+            'Review top student performance and participation trends.',
+            'Use timeline charts to understand how the exam progress changed over time.',
+        ],
+        tips: ['Use insights for post-exam review and planning improvements for future exams.'],
+    },
+    {
+        key: 'reports',
+        title: 'Reports',
+        description: 'Reports provide downloadable exam summaries and analytics for stakeholders.',
+        steps: [
+            'Generate reports for scores, participation, and section performance.',
+            'Choose the correct report type and export to CSV or Excel.',
+            'Save exported files with clear naming including exam date and type.',
+            'Share reports with exam coordinators or supervisors as needed.',
+        ],
+        tips: ['Use reports to compare performance across exams and improve question quality.'],
+    },
+    {
+        key: 'users',
+        title: 'Users',
+        description: 'The Users page manages administrator accounts, roles, and access permissions.',
+        steps: [
+            'Add or remove admin users based on their responsibilities.',
+            'Assign roles and permissions so each user has the correct access level.',
+            'Update contact details and reset access for users who need help logging in.',
+            'Review existing users to make sure inactive accounts are removed or disabled.',
+        ],
+        tips: ['Use least privilege principles so each admin only sees the tools they need.'],
+    },
+    {
+        key: 'settings',
+        title: 'Settings',
+        description: 'Settings control global application options, brand preferences, and system defaults.',
+        steps: [
+            'Review global settings and confirm your organization preferences.',
+            'Update support or contact information if the portal exposes it to users.',
+            'Adjust security and login-related settings according to your policies.',
+            'Save and test settings changes before relying on them for live exams.',
+        ],
+        tips: ['Keep system preferences consistent across exam cycles for a stable experience.'],
+    },
+    {
+        key: 'tenants',
+        title: 'Tenants',
+        description: 'Tenants let you separate groups, clients, or institutions using the platform independently.',
+        steps: [
+            'Create a tenant for each separate business unit, school, or customer.',
+            'Assign limits and users to each tenant as needed.',
+            'Review tenant-specific settings and access controls.',
+            'Use tenant management to keep data isolated for multi-organization deployments.',
+        ],
+        tips: ['Tenants keep exam data cleanly separated between different organizations or teams.'],
+    },
+    {
+        key: 'profile',
+        title: 'Profile',
+        description: 'The Profile page is where you manage your own administrator account details and security.',
+        steps: [
+            'Update your name, email, and contact details if they change.',
+            'Change your password or security settings if you suspect unauthorized access.',
+            'Confirm profile information is accurate for audit and notification purposes.',
+            'Use the profile page for account-specific updates that do not affect the whole system.',
+        ],
+        tips: ['Keep your profile current so notifications and support reach you reliably.'],
+    },
+    {
+        key: 'demo-exam',
+        title: 'Demo Exam',
+        description: 'The Demo Exam page lets you test the exam flow safely before launching the live exam.',
+        steps: [
+            'Run a sample exam using the demo page to verify the full student experience.',
+            'Check question display, timing, and submission behavior.',
+            'Review demo results to identify any configuration or workflow issues.',
+            'Use this page as a final validation step before the real exam date.',
+        ],
+        tips: ['Use a colleague or test account when running a demo exam for real-world validation.'],
+    },
+    {
+        key: 'help',
+        title: 'Help Center',
+        description: 'This page provides help for all admin pages and explains how to use this help system itself.',
+        steps: [
+            'Click a page section heading to show detailed usage instructions for that page.',
+            'Use the Show All Help button to expand every topic at once.',
+            'Read the step-by-step instructions for the workflow you are currently working on.',
+            'Return to this Help Center at any time for a quick refresher on a specific section.',
+        ],
+        tips: ['This page lets you access help for every admin page without creating dedicated help pages.'],
+    },
+];
 
 const HelpPage: React.FC = () => {
+    const [expandedTopics, setExpandedTopics] = useState<Set<HelpTopicKey>>(new Set(['help']));
     const [copyStatus, setCopyStatus] = useState('');
+    const allExpanded = expandedTopics.size === helpTopics.length;
+
+    const toggleTopic = (key: HelpTopicKey) => {
+        setExpandedTopics((current) => {
+            const next = new Set(current);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+            return next;
+        });
+    };
+
+    const toggleAllTopics = () => {
+        setExpandedTopics((current) => {
+            if (current.size === helpTopics.length) {
+                return new Set();
+            }
+            return new Set(helpTopics.map((topic) => topic.key));
+        });
+    };
 
     const copyPrompt = async () => {
         try {
@@ -45,6 +289,48 @@ const HelpPage: React.FC = () => {
         }
     };
 
+    const renderedHelpList = useMemo(
+        () =>
+            helpTopics.map((topic) => (
+                <div key={topic.key} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <button
+                        type="button"
+                        onClick={() => toggleTopic(topic.key)}
+                        className="flex w-full items-start justify-between gap-4 text-left"
+                    >
+                        <div>
+                            <h4 className="text-lg font-semibold text-slate-900">{topic.title}</h4>
+                            <p className="mt-2 text-sm leading-6 text-slate-600">{topic.description}</p>
+                        </div>
+                        <span className="mt-1 text-sm font-semibold text-slate-500">{expandedTopics.has(topic.key) ? 'Hide' : 'Show'}</span>
+                    </button>
+
+                    {expandedTopics.has(topic.key) && (
+                        <div className="mt-5 space-y-4 border-t border-slate-200 pt-5">
+                            <div className="space-y-3 text-sm leading-7 text-slate-700">
+                                {topic.steps.map((step, index) => (
+                                    <p key={index}>
+                                        <strong>Step {index + 1}:</strong> {step}
+                                    </p>
+                                ))}
+                            </div>
+                            {topic.tips && topic.tips.length > 0 && (
+                                <div className="rounded-2xl bg-slate-50 p-4">
+                                    <h5 className="text-sm font-semibold text-slate-900">Tips</h5>
+                                    <ul className="mt-3 space-y-2 pl-5 text-sm leading-7 text-slate-700 list-disc">
+                                        {topic.tips.map((tip, index) => (
+                                            <li key={index}>{tip}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )),
+        [expandedTopics],
+    );
+
     return (
         <section className="space-y-6">
             <FeaturePageShell title="Help Center" description="Comprehensive universal admin guide for the exam management software." />
@@ -52,23 +338,27 @@ const HelpPage: React.FC = () => {
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-900">Question By AI</h2>
+                        <h2 className="text-2xl font-bold text-slate-900">Admin Help Navigator</h2>
                         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-700">
-                            Use this AI prompt to generate complete exam papers in Excel format. This page is a detailed universal guide for administrators to operate the full software platform.
+                            Click any page title below to show its detailed usage instructions. Use the button to show or hide all help sections at once.
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <button
                             type="button"
-                            onClick={copyPrompt}
+                            onClick={toggleAllTopics}
                             className="rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200"
                         >
-                            Copy Prompt
+                            {allExpanded ? 'Hide All Help' : 'Show All Help'}
                         </button>
-                        {copyStatus && <span className="text-sm text-emerald-700">{copyStatus}</span>}
+                        <span className="text-sm text-slate-500">
+                            {allExpanded ? 'All help sections are visible.' : 'Collapse or open a topic to read its help.'}
+                        </span>
                     </div>
                 </div>
             </section>
+
+            <section className="space-y-4">{renderedHelpList}</section>
 
             <section className="rounded-3xl border border-slate-200 bg-slate-950 p-6 shadow-inner">
                 <h3 className="text-xl font-semibold text-white">AI Prompt for Generating Exam XLSX Papers</h3>
@@ -78,207 +368,16 @@ const HelpPage: React.FC = () => {
                 <div className="mt-4 rounded-2xl bg-slate-900 p-5 text-sm text-slate-100 shadow-lg">
                     <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-6">{promptText}</pre>
                 </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-xl font-semibold text-slate-900">Universal Admin Guide</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-700">
-                    This guide describes how to use every part of the exam administration application. The instructions are written for any administrator and do not include specific names.
-                </p>
-
-                <article className="mt-6 space-y-10">
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">1. Overview and First Steps</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            The application is divided into core functional areas: sections, questions, students, exam configuration, analytics, and reports. Start by understanding the layout and the order in which these areas connect.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            As a new administrator, begin by reviewing the dashboard page. The dashboard provides a high-level summary of system activity and shortcuts to the most important areas. This snapshot helps you prioritize your tasks.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            The system uses role-based access controls. Ensure you are logged in with the correct administrator account. If you see an area hidden or disabled, your account may not have the required permissions.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">2. Managing Exam Sections</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Sections are the foundation of any exam. Each section should correspond to a clear subject or component of the paper, such as General Knowledge, Mathematics, Reasoning, or Technical Skills.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            To create a section, go to the Sections page and add a name and optional description. Use short, descriptive names so that the section appears clearly in reports and exam settings.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            If you update a section name, review any linked questions and exam configurations to ensure the mapping remains correct. When possible, avoid renaming sections after they are used in live exams.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            If you need to remove a section, first confirm that it is not currently part of an active exam. In many cases, it is safer to deactivate a section rather than delete it to preserve historical exam audit trails.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">3. Building and Maintaining the Question Bank</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            The Questions page is where you add individual exam questions. Each question can contain the question text, four possible answers, and the correct answer.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            To create questions manually, select the target section and enter the question details. Each question should have a unique stem, four distinct options, and a clearly identified correct option.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            For bulk imports, use the Excel upload feature. Download the sample template and populate it with question data. Ensure section names in the file exactly match the section names in the system.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            After import, review the questions to catch any formatting or content errors. Templates are strict, so if an import fails, correct the file structure and re-upload only the corrected batch.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Keep the question bank organized by using the section assignment and by maintaining consistent marking values. Well-organized questions make future exam creation faster and more reliable.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">4. Configuring the Exam</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            The Exam Configuration page controls the exam duration, start time, and auto-submit behavior. This is a critical step before opening the exam to students.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            When setting the start time, choose a date and time that matches the candidate schedule. Verify timezone handling if you are administering the exam across multiple regions.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            The duration should match the exam structure. Allow enough time for the complete paper, including all sections. If the paper has multiple parts, consider adding buffer time for student setup.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Auto-submit should generally be enabled so the exam closes cleanly when time expires. If required, you can disable auto-submit for manual review workflows, but that increases administrative effort.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            If you need to end the exam early, use the force end option cautiously. This will finalize active student sessions and should only be used for legitimate reasons, such as technical disruption or exam completion.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">5. Student Registration and Access</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            The Students page is used to register candidates and manage their login details. Ensure each student has a valid account and the correct access privileges.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            If students are created in bulk, verify the student list after import. Confirm that emails or user IDs are formatted correctly, and that no duplicate accounts exist.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Communicate the exam login instructions clearly to students. Include the exam start time, required credentials, and any technical requirements in your student-facing communications.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Monitor new student accounts to ensure they are activated before the exam begins. Address account or login issues ahead of time to reduce exam-day disruptions.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">6. Monitoring Live Exams</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            During a live exam, use dashboard summaries and analytics to track participation. Keep an eye on how many students have started and how many questions have been submitted.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            If a student reports an issue, first check whether the exam is scheduled correctly and whether the student is within the allowed time window. Then verify the student’s session status.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Use live metrics to detect any unusual behavior, such as a sudden drop in active users or an unexpected number of incomplete submissions. These can indicate technical problems or connectivity issues.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Keep a log of any intervention or forced exam ends. This helps preserve transparency and can be important if you need to review the event later.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">7. Reviewing Submissions and Reports</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            After the exam, open the submissions and reports pages. Use the data to analyze score distributions, section performance, and individual student outcomes.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Export report data to CSV or Excel for offline review, sharing with stakeholders, or maintaining records. Use clear file names and include the exam date for future reference.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Compare actual performance with expected benchmarks. Identify questions that may have been too easy or too difficult and adjust your question bank accordingly for future exams.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">8. Creating a Detailed Admin Workflow</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Use the following detailed workflow as a template for full exam administration. This workflow is designed so any administrator can follow it step by step.
-                        </p>
-                        <ul className="mt-4 list-disc space-y-3 pl-5 text-sm leading-7 text-slate-700">
-                            <li>Review the exam objectives and determine the required sections and question types.</li>
-                            <li>Create all sections and validate the section names.</li>
-                            <li>Build the question bank section by section, ensuring each question is complete and accurate.</li>
-                            <li>Use the AI prompt to generate draft questions, then refine and review them carefully.</li>
-                            <li>Configure the exam schedule and verify the start time and duration.</li>
-                            <li>Register students and verify access at least one day before the exam.</li>
-                            <li>Monitor the exam during the live window and be ready to address any issues.</li>
-                            <li>Close the exam on time or force-end if there is an emergency.</li>
-                            <li>Review submissions, export reports, and archive the exam record.</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">9. Troubleshooting Common Issues</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Here are common issues and how to resolve them:
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            - If students cannot log in, verify the student credentials and the account activation status.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            - If the exam does not start at the scheduled time, confirm the exam configuration and the current system time.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            - If questions fail to import, check the Excel template and ensure all required columns are present and formatted correctly.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            - If students report missing submissions, review the live session logs and confirm that the exam was not prematurely ended.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">10. Best Practices for Admins</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Use the following best practices to keep the system reliable and easy to manage.
-                        </p>
-                        <ul className="mt-4 list-disc space-y-3 pl-5 text-sm leading-7 text-slate-700">
-                            <li>Standardize section naming across exam cycles.</li>
-                            <li>Use the question bank consistently and avoid duplicate questions.</li>
-                            <li>Verify exam configuration before releasing it to students.</li>
-                            <li>Keep student contact details up to date.</li>
-                            <li>Use reports after each exam to improve question quality and exam structure.</li>
-                        </ul>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">11. Long-Form Workflow Notes</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            This software is designed to be a complete exam administration platform. Follow the workflows carefully and refer to this guide during each phase of exam creation, delivery, and review.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            The sections above are intentionally detailed. Use this help page as a reference whenever you need step-by-step guidance or when you want to confirm the correct order of tasks.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            If you are using AI-generated questions, always verify the results manually. The AI prompt is meant to support content creation, but the administrator is responsible for final quality control.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            The software supports multiple admin scenarios, from small mock exams to large supervised assessments. Keep the exam content organized and the student workflow clear for every exam cycle.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900">12. Final Summary</h4>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Use this help page as the main admin reference. Start with sections, then questions, then exam configuration, and finish with student registration and monitoring.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            Always validate the exam schedule, confirm the question bank, and keep clear records of each exam process. This ensures a high-quality exam experience for both administrators and candidates.
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-700">
-                            This guide is intended to be broad and detailed enough for universal administrators. If you need more specific instructions, refer back to the system pages relevant to each workflow stage.
-                        </p>
-                    </section>
-                </article>
+                <div className="mt-4 flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={copyPrompt}
+                        className="rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200"
+                    >
+                        Copy Prompt
+                    </button>
+                    {copyStatus && <span className="text-sm text-emerald-400">{copyStatus}</span>}
+                </div>
             </section>
         </section>
     );
