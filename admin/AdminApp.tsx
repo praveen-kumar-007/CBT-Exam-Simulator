@@ -372,15 +372,6 @@ const AdminApp: React.FC = () => {
     const [error, setError] = useState('');
     const [isDemoSeedLoading, setIsDemoSeedLoading] = useState(false);
     const [loginEmail, setLoginEmail] = useState('');
-
-    const bannerSectionLabel = useMemo(() => {
-        if (mode === 'admin-login') return 'Terminal Login';
-        if (mode === 'super-admin-login') return 'Super Admin Portal';
-        return `Dashboard • ${dashboardTitle[activeView] || 'Admin'}`;
-    }, [mode, activeView]);
-
-    const bannerMessage = error ? error : status ? status : null;
-    const bannerType = error ? 'error' : status ? 'success' : 'info';
     const [loginPassword, setLoginPassword] = useState('');
 
     const [sections, setSections] = useState<SectionItem[]>([]);
@@ -1953,6 +1944,15 @@ so add this prompt in help center and also write steps to use this`;
         profile: 'Manage your administrator account details and contact information.',
         help: 'Follow the recommended workflow for smooth exam operations.'
     };
+
+    const bannerSectionLabel = useMemo(() => {
+        if (mode === 'admin-login') return 'Terminal Login';
+        if (mode === 'super-admin-login') return 'Super Admin Portal';
+        return `Dashboard • ${dashboardTitle[activeView] || 'Admin'}`;
+    }, [mode, activeView]);
+
+    const bannerMessage = error ? error : status ? status : null;
+    const bannerType = error ? 'error' : status ? 'success' : 'info';
 
     const renderDemoExamPanel = () => (
         <section style={{ maxWidth: 540, margin: '2.5rem auto', background: '#fff', borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', padding: '2.5rem 2rem', border: '1px solid #e0e7ef' }}>
