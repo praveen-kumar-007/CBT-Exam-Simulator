@@ -52,16 +52,28 @@ export const useAntiCheat = ({
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [isAutoSubmitted, setIsAutoSubmitted] = useState(false);
   const [isSecurityLock, setIsSecurityLock] = useState(false);
-  const [securityLockReason, setSecurityLockReason] = useState<string | null>(null);
+  const [securityLockReason, setSecurityLockReason] = useState<string | null>(
+    null,
+  );
   const violationCountRef = useRef(0);
   const violationsRef = useRef<ViolationEntry[]>([]);
   const autoSubmittedRef = useRef(false);
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const securityLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const securityLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const isFullScreenRef = useRef(false);
   const hasEnteredFullScreenRef = useRef(false);
   const trackViolationsRef = useRef(trackViolations);
   const lastViolationTimeRef = useRef<number>(0);
+  const lastWindowWidthRef = useRef<number>(window.innerWidth);
+  const lastWindowHeightRef = useRef<number>(window.innerHeight);
+  const lastViewportWidthRef = useRef<number>(
+    window.visualViewport?.width ?? window.innerWidth,
+  );
+  const lastViewportHeightRef = useRef<number>(
+    window.visualViewport?.height ?? window.innerHeight,
+  );
 
   // Keep the ref in sync with the prop
   useEffect(() => {
@@ -72,20 +84,17 @@ export const useAntiCheat = ({
     violationsRef.current = violations;
   }, [violations]);
 
-  const triggerSecurityLock = useCallback(
-    (message: string) => {
-      if (securityLockTimeoutRef.current) {
-        clearTimeout(securityLockTimeoutRef.current);
-      }
-      setIsSecurityLock(true);
-      setSecurityLockReason(message);
-      securityLockTimeoutRef.current = setTimeout(() => {
-        setIsSecurityLock(false);
-        setSecurityLockReason(null);
-      }, 8000);
-    },
-    [],
-  );
+  const triggerSecurityLock = useCallback((message: string) => {
+    if (securityLockTimeoutRef.current) {
+      clearTimeout(securityLockTimeoutRef.current);
+    }
+    setIsSecurityLock(true);
+    setSecurityLockReason(message);
+    securityLockTimeoutRef.current = setTimeout(() => {
+      setIsSecurityLock(false);
+      setSecurityLockReason(null);
+    }, 8000);
+  }, []);
 
   const addViolation = useCallback(
     (type: string, message: string) => {
@@ -264,17 +273,48 @@ export const useAntiCheat = ({
 
     // --- Handle resize/orientation to catch mobile quick settings or control panel openings ---
     const handleWindowResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const viewportWidth = window.visualViewport?.width ?? width;
+      const viewportHeight = window.visualViewport?.height ?? height;
+
+      const widthChanged = width !== lastWindowWidthRef.current;
+      const heightChanged = height !== lastWindowHeightRef.current;
+      const viewportWidthChanged =
+        viewportWidth !== lastViewportWidthRef.current;
+      const viewportHeightChanged =
+        viewportHeight !== lastViewportHeightRef.current;
+
       if (
         trackViolationsRef.current &&
         !autoSubmittedRef.current &&
-        !document.fullscreenElement
+        (widthChanged ||
+          heightChanged ||
+          viewportWidthChanged ||
+          viewportHeightChanged)
       ) {
         addViolation(
           "window_resize",
-          "Screen layout changed during the exam. Please remain in full-screen mode.",
+          "Screen layout or viewport size changed during the exam. This may indicate a notification panel or quick settings drawer was opened.",
         );
       }
+
+      lastWindowWidthRef.current = width;
+      lastWindowHeightRef.current = height;
+      lastViewportWidthRef.current = viewportWidth;
+      lastViewportHeightRef.current = viewportHeight;
+
       enterFullScreen().catch(() => {});
+    };
+
+    const handleOrientationChange = () => {
+      if (trackViolationsRef.current && !autoSubmittedRef.current) {
+        addViolation(
+          "window_resize",
+          "Orientation changed during the exam. Please remain in the approved exam view.",
+        );
+      }
+      handleWindowResize();
     };
 
     // --- Keyboard shortcut blocking (ALWAYS active while enabled, even after disqualification) ---
@@ -286,21 +326,79 @@ export const useAntiCheat = ({
         { key: "w", ctrl: true, message: "Window close blocked" },
         { key: "n", ctrl: true, message: "New window blocked" },
         { key: "t", ctrl: true, message: "New tab blocked" },
-        { key: "I", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
-        { key: "i", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
-        { key: "J", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
-        { key: "j", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
-        { key: "C", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
-        { key: "c", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
+        {
+          key: "I",
+          ctrl: true,
+          shift: true,
+          type: "devtools_open",
+          message: "DevTools blocked",
+        },
+        {
+          key: "i",
+          ctrl: true,
+          shift: true,
+          type: "devtools_open",
+          message: "DevTools blocked",
+        },
+        {
+          key: "J",
+          ctrl: true,
+          shift: true,
+          type: "devtools_open",
+          message: "DevTools blocked",
+        },
+        {
+          key: "j",
+          ctrl: true,
+          shift: true,
+          type: "devtools_open",
+          message: "DevTools blocked",
+        },
+        {
+          key: "C",
+          ctrl: true,
+          shift: true,
+          type: "devtools_open",
+          message: "DevTools blocked",
+        },
+        {
+          key: "c",
+          ctrl: true,
+          shift: true,
+          type: "devtools_open",
+          message: "DevTools blocked",
+        },
         { key: "F12", type: "devtools_open", message: "DevTools blocked" },
         { key: "u", ctrl: true, message: "Source view blocked" },
         { key: "s", ctrl: true, message: "Save blocked" },
-        { key: "s", ctrl: true, shift: true, type: "screenshot_attempt", message: "Screenshot blocked" },
+        {
+          key: "s",
+          ctrl: true,
+          shift: true,
+          type: "screenshot_attempt",
+          message: "Screenshot blocked",
+        },
         { key: "p", ctrl: true, message: "Print preview blocked" },
         { key: "a", ctrl: true, message: "Select all blocked" },
-        { key: "PrintScreen", type: "screenshot_attempt", message: "Screenshot key blocked" },
-        { key: "3", meta: true, shift: true, type: "screenshot_attempt", message: "Screenshot blocked" },
-        { key: "4", meta: true, shift: true, type: "screenshot_attempt", message: "Screenshot blocked" },
+        {
+          key: "PrintScreen",
+          type: "screenshot_attempt",
+          message: "Screenshot key blocked",
+        },
+        {
+          key: "3",
+          meta: true,
+          shift: true,
+          type: "screenshot_attempt",
+          message: "Screenshot blocked",
+        },
+        {
+          key: "4",
+          meta: true,
+          shift: true,
+          type: "screenshot_attempt",
+          message: "Screenshot blocked",
+        },
         { key: "Escape" },
       ];
 
@@ -324,7 +422,8 @@ export const useAntiCheat = ({
             !autoSubmittedRef.current
           ) {
             const violationType = combo.type || "blocked_keyboard";
-            const message = combo.message ||
+            const message =
+              combo.message ||
               `Blocked keyboard shortcut: ${e.ctrlKey ? "Ctrl+" : ""}${e.shiftKey ? "Shift+" : ""}${e.altKey ? "Alt+" : ""}${e.metaKey ? "Meta+" : ""}${e.key}`;
             addViolation(violationType, message);
           }
@@ -382,6 +481,10 @@ export const useAntiCheat = ({
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("resize", handleWindowResize);
+    window.addEventListener("orientationchange", handleOrientationChange);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleWindowResize);
+    }
     document.addEventListener("keydown", handleKeyDown, true);
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("copy", handleCopyPaste);
@@ -406,6 +509,10 @@ export const useAntiCheat = ({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
       window.removeEventListener("resize", handleWindowResize);
+      window.removeEventListener("orientationchange", handleOrientationChange);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleWindowResize);
+      }
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("copy", handleCopyPaste);
