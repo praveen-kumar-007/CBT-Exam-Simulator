@@ -109,6 +109,8 @@ type Analytics = {
     sectionsCount: number;
     questionsCount: number;
     submissionsCount: number;
+    activeSessionCount: number;
+    eliminatedDueToCheating: number;
     averagePercent: number;
     bestScore: number;
     cheatingTerminations: number;
@@ -363,6 +365,8 @@ const AdminApp: React.FC = () => {
     const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
     const [isSidebarHovering, setIsSidebarHovering] = useState(false);
     const [isSidebarPinned, setIsSidebarPinned] = useState(false);
+    const [helpPromptCopied, setHelpPromptCopied] = useState(false);
+    const [examPromptDifficulty, setExamPromptDifficulty] = useState('Medium');
     const [token, setToken] = useState(localStorage.getItem('adminToken') || '');
     const [adminIdentity, setAdminIdentity] = useState<AdminIdentity | null>(readAdminIdentity());
     const [desktopSidebarWidth, setDesktopSidebarWidth] = useState(320);
@@ -763,18 +767,18 @@ const AdminApp: React.FC = () => {
         }
     };
 
-    const getHelpPromptText = (examName?: string) => {
+    const getHelpPromptText = (examName?: string, difficulty?: string) => {
         const prompt = `Role: You are an expert Academic Content Creator and Data Specialist.
 
-Task: Please generate a full-length, high-quality mock examination paper for the [INSERT EXAM NAME HERE].
+Task: Please generate a full-length, high-quality mock examination paper for the [EXAM_NAME].
 
 Syllabus & Pattern Instructions:
 
-Official Pattern: Research and use the most recent official exam pattern for [INSERT EXAM NAME HERE]. This must include the exact number of sections and the precise number of questions per section (e.g., if it is RRB JE, generate 100 questions; if SSC CGL, generate 100 questions).
+Official Pattern: Research and use the most recent official exam pattern for [EXAM_NAME]. This must include the exact number of sections and the precise number of questions per section.
 
-Subject Mapping: Replace the placeholder section names with the actual subjects for this exam (e.g., General Awareness, Mathematics, General Intelligence & Reasoning, etc.).
+Subject Mapping: Replace the placeholder section names with the actual subjects for this exam (e.g. General Awareness, Mathematics, General Intelligence & Reasoning, etc.).
 
-Difficulty Level: Ensure the questions match the specific technical and educational level required for this exam.
+Difficulty Level: Generate questions at the specified difficulty level: [DIFFICULTY]. Write the paper so the overall exam reflects [DIFFICULTY] difficulty, with question complexity, language, and problem depth matching that level.
 
 Formatting Instructions (Strict):
 
@@ -792,34 +796,39 @@ Correct Option: The label of the correct answer (Format: "Option1", "Option2", e
 
 Marks: The marks assigned per question based on the exam's marking scheme.
 
-Execution: Please analyze the attached sample file for the style and then generate the complete dataset for the [INSERT EXAM NAME HERE]. Ensure every single question is unique and factually accurate
+Execution: Please analyze the attached sample file for the style and then generate the complete dataset for the [EXAM_NAME]. Ensure every single question is unique, diverse, and factually accurate.
 
-this is a prompt that ai can generate that xlsx into proper exam wise paper
+Use this prompt to generate an exam paper in a structured Excel-ready format.
+`;
 
-so add this prompt in help center and also write steps to use this`;
-
-        return examName
-            ? prompt.replace(/\[INSERT EXAM NAME HERE\]/g, examName.trim())
-            : prompt;
+        const finalExamName = examName ? examName.trim() : '[INSERT EXAM NAME HERE]';
+        const finalDifficulty = difficulty ? difficulty : 'Medium';
+        return prompt
+            .replace(/\[EXAM_NAME\]/g, finalExamName)
+            .replace(/\[DIFFICULTY\]/g, finalDifficulty);
     };
 
     const copyHelpPrompt = async () => {
         try {
-            await navigator.clipboard.writeText(getHelpPromptText());
+            await navigator.clipboard.writeText(getHelpPromptText(undefined, examPromptDifficulty));
             setStatus('Help prompt copied to clipboard.');
+            setHelpPromptCopied(true);
+            window.setTimeout(() => setHelpPromptCopied(false), 3000);
         } catch (error) {
             setError(error instanceof Error ? error.message : 'Failed to copy prompt.');
+            setHelpPromptCopied(false);
         }
     };
 
     const getPromptForExam = () => {
+        setExamPromptDifficulty('Medium');
         openModal({
             type: 'examPrompt',
             title: 'Generate Exam Prompt',
             message: 'Enter the exam name you want to generate questions for:',
             inputLabel: 'Exam Name',
             inputValue: '',
-            inputPlaceholder: 'e.g. SSC CGL 2026'
+            inputPlaceholder: 'e.g. General Aptitude Test'
         });
     };
 
@@ -1152,8 +1161,8 @@ so add this prompt in help center and also write steps to use this`;
                         setError('Exam name is required.');
                         return;
                     }
-                    await navigator.clipboard.writeText(getHelpPromptText(examName));
-                    setStatus(`Prompt for "${examName}" copied to clipboard.`);
+                    await navigator.clipboard.writeText(getHelpPromptText(examName, examPromptDifficulty));
+                    setStatus(`Prompt for "${examName}" (${examPromptDifficulty}) copied to clipboard.`);
                     closeModal();
                     return;
                 }
@@ -1375,6 +1384,55 @@ so add this prompt in help center and also write steps to use this`;
             setStatus('Exam configuration updated successfully.');
         } catch (e) {
             const message = e instanceof Error ? e.message : 'Failed to update exam duration';
+            if (isMissingExamConfigRoute(message)) {
+                setError('This backend deployment is missing exam configuration APIs. Redeploy the latest backend build.');
+                return;
+            }
+            setError(message);
+        }
+    };
+
+    const persistExamConfig = async (startAtValue: string | null) => {
+        const result = await api<{ data: ExamConfig }>(
+            '/api/admin/exam-config',
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    durationInMinutes: examDuration,
+                    examinerName: examinerName.trim(),
+                    startAt: startAtValue ? new Date(startAtValue).toISOString() : null,
+                    autoSubmitAfterTime: examAutoSubmitAfterTime,
+                })
+            }
+        );
+
+        const localStart = formatLocalDateTime(result.data?.startAt || null);
+        setExamDuration(result.data?.durationInMinutes || examDuration);
+        setExaminerName(result.data?.examinerName || examinerName.trim());
+        setExamStartAt(localStart);
+        setExamStartDate(localStart ? localStart.slice(0, 10) : '');
+        setExamStartTime(localStart ? localStart.slice(11, 16) : '09:00');
+        setExamAutoSubmitAfterTime(result.data?.autoSubmitAfterTime ?? true);
+        setExamForceEndedAt(result.data?.forceEndedAt || null);
+        setExamConfigUpdatedAt(result.data?.updatedAt || '');
+        setStatus('Exam configuration updated successfully.');
+    };
+
+    const startExamNow = async () => {
+        setError('');
+        setStatus('');
+        const nowLocal = formatLocalDateTime(new Date().toISOString());
+        setExamStartAt(nowLocal);
+        setExamStartDate(nowLocal.slice(0, 10));
+        setExamStartTime(nowLocal.slice(11, 16));
+        setIsExamStartPickerOpen(false);
+
+        try {
+            await persistExamConfig(nowLocal);
+            setStatus('Exam start time set to now and saved successfully.');
+        } catch (e) {
+            const message = e instanceof Error ? e.message : 'Failed to start exam now';
             if (isMissingExamConfigRoute(message)) {
                 setError('This backend deployment is missing exam configuration APIs. Redeploy the latest backend build.');
                 return;
@@ -1962,7 +2020,7 @@ so add this prompt in help center and also write steps to use this`;
     };
 
     const renderDemoExamPanel = () => (
-        <section style={{ maxWidth: 540, margin: '2.5rem auto', background: '#fff', borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', padding: '2.5rem 2rem', border: '1px solid #e0e7ef' }}>
+        <section style={{ maxWidth: 'min(100%, 540px)', margin: '2.5rem auto', background: '#fff', borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.07)', padding: '2.5rem 2rem', border: '1px solid #e0e7ef' }}>
             <h2 style={{ fontWeight: 800, fontSize: '1.35rem', color: '#1f4f99', marginBottom: '1.2rem' }}>Demo Exam Management</h2>
             <p style={{ color: '#64748b', marginBottom: '1.5rem' }}>Super admins can seed the demo exam for demonstration or testing. This will create a sample exam paper and questions for demo purposes.</p>
             <button
@@ -2044,6 +2102,33 @@ so add this prompt in help center and also write steps to use this`;
 
         return `conic-gradient(${segments.join(', ')})`;
     }, [scoreBuckets, totalScoreBucketCount]);
+
+    const totalStudents = analytics?.studentsCount ?? 0;
+    const avgOptionChanges = analytics?.avgOptionChanges ?? 0;
+    const cheatAttemptsTotal = analytics?.totalCheatingAttempts ?? 0;
+    const optionChangeTotal = analytics?.totalOptionChanges ?? 0;
+    const avgCheatPerStudent = totalStudents ? cheatAttemptsTotal / totalStudents : 0;
+    const avgChangesPerSubmission = analytics?.submissionsCount ? optionChangeTotal / analytics.submissionsCount : 0;
+    const integrityHealth = totalStudents ? Math.max(0, Math.min(100, Math.round((1 - cheatAttemptsTotal / Math.max(totalStudents * 3, 1)) * 100))) : 96;
+    const integrityTone = integrityHealth >= 80 ? '#16a34a' : integrityHealth >= 60 ? '#f59e0b' : '#dc2626';
+    const riskIndex = Math.min(100, Math.round(Math.max(0, avgCheatPerStudent * 8 + avgChangesPerSubmission * 4 + (100 - integrityHealth) * 0.18)));
+    const studentReviewIntensity = avgOptionChanges >= 6 ? 'High review activity' : avgOptionChanges >= 3 ? 'Moderate review activity' : 'Low review activity';
+    const topRiskDays = timeline.slice().sort((a: InsightsTimelineItem, b: InsightsTimelineItem) => b.cheatingAttempts - a.cheatingAttempts).slice(0, 3);
+    const topOptionChangeDays = timeline.slice().sort((a: InsightsTimelineItem, b: InsightsTimelineItem) => b.optionChanges - a.optionChanges).slice(0, 3);
+    const scoreTotal = scoreBuckets.reduce((sum, item) => sum + item.count, 0);
+
+    const latestTimelinePoint = timeline.length ? timeline[timeline.length - 1] : { submissions: 0, cheatingAttempts: 0, optionChanges: 0, terminations: 0 };
+    const priorTimelinePoint = timeline.length > 1 ? timeline[timeline.length - 2] : latestTimelinePoint;
+    const cheatingTrend = latestTimelinePoint.cheatingAttempts > priorTimelinePoint.cheatingAttempts ? 'increasing' : latestTimelinePoint.cheatingAttempts < priorTimelinePoint.cheatingAttempts ? 'decreasing' : 'steady';
+    const lowPerformingSections = sectionPerformance.slice().sort((a, b) => a.avgPercent - b.avgPercent).slice(0, 3);
+    const lowSectionNames = lowPerformingSections.map((item) => item.sectionName).join(', ') || 'No section data yet';
+    const activeSuspicionEvents = recentSubmissions.filter((item) => item.cheatingAttempts > 0);
+    const suspiciousStudentCount = activeSuspicionEvents.length;
+    const highReviewStudents = recentSubmissions.filter((item) => item.totalOptionChanges > 5);
+    const topFlaggedStudents = activeSuspicionEvents
+        .slice()
+        .sort((a, b) => b.cheatingAttempts - a.cheatingAttempts || b.totalOptionChanges - a.totalOptionChanges)
+        .slice(0, 3);
 
     const renderSidebarContent = (compact = false) => (
         <div style={{ display: 'grid', gap: '0.7rem' }}>
@@ -2476,7 +2561,7 @@ so add this prompt in help center and also write steps to use this`;
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', width: '90%', marginBottom: '3rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '1.5rem', width: '100%', maxWidth: 900, marginBottom: '3rem' }}>
                             {[
                                 { t: 'Secure Access', d: `Authorized ${BRAND_NAME} entry only` },
                                 { t: 'Live Sync', d: 'Real-time organization metrics' },
@@ -2802,10 +2887,9 @@ so add this prompt in help center and also write steps to use this`;
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 gap: '0.75rem',
-                                alignItems: 'center',
+                                alignItems: 'flex-start',
                                 flexWrap: 'wrap',
-                                paddingRight: '148px',
-                                minHeight: '130px'
+                                paddingRight: '1rem'
                             }}
                         >
                             <div>
@@ -2945,6 +3029,27 @@ so add this prompt in help center and also write steps to use this`;
                                     </section>
 
                                     <section style={cardStyle}>
+                                        <h3 style={{ marginTop: 0 }}>Exam Safety Summary</h3>
+                                        <div style={{ display: 'grid', gap: '0.85rem', marginTop: '1rem' }}>
+                                            <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f3c79' }}>Students Live Now</div>
+                                                <div style={{ marginTop: '0.65rem', fontSize: '1.75rem', fontWeight: 900, color: '#2563eb' }}>{analytics?.activeSessionCount ?? 0}</div>
+                                                <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Active exam sessions currently in progress.</p>
+                                            </div>
+                                            <div style={{ padding: '1rem', borderRadius: '18px', background: '#fff1f2', border: '1px solid #fee2e2' }}>
+                                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#9f1239' }}>Eliminated by Cheating</div>
+                                                <div style={{ marginTop: '0.65rem', fontSize: '1.75rem', fontWeight: 900, color: '#be123c' }}>{analytics?.eliminatedDueToCheating ?? 0}</div>
+                                                <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Students terminated for policy violations.</p>
+                                            </div>
+                                            <div style={{ padding: '1rem', borderRadius: '18px', background: '#fef3c7', border: '1px solid #fde68a' }}>
+                                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#b45309' }}>Times Cheated</div>
+                                                <div style={{ marginTop: '0.65rem', fontSize: '1.75rem', fontWeight: 900, color: '#c2410c' }}>{analytics?.totalCheatingAttempts ?? 0}</div>
+                                                <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Total suspicious behavior events flagged so far.</p>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section style={cardStyle}>
                                         <h3 style={{ marginTop: 0 }}>Quick Actions</h3>
                                         <p style={{ ...mutedStyle, marginTop: '-0.25rem' }}>Branded shortcuts for rapid control</p>
                                         <button onClick={() => openView('sections')} style={primaryBtnStyle}>Manage Sections</button>
@@ -2975,6 +3080,193 @@ so add this prompt in help center and also write steps to use this`;
                                         </section>
                                     )}
                                 </div>
+
+                                <section style={cardStyle}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: '1 1 320px', minWidth: '280px' }}>
+                                            <h3 style={{ marginTop: 0 }}>Integrity & Response Trends</h3>
+                                            <p style={{ ...mutedStyle, marginTop: '-0.25rem' }}>In-depth analytics on cheating risk, answer revisions, and exam flow quality.</p>
+                                            <div style={{ display: 'grid', gap: '0.85rem', marginTop: '1rem' }}>
+                                                <div style={{ background: '#f8fafc', border: '1px solid #dbe4ef', borderRadius: '18px', padding: '1rem' }}>
+                                                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f3c79' }}>Cheating Attempts</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: '#be123c' }}>{cheatAttemptsTotal}</div>
+                                                    <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Total recorded cheating attempt events during the exam cycle.</p>
+                                                </div>
+                                                <div style={{ background: '#f8fafc', border: '1px solid #dbe4ef', borderRadius: '18px', padding: '1rem' }}>
+                                                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f3c79' }}>Option Change Intensity</div>
+                                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: '#1d4ed8' }}>{avgOptionChanges.toFixed(1)}</div>
+                                                    <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Average number of answer revisions per student, showing hesitation and review behavior.</p>
+                                                </div>
+                                                <div style={{ background: '#f8fafc', border: '1px solid #dbe4ef', borderRadius: '18px', padding: '1rem' }}>
+                                                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f3c79' }}>Exam Integrity Health</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.5rem' }}>
+                                                        <span style={{ fontSize: '2rem', fontWeight: 800, color: integrityTone }}>{integrityHealth}%</span>
+                                                        <span style={{ fontSize: '0.86rem', color: integrityTone, fontWeight: 700 }}>{integrityHealth >= 80 ? 'Strong' : integrityHealth >= 60 ? 'Watch' : 'Critical'}</span>
+                                                    </div>
+                                                    <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Estimated exam health based on cheating frequency compared to expected student counts.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ flex: '1 1 320px', minWidth: '280px', padding: '1rem', borderRadius: '24px', background: '#f8fafc', border: '1px solid #dbe4ef', display: 'grid', placeItems: 'center' }}>
+                                            <div style={{ width: '220px', height: '220px', borderRadius: '999px', background: scorePieGradient, position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(15,23,42,0.08)' }}>
+                                                <div style={{ position: 'absolute', inset: '24%', borderRadius: '999px', background: '#f8fafc' }} />
+                                                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#0f172a' }}>
+                                                    <div style={{ fontSize: '1.55rem', fontWeight: 900 }}>{scoreTotal}</div>
+                                                    <div style={{ fontSize: '0.85rem', marginTop: '0.35rem', color: '#475569' }}>Score distribution segments</div>
+                                                </div>
+                                            </div>
+                                            <p style={{ ...mutedStyle, marginTop: '1rem', textAlign: 'center' }}>Live score distribution by student performance buckets.</p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginTop: '1.2rem' }}>
+                                        <div style={{ padding: '1rem', borderRadius: '20px', background: '#ffffff', border: '1px solid #dbe4ef' }}>
+                                            <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Cheating & Answer Review Trend</h4>
+                                            <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Timeline of recent submissions, cheating flags, and answer changes.</p>
+                                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.55rem', marginTop: '1rem', minHeight: '150px' }}>
+                                                {timeline.slice(-6).map((point, index) => {
+                                                    const height = Math.max((point.cheatingAttempts / Math.max(timelineMaxValue, 1)) * 100, 8);
+                                                    const altHeight = Math.max((point.optionChanges / Math.max(timelineMaxValue, 1)) * 100, 8);
+                                                    return (
+                                                        <div key={index} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '0.35rem' }}>
+                                                            <div style={{ height: `${height}%`, background: '#ef4444', borderRadius: '999px', width: '100%' }} />
+                                                            <div style={{ height: `${altHeight}%`, background: '#2563eb', borderRadius: '999px', width: '100%' }} />
+                                                            <div style={{ marginTop: '0.5rem', fontSize: '0.7rem', color: '#64748b', textAlign: 'center' }}>{point.day.slice(0, 3)}</div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.81rem', color: '#ef4444' }}><span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />Cheat Attempts</span>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.81rem', color: '#2563eb' }}><span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2563eb' }} />Option Changes</span>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ padding: '1rem', borderRadius: '20px', background: '#ffffff', border: '1px solid #dbe4ef' }}>
+                                            <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Top Performer Insights</h4>
+                                            <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Students with strong performance and minimal risky behavior.</p>
+                                            <div style={{ display: 'grid', gap: '0.9rem', marginTop: '1rem' }}>
+                                                {topStudents.slice(0, 3).map((student) => (
+                                                    <div key={student.studentName} style={{ padding: '0.85rem', borderRadius: '16px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
+                                                            <strong style={{ color: '#0f3c79' }}>{student.studentName}</strong>
+                                                            <span style={{ fontSize: '0.85rem', color: '#1d4ed8', fontWeight: 700 }}>{student.avgPercent.toFixed(0)}%</span>
+                                                        </div>
+                                                        <p style={{ ...mutedStyle, margin: '0.5rem 0 0 0', fontSize: '0.85rem' }}>Average section success rate</p>
+                                                    </div>
+                                                ))}
+                                                {topStudents.length === 0 && <p style={mutedStyle}>No top student insights available yet.</p>}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ padding: '1rem', borderRadius: '20px', background: '#ffffff', border: '1px solid #dbe4ef' }}>
+                                            <h4 style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Option Change Alerts</h4>
+                                            <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>How frequently students revise answers before submission.</p>
+                                            <div style={{ marginTop: '1rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#334155' }}>
+                                                    <span>Average changes</span>
+                                                    <strong>{avgOptionChanges.toFixed(1)}</strong>
+                                                </div>
+                                                <div style={{ marginTop: '0.6rem', height: '10px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                                                    <div style={{ width: `${Math.min((avgOptionChanges / 12) * 100, 100)}%`, height: '100%', background: '#1d4ed8' }} />
+                                                </div>
+                                                <p style={{ ...mutedStyle, marginTop: '0.9rem' }}>Total option revisions recorded: <strong>{optionChangeTotal}</strong>.</p>
+                                                <p style={{ ...mutedStyle, marginTop: '0.6rem' }}>High levels can indicate careful review or confusing questions. Use this insight to refine content and reduce ambiguity.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section style={cardStyle}>
+                                    <h4 style={{ marginTop: 0 }}>Advanced Actionable Insights</h4>
+                                    <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', marginTop: '1rem' }}>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                            <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: '#0f3c79' }}>Risk Score</p>
+                                            <p style={{ margin: '0.75rem 0 0', fontSize: '2rem', fontWeight: 900, color: '#be123c' }}>{riskIndex}%</p>
+                                            <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>A predictive score combining cheating density and answer revision behavior.</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                            <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: '#0f3c79' }}>Top Cheat Risk Days</p>
+                                            {topRiskDays.length === 0 ? (
+                                                <p style={{ ...mutedStyle, marginTop: '0.75rem' }}>No risk timeline data available.</p>
+                                            ) : (
+                                                <ol style={{ margin: '0.75rem 0 0 1rem', padding: 0, color: '#334155' }}>
+                                                    {topRiskDays.map((point: InsightsTimelineItem) => (
+                                                        <li key={point.day} style={{ marginBottom: '0.45rem' }}>
+                                                            <strong>{point.day}</strong>: {point.cheatingAttempts} attempts, {point.optionChanges} option changes
+                                                        </li>
+                                                    ))}
+                                                </ol>
+                                            )}
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                            <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: '#0f3c79' }}>Top Revision Days</p>
+                                            {topOptionChangeDays.length === 0 ? (
+                                                <p style={{ ...mutedStyle, marginTop: '0.75rem' }}>No revision timeline data available.</p>
+                                            ) : (
+                                                <ol style={{ margin: '0.75rem 0 0 1rem', padding: 0, color: '#334155' }}>
+                                                    {topOptionChangeDays.map((point: InsightsTimelineItem) => (
+                                                        <li key={point.day} style={{ marginBottom: '0.45rem' }}>
+                                                            <strong>{point.day}</strong>: {point.optionChanges} option changes, {point.cheatingAttempts} cheat attempts
+                                                        </li>
+                                                    ))}
+                                                </ol>
+                                            )}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section style={cardStyle}>
+                                    <h4 style={{ marginTop: 0 }}>Live Exam Watchlist</h4>
+                                    <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: '1rem' }}>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f3c79' }}>Cheating Trend</div>
+                                            <div style={{ marginTop: '0.75rem', fontSize: '1.5rem', fontWeight: 800, color: cheatingTrend === 'increasing' ? '#dc2626' : cheatingTrend === 'decreasing' ? '#16a34a' : '#1d4ed8' }}>{cheatingTrend.toUpperCase()}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>Recent cheating activity is {cheatingTrend} based on the last two time periods.</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#92400e' }}>Lowest Performing Sections</div>
+                                            <div style={{ marginTop: '0.75rem', fontSize: '1.5rem', fontWeight: 800, color: '#92400e' }}>{lowPerformingSections.length}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>{lowSectionNames}</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#3730a3' }}>Flagged Students in Feed</div>
+                                            <div style={{ marginTop: '0.75rem', fontSize: '1.5rem', fontWeight: 800, color: '#3730a3' }}>{suspiciousStudentCount}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>Students showing live cheating flags in the current activity feed.</p>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Live Review Alerts</h3>
+                                    <p style={{ ...mutedStyle, marginTop: '-0.25rem' }}>Useful signals to prioritize review and intervention while the exam is active.</p>
+                                    <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: '1rem' }}>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f3c79' }}>Cheating Trend</div>
+                                            <div style={{ marginTop: '0.75rem', fontSize: '1.65rem', fontWeight: 900, color: cheatingTrend === 'increasing' ? '#dc2626' : cheatingTrend === 'decreasing' ? '#16a34a' : '#1d4ed8' }}>{cheatingTrend.toUpperCase()}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>Current cheating signals are {cheatingTrend}, based on recent activity.</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#92400e' }}>High-Risk Sections</div>
+                                            <div style={{ marginTop: '0.75rem', fontSize: '1.65rem', fontWeight: 900, color: '#92400e' }}>{lowPerformingSections.length}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>{lowSectionNames}</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#3730a3' }}>Flagged Students</div>
+                                            <div style={{ marginTop: '0.75rem', fontSize: '1.65rem', fontWeight: 900, color: '#3730a3' }}>{suspiciousStudentCount}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>Students with live cheating flags in the recent feed.</p>
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                        <p style={{ margin: 0, fontWeight: 700, color: '#0f3c79' }}>Staff Notes</p>
+                                        <ul style={{ margin: '0.75rem 0 0 1rem', padding: 0, color: '#334155', lineHeight: 1.65 }}>
+                                            <li>Verify flagged sessions with supporting evidence before taking final action.</li>
+                                            <li>Review low-performing sections first where answer confusion may be highest.</li>
+                                            <li>Watch for answer review spikes in the last 15 minutes of the exam window.</li>
+                                        </ul>
+                                    </div>
+                                </section>
 
                                 <section style={cardStyle}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -3297,19 +3589,26 @@ so add this prompt in help center and also write steps to use this`;
                                     {filteredQuestions.length === 0 && <p style={mutedStyle}>No questions loaded for current filter.</p>}
                                     {filteredQuestions.map((question) => (
                                         <div key={question._id} style={itemStyle}>
-                                            <strong>{question.questionText}</strong>
-                                            <p style={mutedStyle}>Correct: Option {Number(question.correctOptionIndex) + 1} | Marks: {question.marks}</p>
-                                            {question.imageUrl && (
-                                                <img
-                                                    src={question.imageUrl}
-                                                    alt="Question"
-                                                    style={{ width: '100%', maxWidth: '240px', borderRadius: '8px', border: '1px solid #c9d9f2', marginBottom: '0.45rem' }}
-                                                />
-                                            )}
-                                            <p style={mutedStyle}>{question.options.map((o, i) => `${i}. ${o}`).join(' | ')}</p>
-                                            <div style={responsiveRowStyle}>
-                                                <button onClick={() => startQuestionEdit(question)} style={primaryBtnStyle}>Edit</button>
-                                                <button onClick={() => promptDeleteQuestion(question)} style={dangerBtnStyle}>Delete</button>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                                    <strong style={{ fontSize: '0.98rem', lineHeight: 1.4, flex: 1 }}>{question.questionText}</strong>
+                                                    <span style={{ color: '#556987', fontSize: '0.86rem', whiteSpace: 'nowrap' }}>
+                                                        Marks: {question.marks}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+                                                    <span style={{ color: '#5c6f85', fontSize: '0.86rem' }}>
+                                                        Correct: Option {Number(question.correctOptionIndex) + 1}
+                                                    </span>
+                                                    <span style={{ color: '#5c6f85', fontSize: '0.86rem' }}>
+                                                        Section: {question.section ? (typeof question.section === 'string' ? question.section : question.section.name) : 'N/A'}
+                                                    </span>
+                                                </div>
+                                                <p style={{ ...mutedStyle, margin: 0 }}>{question.options.map((o, i) => `${i}. ${o}`).join(' | ')}</p>
+                                                <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                                                    <button onClick={() => startQuestionEdit(question)} style={{ ...primaryBtnStyle, width: 'auto', padding: '0.45rem 0.9rem' }}>Edit</button>
+                                                    <button onClick={() => promptDeleteQuestion(question)} style={{ ...dangerBtnStyle, width: 'auto', padding: '0.45rem 0.9rem' }}>Delete</button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -3751,6 +4050,7 @@ so add this prompt in help center and also write steps to use this`;
                                 </form>
                                 <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
                                     <button onClick={loadExamConfig} style={{ ...secondaryBtnStyle, padding: '0.45rem 1rem' }}>Reload Configuration</button>
+                                    <button type="button" onClick={startExamNow} style={{ ...primaryBtnStyle, padding: '0.45rem 1rem' }}><Icon name="lightning" size={16} /> Start Now</button>
                                     <button onClick={endExamNow} style={{ ...dangerBtnStyle, padding: '0.45rem 1rem' }}>End Exam Now</button>
                                 </div>
                                 <p style={mutedStyle}>
@@ -3813,6 +4113,60 @@ so add this prompt in help center and also write steps to use this`;
                                 </section>
 
                                 <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Live Activity Summary</h3>
+                                    <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginTop: '1rem' }}>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f3c79' }}>Active Exam Sessions</div>
+                                            <div style={{ marginTop: '0.8rem', fontSize: '1.9rem', fontWeight: 900, color: '#2563eb' }}>{analytics?.activeSessionCount ?? 0}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.55rem' }}>Students currently live in the exam environment.</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#fff1f2', border: '1px solid #fee2e2' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#9f1239' }}>Eliminated This Exam</div>
+                                            <div style={{ marginTop: '0.8rem', fontSize: '1.9rem', fontWeight: 900, color: '#be123c' }}>{analytics?.eliminatedDueToCheating ?? 0}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.55rem' }}>Students terminated for cheating policy violations.</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#fef3c7', border: '1px solid #fde68a' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#b45309' }}>Suspicion Events</div>
+                                            <div style={{ marginTop: '0.8rem', fontSize: '1.9rem', fontWeight: 900, color: '#c2410c' }}>{analytics?.totalCheatingAttempts ?? 0}</div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.55rem' }}>Total flagged suspicious events recorded so far.</p>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                            <strong style={{ fontSize: '0.92rem', color: '#0f3c79' }}>Students with Active Flags</strong>
+                                            <p style={{ ...mutedStyle, margin: '0.75rem 0 0 0', fontSize: '1.45rem', fontWeight: 900, color: '#be123c' }}>{suspiciousStudentCount}</p>
+                                            <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Number of students with at least one cheating attempt in the latest activity feed.</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                            <strong style={{ fontSize: '0.92rem', color: '#0f3c79' }}>Heavy Review Activity</strong>
+                                            <p style={{ ...mutedStyle, margin: '0.75rem 0 0 0', fontSize: '1.45rem', fontWeight: 900, color: '#1d4ed8' }}>{highReviewStudents.length}</p>
+                                            <p style={{ ...mutedStyle, marginTop: '0.45rem' }}>Students who changed 6+ answers in the latest feed.</p>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Top Flagged Students</h3>
+                                    <p style={{ ...mutedStyle, marginTop: '0.25rem' }}>Live list of students with the highest recent cheat flags.</p>
+                                    {topFlaggedStudents.length === 0 ? (
+                                        <p style={mutedStyle}>No flagged students in the current activity feed.</p>
+                                    ) : (
+                                        <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+                                            {topFlaggedStudents.map((item) => (
+                                                <div key={item._id} style={{ padding: '0.85rem', borderRadius: '16px', background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <strong style={{ color: '#9a3412' }}>{item.student?.name || 'Unknown Student'}</strong>
+                                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#c2410c' }}>{item.cheatingAttempts} flags</span>
+                                                    </div>
+                                                    <p style={{ ...mutedStyle, margin: '0.5rem 0 0 0', fontSize: '0.84rem' }}>Last submission: {item.lastSubmittedAt ? new Date(item.lastSubmittedAt).toLocaleString() : '—'}</p>
+                                                    <p style={{ ...mutedStyle, margin: '0.25rem 0 0 0', fontSize: '0.84rem' }}>Option changes: {item.totalOptionChanges}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </section>
+
+                                <section style={cardStyle}>
                                     <h3 style={{ marginTop: 0 }}>Performance Snapshot</h3>
                                     <p style={mutedStyle}>Best Raw Score: <strong>{analytics?.bestScore ?? 0}</strong></p>
                                     <p style={mutedStyle}>Average Score: <strong>{analytics?.averagePercent ?? 0}%</strong></p>
@@ -3831,6 +4185,42 @@ so add this prompt in help center and also write steps to use this`;
                                     <button onClick={loadInsights} style={primaryBtnStyle}>Refresh Insights Data</button>
                                 </section>
 
+                                <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                                    <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f3c79' }}>Students Live Now</div>
+                                        <div style={{ marginTop: '0.75rem', fontSize: '2rem', fontWeight: 900, color: '#2563eb' }}>{analytics?.activeSessionCount ?? 0}</div>
+                                        <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>Active exam sessions currently in progress.</p>
+                                    </div>
+                                    <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f3c79' }}>Eliminated Students</div>
+                                        <div style={{ marginTop: '0.75rem', fontSize: '2rem', fontWeight: 900, color: '#be123c' }}>{analytics?.eliminatedDueToCheating ?? 0}</div>
+                                        <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>Students terminated for cheating policy violations.</p>
+                                    </div>
+                                    <div style={{ padding: '1rem', borderRadius: '18px', background: '#f8fafc', border: '1px solid #dbe4ef' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f3c79' }}>Times Cheated</div>
+                                        <div style={{ marginTop: '0.75rem', fontSize: '2rem', fontWeight: 900, color: '#c2410c' }}>{analytics?.totalCheatingAttempts ?? 0}</div>
+                                        <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>Total suspicious behavior events flagged so far.</p>
+                                    </div>
+                                </div>
+
+                                <section style={cardStyle}>
+                                    <h4 style={{ marginTop: 0 }}>Insights Action Plan</h4>
+                                    <p style={{ ...mutedStyle, marginTop: '-0.25rem' }}>Quick, data-driven recommendations you can act on immediately.</p>
+                                    <div style={{ display: 'grid', gap: '0.9rem', marginTop: '1rem' }}>
+                                        <div style={{ padding: '1rem', borderRadius: '16px', background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                                            <strong style={{ display: 'block', marginBottom: '0.5rem', color: '#1d4ed8' }}>Review low-performing sections</strong>
+                                            <p style={{ ...mutedStyle, margin: 0 }}>These sections may need immediate review: <strong>{lowSectionNames}</strong>.</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '16px', background: '#fef2f2', border: '1px solid #fecaca' }}>
+                                            <strong style={{ display: 'block', marginBottom: '0.5rem', color: '#b91c1c' }}>Prioritize flagged students</strong>
+                                            <p style={{ ...mutedStyle, margin: 0 }}>Focus on the {suspiciousStudentCount} student{suspiciousStudentCount === 1 ? '' : 's'} with active cheat flags.</p>
+                                        </div>
+                                        <div style={{ padding: '1rem', borderRadius: '16px', background: '#ecfdf5', border: '1px solid #bbf7d0' }}>
+                                            <strong style={{ display: 'block', marginBottom: '0.5rem', color: '#15803d' }}>Monitor score distribution</strong>
+                                            <p style={{ ...mutedStyle, margin: 0 }}>If many students are in the lower score buckets, adjust question difficulty and pacing.</p>
+                                        </div>
+                                    </div>
+                                </section>
                                 <div style={responsiveGridStyle}>
                                     <section style={cardStyle}>
                                         <h4 style={{ marginTop: 0 }}>Score Distribution (Pie)</h4>
@@ -4400,10 +4790,13 @@ so add this prompt in help center and also write steps to use this`;
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        gap: '0.5rem'
+                                                        gap: '0.5rem',
+                                                        background: helpPromptCopied ? '#10b981' : secondaryBtnStyle.background,
+                                                        borderColor: helpPromptCopied ? '#059669' : secondaryBtnStyle.borderColor,
+                                                        color: helpPromptCopied ? '#ffffff' : secondaryBtnStyle.color,
                                                     }}
                                                 >
-                                                    Copy Prompt
+                                                    {helpPromptCopied ? 'Copied!' : 'Copy Prompt'}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -4501,6 +4894,23 @@ so add this prompt in help center and also write steps to use this`;
                                 </>
                             )}
 
+                            {modalState.type === 'examPrompt' && (
+                                <>
+                                    <label style={{ margin: '1rem 0 0.35rem', display: 'block', color: '#0f3c79', fontWeight: 700 }}>
+                                        Difficulty Level
+                                    </label>
+                                    <select
+                                        value={examPromptDifficulty}
+                                        onChange={(event) => setExamPromptDifficulty(event.target.value)}
+                                        style={{ ...inputStyle, appearance: 'none', background: '#fff' }}
+                                    >
+                                        <option value="Easy">Easy</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="Hard">Hard</option>
+                                    </select>
+                                </>
+                            )}
+
                             {modalState.type === 'editSection' && (
                                 <>
                                     <label style={{ marginBottom: '0.35rem', display: 'block', color: '#0f3c79', fontWeight: 700 }}>Section Name</label>
@@ -4546,21 +4956,20 @@ so add this prompt in help center and also write steps to use this`;
 };
 
 const pageStyle: React.CSSProperties = {
-    minHeight: '100vh',
     background: 'radial-gradient(circle at 20% 10%, #f2f7ff 0%, #e6f0ff 45%, #eaf2ff 100%)',
     display: 'flex',
     alignItems: 'stretch',
     justifyContent: 'stretch',
     width: '100%',
-    padding: '0.45rem 0.6rem'
+    padding: '0.3rem 0.5rem 0.8rem'
 };
 
 const cardStyle: React.CSSProperties = {
     background: 'linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)',
     border: '1px solid #c8d9f5',
     borderRadius: '16px',
-    padding: '1.25rem',
-    boxShadow: '0 10px 22px rgba(16, 45, 99, 0.09)',
+    padding: '1rem',
+    boxShadow: '0 8px 18px rgba(16, 45, 99, 0.08)',
     overflow: 'hidden'
 };
 
@@ -4630,16 +5039,15 @@ const gridStyle: React.CSSProperties = {
 
 const listStyle: React.CSSProperties = {
     marginTop: '0.45rem',
-    maxHeight: '360px',
+    maxHeight: 'calc(100vh - 360px)',
     overflow: 'auto'
 };
 
 const itemStyle: React.CSSProperties = {
-    border: '1px solid #ceddf6',
-    borderRadius: '8px',
-    padding: '0.55rem',
-    marginBottom: '0.4rem',
-    background: 'linear-gradient(180deg, #fbfdff, #f6faff)'
+    padding: '0.75rem 0',
+    borderBottom: '1px solid #d8e8f3',
+    marginBottom: 0,
+    background: 'transparent'
 };
 
 const mutedStyle: React.CSSProperties = {

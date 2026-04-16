@@ -256,6 +256,7 @@ const helpTopics: HelpTopic[] = [
 const HelpPage: React.FC = () => {
     const [expandedTopics, setExpandedTopics] = useState<Set<HelpTopicKey>>(new Set(['help']));
     const [copyStatus, setCopyStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [hasCopiedPrompt, setHasCopiedPrompt] = useState(false);
     const allExpanded = expandedTopics.size === helpTopics.length;
 
     const activeSectionLabel = useMemo(() => {
@@ -297,9 +298,14 @@ const HelpPage: React.FC = () => {
         try {
             await navigator.clipboard.writeText(promptText);
             setCopyStatus({ message: 'Prompt copied to clipboard.', type: 'success' });
-            window.setTimeout(() => setCopyStatus(null), 3000);
+            setHasCopiedPrompt(true);
+            window.setTimeout(() => {
+                setCopyStatus(null);
+                setHasCopiedPrompt(false);
+            }, 3000);
         } catch {
             setCopyStatus({ message: 'Unable to copy prompt.', type: 'error' });
+            setHasCopiedPrompt(false);
             window.setTimeout(() => setCopyStatus(null), 3000);
         }
     };

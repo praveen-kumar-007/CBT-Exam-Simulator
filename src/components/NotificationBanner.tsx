@@ -44,7 +44,7 @@ const NotificationBanner: React.FC<NotificationBannerProps> = ({
                 : 'bg-slate-700 text-white';
 
     return (
-        <div className="fixed top-16 left-0 right-0 z-50 w-full border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-sm sm:top-0">
+        <div className="fixed top-20 left-0 right-0 z-50 w-full border-b border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
             <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 {sectionLabel ? (
                     <div className="text-sm font-semibold text-slate-900">{sectionLabel}</div>

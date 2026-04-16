@@ -497,15 +497,29 @@ body {
 @media (max-width: 980px) {
   .student-login-content {
     grid-template-columns: 1fr;
-    max-width: 650px;
+    max-width: 100%;
+    width: min(100%, 650px);
+    padding: 0 0.5rem;
   }
 
   .student-login-illustration {
     order: 2;
+    padding: 1.2rem;
+  }
+
+  .student-login-illustration img {
+    max-width: 100%;
   }
 
   .student-login-card {
     order: 1;
+    padding: 1.4rem;
+  }
+
+  .student-login-topbar-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 }
 
