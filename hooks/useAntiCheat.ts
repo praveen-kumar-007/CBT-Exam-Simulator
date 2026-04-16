@@ -74,6 +74,7 @@ export const useAntiCheat = ({
   const lastViewportHeightRef = useRef<number>(
     window.visualViewport?.height ?? window.innerHeight,
   );
+  const protectionGraceUntilRef = useRef<number>(0);
 
   // Keep the ref in sync with the prop
   useEffect(() => {
@@ -216,6 +217,7 @@ export const useAntiCheat = ({
     autoSubmittedRef.current = false;
     hasEnteredFullScreenRef.current = false;
     isFullScreenRef.current = false;
+    protectionGraceUntilRef.current = 0;
     setViolations([]);
     setIsFullScreen(false);
     setWarningMessage(null);
@@ -228,6 +230,8 @@ export const useAntiCheat = ({
 
   useEffect(() => {
     if (!enabled) return;
+
+    protectionGraceUntilRef.current = Date.now() + 3000;
 
     // --- Full-screen change detection ---
     const handleFullScreenChange = () => {
@@ -277,6 +281,8 @@ export const useAntiCheat = ({
       const height = window.innerHeight;
       const viewportWidth = window.visualViewport?.width ?? width;
       const viewportHeight = window.visualViewport?.height ?? height;
+      const now = Date.now();
+      const inGracePeriod = now < protectionGraceUntilRef.current;
 
       const widthChanged = width !== lastWindowWidthRef.current;
       const heightChanged = height !== lastWindowHeightRef.current;
@@ -288,6 +294,7 @@ export const useAntiCheat = ({
       if (
         trackViolationsRef.current &&
         !autoSubmittedRef.current &&
+        !inGracePeriod &&
         (widthChanged ||
           heightChanged ||
           viewportWidthChanged ||
