@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import NotificationBanner from '../src/components/NotificationBanner';
+import Calculator, { CalculatorMode, loadCalculatorSettings, saveCalculatorSettings } from '../src/components/Calculator';
 
 type Mode = 'admin-login' | 'super-admin-login' | 'dashboard';
-type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help' | 'profile' | 'demo-exam';
+type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help' | 'profile' | 'demo-exam' | 'calculator';
 
 type AdminIdentity = {
     id?: string;
@@ -68,12 +69,19 @@ type SubmissionInteraction = {
     selectionHistory?: number[];
 };
 
+type SecurityEventItem = {
+    type: string;
+    message: string;
+    timestamp: string;
+};
+
 type SubmissionExamMeta = {
     terminatedDueToCheating?: boolean;
     terminationRemark?: string;
     cheatingAttempts?: number;
     totalOptionChanges?: number;
     questionInteractions?: SubmissionInteraction[];
+    securityEvents?: SecurityEventItem[];
 };
 
 type SubmissionItem = {
@@ -151,6 +159,8 @@ type ExamConfig = {
     startAt?: string | null;
     forceEndedAt?: string | null;
     autoSubmitAfterTime?: boolean;
+    calculatorEnabled?: boolean;
+    activeCalculatorType?: CalculatorMode | null;
     updatedAt?: string;
 };
 
@@ -187,7 +197,7 @@ type InsightsPayload = {
     timeline: InsightsTimelineItem[];
 };
 
-const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'add-question', 'students', 'responses', 'config', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help', 'demo-exam'];
+const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'add-question', 'students', 'responses', 'config', 'calculator', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help', 'demo-exam'];
 const DEFAULT_DASHBOARD_VIEW: DashboardView = 'overview';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -220,6 +230,7 @@ const Icon: React.FC<{ name: string; size?: number; color?: string }> = ({ name,
         case 'students': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
         case 'responses': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>;
         case 'config': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>;
+        case 'calculator': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3" ry="3" /><path d="M8 7h8" /><path d="M8 12h8" /><path d="M8 17h8" /><path d="M12 7v10" /></svg>;
         case 'activity': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>;
         case 'lightning': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>;
         case 'insights': return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
@@ -357,7 +368,7 @@ const readAdminIdentity = (): AdminIdentity | null => {
     }
 };
 
-const AdminApp: React.FC = () => {
+export const AdminApp: React.FC = () => {
     const getIsMobile = () => (typeof window !== 'undefined' ? window.innerWidth <= 900 : false);
     const [mode, setMode] = useState<Mode>(getModeFromPath());
     const [activeView, setActiveView] = useState<DashboardView>(getDashboardViewFromPath());
@@ -414,6 +425,9 @@ const AdminApp: React.FC = () => {
     const [examAutoSubmitAfterTime, setExamAutoSubmitAfterTime] = useState(true);
     const [examForceEndedAt, setExamForceEndedAt] = useState<string | null>(null);
     const [examConfigUpdatedAt, setExamConfigUpdatedAt] = useState('');
+    const [calculatorEnabled, setCalculatorEnabled] = useState(false);
+    const [activeCalculatorType, setActiveCalculatorType] = useState<CalculatorMode | null>(null);
+    const [calculatorSettings, setCalculatorSettings] = useState(() => loadCalculatorSettings());
     const [questionSearch, setQuestionSearch] = useState('');
     const [studentSearch, setStudentSearch] = useState('');
     const [insights, setInsights] = useState<InsightsPayload | null>(null);
@@ -433,6 +447,26 @@ const AdminApp: React.FC = () => {
     const [newSuperAdminEmail, setNewSuperAdminEmail] = useState('');
     const [newSuperAdminPassword, setNewSuperAdminPassword] = useState('');
     const [newSuperAdminPhone, setNewSuperAdminPhone] = useState('');
+
+    const updateCalculatorSettings = (settings: Partial<{ enabled: boolean; allowedTypes: CalculatorMode[] }>) => {
+        const next = saveCalculatorSettings({ ...calculatorSettings, ...settings });
+        setCalculatorSettings(next);
+    };
+
+    const setActiveCalculatorTypeAction = async (type: CalculatorMode | null) => {
+        const nextType = type;
+        const previousType = activeCalculatorType;
+        setActiveCalculatorType(nextType);
+
+        try {
+            await persistExamConfig(examStartAt || null, calculatorEnabled, nextType);
+            setStatus(`Calculator type ${nextType ? `${nextType} enabled` : 'disabled'} successfully.`);
+        } catch (e) {
+            const message = e instanceof Error ? e.message : 'Failed to update active calculator type';
+            setActiveCalculatorType(previousType);
+            setError(message);
+        }
+    };
 
     type ModalDialogType =
         | 'examPrompt'
@@ -744,6 +778,12 @@ const AdminApp: React.FC = () => {
             const result = await api<{ data: ExamConfig }>('/api/admin/exam-config');
             setExamDuration(result.data?.durationInMinutes || 60);
             setExaminerName(result.data?.examinerName || 'CBT Examination Cell');
+            setCalculatorEnabled(result.data?.calculatorEnabled ?? false);
+            setActiveCalculatorType(result.data?.activeCalculatorType || null);
+            setCalculatorSettings((prev) => ({
+                ...prev,
+                enabled: result.data?.calculatorEnabled ?? prev.enabled,
+            }));
             const localStart = formatLocalDateTime(result.data?.startAt || null);
             setExamStartAt(localStart);
             setExamStartDate(localStart ? localStart.slice(0, 10) : '');
@@ -1368,6 +1408,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                         examinerName: examinerName.trim(),
                         startAt: formattedStartAt,
                         autoSubmitAfterTime: examAutoSubmitAfterTime,
+                        calculatorEnabled,
+                        activeCalculatorType,
                     })
                 }
             );
@@ -1379,6 +1421,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
             setExamStartDate(localStart ? localStart.slice(0, 10) : '');
             setExamStartTime(localStart ? localStart.slice(11, 16) : '09:00');
             setExamAutoSubmitAfterTime(result.data?.autoSubmitAfterTime ?? true);
+            setCalculatorEnabled(result.data?.calculatorEnabled ?? calculatorEnabled);
+            setActiveCalculatorType(result.data?.activeCalculatorType || null);
             setExamForceEndedAt(result.data?.forceEndedAt || null);
             setExamConfigUpdatedAt(result.data?.updatedAt || '');
             setStatus('Exam configuration updated successfully.');
@@ -1392,7 +1436,11 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         }
     };
 
-    const persistExamConfig = async (startAtValue: string | null) => {
+    const persistExamConfig = async (
+        startAtValue: string | null,
+        enabled: boolean = calculatorEnabled,
+        activeType: CalculatorMode | null = activeCalculatorType,
+    ) => {
         const result = await api<{ data: ExamConfig }>(
             '/api/admin/exam-config',
             {
@@ -1403,6 +1451,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                     examinerName: examinerName.trim(),
                     startAt: startAtValue ? new Date(startAtValue).toISOString() : null,
                     autoSubmitAfterTime: examAutoSubmitAfterTime,
+                    calculatorEnabled: enabled,
+                    activeCalculatorType: activeType,
                 })
             }
         );
@@ -1410,6 +1460,12 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         const localStart = formatLocalDateTime(result.data?.startAt || null);
         setExamDuration(result.data?.durationInMinutes || examDuration);
         setExaminerName(result.data?.examinerName || examinerName.trim());
+        setCalculatorEnabled(result.data?.calculatorEnabled ?? enabled);
+        setActiveCalculatorType(result.data?.activeCalculatorType || null);
+        setCalculatorSettings((prev) => ({
+            ...prev,
+            enabled: result.data?.calculatorEnabled ?? enabled,
+        }));
         setExamStartAt(localStart);
         setExamStartDate(localStart ? localStart.slice(0, 10) : '');
         setExamStartTime(localStart ? localStart.slice(11, 16) : '09:00');
@@ -1417,6 +1473,24 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         setExamForceEndedAt(result.data?.forceEndedAt || null);
         setExamConfigUpdatedAt(result.data?.updatedAt || '');
         setStatus('Exam configuration updated successfully.');
+    };
+
+    const toggleCalculatorEnabled = async () => {
+        setError('');
+        setStatus('');
+        const nextEnabled = !calculatorEnabled;
+        setCalculatorEnabled(nextEnabled);
+        setCalculatorSettings((prev) => ({ ...prev, enabled: nextEnabled }));
+
+        try {
+            await persistExamConfig(examStartAt || null, nextEnabled);
+            setStatus(`Student calculator access ${nextEnabled ? 'enabled' : 'disabled'} successfully.`);
+        } catch (e) {
+            const message = e instanceof Error ? e.message : 'Failed to update calculator access';
+            setCalculatorEnabled(!nextEnabled);
+            setCalculatorSettings((prev) => ({ ...prev, enabled: !nextEnabled }));
+            setError(message);
+        }
     };
 
     const startExamNow = async () => {
@@ -1922,6 +1996,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         { key: 'students', label: 'Students', hint: 'Account management and resets', icon: 'students' },
         { key: 'responses', label: 'Responses', hint: 'View student submissions and answers', icon: 'responses' },
         { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup', icon: 'settings' },
+        { key: 'calculator', label: 'Calculator', hint: 'Open the admin calculator utility', icon: 'calculator' },
         { key: 'activity', label: 'Activity', hint: 'Recent submission timeline', icon: 'activity' },
         { key: 'insights', label: 'Insights', hint: 'Data charts and trends', icon: 'insights' },
         { key: 'reports', label: 'Reports', hint: 'Export center and audit-ready summaries', icon: 'reports' },
@@ -1940,7 +2015,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         { title: 'Overview', views: ['profile', 'overview', 'activity', 'insights'] },
         { title: 'Exam Workspace', views: ['sections', 'add-question', 'questions', 'students', 'config'] },
         { title: 'Operations', views: ['reports'] },
-        { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['demo-exam', 'users', 'settings', 'tenants'] : ['settings'] },
+        { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['demo-exam', 'users', 'settings', 'tenants', 'calculator'] : ['settings', 'calculator'] },
         { title: 'Support', views: ['help'] }
     ];
 
@@ -1974,6 +2049,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         students: 'Student Management',
         responses: 'Student Responses',
         config: 'Exam Configuration',
+        calculator: 'Calculator Utility',
         activity: 'Live Activity',
         insights: 'Data Insights',
         reports: 'Reports Center',
@@ -1998,6 +2074,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         reports: 'Generate exports and leadership summaries from reliable exam data.',
         users: 'Handle admin identities, account ownership, and operational access.',
         settings: 'Apply organization-level standards for platform operations and compliance.',
+        calculator: 'Open the calculator utility with all enabled modes.',
         tenants: 'Create organization admins and choose which organization dataset you are operating on.',
         profile: 'Manage your administrator account details and contact information.',
         help: 'Follow the recommended workflow for smooth exam operations.'
@@ -3771,6 +3848,20 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                                             </div>
                                                         </div>
                                                     )}
+                                                    {(submission.examMeta?.securityEvents?.length ?? 0) > 0 && (
+                                                        <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px' }}>
+                                                            <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.75rem' }}>Security Events</div>
+                                                            <div style={{ display: 'grid', gap: '0.75rem' }}>
+                                                                {submission.examMeta?.securityEvents?.map((event, idx) => (
+                                                                    <div key={idx} style={{ padding: '0.85rem', borderRadius: '12px', background: '#ffffff', border: '1px solid #e2e8f0' }}>
+                                                                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{event.type.replace(/_/g, ' ')}</div>
+                                                                        <div style={{ fontSize: '0.85rem', color: '#475569', marginTop: '0.35rem' }}>{event.message}</div>
+                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem' }}>{new Date(event.timestamp).toLocaleString()}</div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
 
                                                     {/* Behavioral Insights */}
                                                     {!!submission.examMeta?.questionInteractions?.length && (
@@ -4594,7 +4685,149 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                         </div>
                                     </div>
                                 </section>
+
+                                <section style={cardStyle}>
+                                    <h3 style={{ marginTop: 0 }}>Calculator Permissions</h3>
+                                    <p style={mutedStyle}>Control whether students can use calculators during exams and which calculator types are available.</p>
+                                    <div style={responsiveGridStyle}>
+                                        <div style={itemStyle}>
+                                            <strong>Calculator Access</strong>
+                                            <p style={mutedStyle}>Current permission: {calculatorEnabled ? 'Enabled' : 'Disabled'}</p>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={toggleCalculatorEnabled}
+                                                    style={{
+                                                        ...secondaryBtnStyle,
+                                                        borderRadius: 999,
+                                                        padding: '0.75rem 1.25rem',
+                                                        minWidth: 150,
+                                                        background: calculatorEnabled ? '#22c55e' : '#f97316',
+                                                        color: '#fff',
+                                                        borderColor: calculatorEnabled ? '#16a34a' : '#ea580c',
+                                                    }}
+                                                >
+                                                    {calculatorEnabled ? 'Calculator ON' : 'Calculator OFF'}
+                                                </button>
+                                                <span style={{ color: '#334155', fontSize: '0.95rem' }}>
+                                                    {calculatorEnabled ? 'Students can access the calculator.' : 'Calculator access is disabled for students.'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style={itemStyle}>
+                                            <strong>Calculator Type Toggles</strong>
+                                            <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>
+                                                Enable one calculator type at a time. Each calculator has its own dedicated on/off control.
+                                            </p>
+                                            <div style={{ display: 'grid', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                                {(['Simple', 'Scientific ES991', 'Scientific ES82', 'Financial'] as CalculatorMode[]).map((type) => {
+                                                    const isActive = activeCalculatorType === type;
+                                                    return (
+                                                        <div key={type} style={{ alignItems: 'center', display: 'flex', gap: '0.75rem', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <div>
+                                                                <div style={{ fontWeight: 700, color: '#0f172a' }}>{type}</div>
+                                                                <div style={{ color: '#64748b', fontSize: '0.85rem' }}>{isActive ? 'Enabled for students' : 'Disabled for students'}</div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setActiveCalculatorTypeAction(isActive ? null : type)}
+                                                                style={{
+                                                                    padding: '0.6rem 1rem',
+                                                                    borderRadius: 999,
+                                                                    border: '1px solid transparent',
+                                                                    background: isActive ? '#22c55e' : '#f8fafc',
+                                                                    color: isActive ? '#fff' : '#0f172a',
+                                                                    cursor: 'pointer',
+                                                                    minWidth: 90,
+                                                                    fontWeight: 700,
+                                                                    boxShadow: isActive ? '0 4px 12px rgba(34,118,186,0.16)' : 'none',
+                                                                }}
+                                                            >
+                                                                {isActive ? 'ON' : 'OFF'}
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p style={{ ...mutedStyle, marginTop: '0.75rem' }}>
+                                                Only one calculator type may be active at a time. Click an active calculator to turn it off.
+                                            </p>
+                                            {!calculatorEnabled && (
+                                                <p style={{ ...mutedStyle, marginTop: '0.5rem' }}>
+                                                    Calculator access is currently off. The selected type will be active once calculator access is enabled.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </section>
                             </>
+                        )}
+
+                        {activeView === 'calculator' && (
+                            <section style={cardStyle}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                                    <div>
+                                        <h3 style={{ marginTop: 0 }}>Calculator Utility</h3>
+                                        <p style={mutedStyle}>Use the built-in calculator for admin support. Student use is only available when the super admin enables it in settings.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={toggleCalculatorEnabled}
+                                        style={{
+                                            ...secondaryBtnStyle,
+                                            borderRadius: 999,
+                                            padding: '0.8rem 1.25rem',
+                                            minWidth: 140,
+                                            background: calculatorEnabled ? '#22c55e' : '#f97316',
+                                            color: '#fff',
+                                            borderColor: calculatorEnabled ? '#16a34a' : '#ea580c',
+                                            alignSelf: 'center',
+                                        }}
+                                    >
+                                        {calculatorEnabled ? 'Calculator ON' : 'Calculator OFF'}
+                                    </button>
+                                </div>
+                                <div style={{ marginTop: '1rem', color: '#475569', fontSize: '0.95rem' }}>
+                                    Student calculator access is currently <strong>{calculatorEnabled ? 'Enabled' : 'Disabled'}</strong>.
+                                </div>
+                                <div style={{ marginTop: '1.5rem', display: 'grid', gap: '0.75rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+                                        {(['Simple', 'Scientific ES991', 'Scientific ES82', 'Financial'] as CalculatorMode[]).map((type) => {
+                                            const isActive = activeCalculatorType === type;
+                                            return (
+                                                <button
+                                                    key={type}
+                                                    type="button"
+                                                    onClick={() => setActiveCalculatorTypeAction(isActive ? null : type)}
+                                                    style={{
+                                                        padding: '0.85rem 1rem',
+                                                        borderRadius: 999,
+                                                        border: '1px solid',
+                                                        borderColor: isActive ? '#2563eb' : '#cbd5e1',
+                                                        background: isActive ? '#2563eb' : '#f8fafc',
+                                                        color: isActive ? '#ffffff' : '#0f172a',
+                                                        fontWeight: 700,
+                                                        cursor: 'pointer',
+                                                        textAlign: 'center',
+                                                    }}
+                                                >
+                                                    {type} - {isActive ? 'ON' : 'OFF'}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div style={{ color: '#475569', fontSize: '0.92rem' }}>
+                                        <strong>Active calculator type:</strong> {activeCalculatorType || 'None selected'}.
+                                        <br />
+                                        {calculatorEnabled
+                                            ? ' Students can use the selected calculator type.'
+                                            : ' Calculator access is off; the selected type will apply once enabled.'}
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: '1rem' }}>
+                                    <Calculator allowedTypes={calculatorSettings.allowedTypes} />
+                                </div>
+                            </section>
                         )}
 
                         {activeView === 'tenants' && (

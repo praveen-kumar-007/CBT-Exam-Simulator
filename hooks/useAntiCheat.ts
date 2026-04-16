@@ -17,6 +17,11 @@ interface UseAntiCheatOptions {
     violations: ViolationEntry[];
     trigger: ViolationEntry;
   }) => void;
+  onSecurityEvent?: (event: {
+    type: string;
+    message: string;
+    timestamp: string;
+  }) => void;
 }
 
 interface UseAntiCheatReturn {
@@ -28,6 +33,8 @@ interface UseAntiCheatReturn {
   exitFullScreen: () => Promise<void>;
   warningMessage: string | null;
   isAutoSubmitted: boolean;
+  isSecurityLock: boolean;
+  securityLockReason: string | null;
   dismissWarning: () => void;
   /** Call this to fully reset all anti-cheat state (on exam restart) */
   reset: () => void;
@@ -38,15 +45,19 @@ export const useAntiCheat = ({
   trackViolations,
   maxViolations,
   onAutoSubmit,
+  onSecurityEvent,
 }: UseAntiCheatOptions): UseAntiCheatReturn => {
   const [violations, setViolations] = useState<ViolationEntry[]>([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [isAutoSubmitted, setIsAutoSubmitted] = useState(false);
+  const [isSecurityLock, setIsSecurityLock] = useState(false);
+  const [securityLockReason, setSecurityLockReason] = useState<string | null>(null);
   const violationCountRef = useRef(0);
   const violationsRef = useRef<ViolationEntry[]>([]);
   const autoSubmittedRef = useRef(false);
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const securityLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFullScreenRef = useRef(false);
   const hasEnteredFullScreenRef = useRef(false);
   const trackViolationsRef = useRef(trackViolations);
@@ -61,6 +72,21 @@ export const useAntiCheat = ({
     violationsRef.current = violations;
   }, [violations]);
 
+  const triggerSecurityLock = useCallback(
+    (message: string) => {
+      if (securityLockTimeoutRef.current) {
+        clearTimeout(securityLockTimeoutRef.current);
+      }
+      setIsSecurityLock(true);
+      setSecurityLockReason(message);
+      securityLockTimeoutRef.current = setTimeout(() => {
+        setIsSecurityLock(false);
+        setSecurityLockReason(null);
+      }, 4000);
+    },
+    [],
+  );
+
   const addViolation = useCallback(
     (type: string, message: string) => {
       // Don't count new violations if tracking is off (disqualified state)
@@ -74,16 +100,32 @@ export const useAntiCheat = ({
       }
       lastViolationTimeRef.current = now;
 
-      const newCount = violationCountRef.current + 1;
-      violationCountRef.current = newCount;
-
       const entry: ViolationEntry = {
         type,
         timestamp: new Date(),
         message,
       };
 
+      if (
+        type === "screenshot_attempt" ||
+        type === "devtools_open" ||
+        type === "right_click" ||
+        type === "context_menu" ||
+        type === "blocked_keyboard"
+      ) {
+        triggerSecurityLock(message);
+      }
+
+      const newCount = violationCountRef.current + 1;
+      violationCountRef.current = newCount;
+
       setViolations((prev) => [...prev, entry]);
+
+      onSecurityEvent?.({
+        type,
+        message,
+        timestamp: entry.timestamp.toISOString(),
+      });
 
       if (newCount >= maxViolations) {
         autoSubmittedRef.current = true;
@@ -109,7 +151,7 @@ export const useAntiCheat = ({
         }, 5000);
       }
     },
-    [maxViolations, onAutoSubmit],
+    [maxViolations, onAutoSubmit, onSecurityEvent, triggerSecurityLock],
   );
 
   const dismissWarning = useCallback(() => {
@@ -212,24 +254,27 @@ export const useAntiCheat = ({
     // --- Keyboard shortcut blocking (ALWAYS active while enabled, even after disqualification) ---
     const handleKeyDown = (e: KeyboardEvent) => {
       const blockedCombinations = [
-        { key: "Tab", alt: true },
-        { key: "Tab", ctrl: true },
-        { key: "F4", alt: true },
-        { key: "w", ctrl: true },
-        { key: "n", ctrl: true },
-        { key: "t", ctrl: true },
-        { key: "I", ctrl: true, shift: true },
-        { key: "i", ctrl: true, shift: true },
-        { key: "J", ctrl: true, shift: true },
-        { key: "j", ctrl: true, shift: true },
-        { key: "C", ctrl: true, shift: true },
-        { key: "c", ctrl: true, shift: true },
-        { key: "F12" },
-        { key: "u", ctrl: true },
-        { key: "s", ctrl: true },
-        { key: "p", ctrl: true },
-        { key: "a", ctrl: true },
-        { key: "PrintScreen" },
+        { key: "Tab", alt: true, message: "Tab switch blocked" },
+        { key: "Tab", ctrl: true, message: "Tab switch blocked" },
+        { key: "F4", alt: true, message: "Window close blocked" },
+        { key: "w", ctrl: true, message: "Window close blocked" },
+        { key: "n", ctrl: true, message: "New window blocked" },
+        { key: "t", ctrl: true, message: "New tab blocked" },
+        { key: "I", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
+        { key: "i", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
+        { key: "J", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
+        { key: "j", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
+        { key: "C", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
+        { key: "c", ctrl: true, shift: true, type: "devtools_open", message: "DevTools blocked" },
+        { key: "F12", type: "devtools_open", message: "DevTools blocked" },
+        { key: "u", ctrl: true, message: "Source view blocked" },
+        { key: "s", ctrl: true, message: "Save blocked" },
+        { key: "s", ctrl: true, shift: true, type: "screenshot_attempt", message: "Screenshot blocked" },
+        { key: "p", ctrl: true, message: "Print preview blocked" },
+        { key: "a", ctrl: true, message: "Select all blocked" },
+        { key: "PrintScreen", type: "screenshot_attempt", message: "Screenshot key blocked" },
+        { key: "3", meta: true, shift: true, type: "screenshot_attempt", message: "Screenshot blocked" },
+        { key: "4", meta: true, shift: true, type: "screenshot_attempt", message: "Screenshot blocked" },
         { key: "Escape" },
       ];
 
@@ -240,8 +285,9 @@ export const useAntiCheat = ({
         const ctrlMatch = combo.ctrl ? e.ctrlKey || e.metaKey : true;
         const altMatch = combo.alt ? e.altKey : true;
         const shiftMatch = combo.shift ? e.shiftKey : true;
+        const metaMatch = combo.meta ? e.metaKey : true;
 
-        if (keyMatch && ctrlMatch && altMatch && shiftMatch) {
+        if (keyMatch && ctrlMatch && altMatch && shiftMatch && metaMatch) {
           e.preventDefault();
           e.stopPropagation();
 
@@ -251,10 +297,10 @@ export const useAntiCheat = ({
             trackViolationsRef.current &&
             !autoSubmittedRef.current
           ) {
-            addViolation(
-              "blocked_keyboard",
-              `Blocked keyboard shortcut: ${e.ctrlKey ? "Ctrl+" : ""}${e.shiftKey ? "Shift+" : ""}${e.altKey ? "Alt+" : ""}${e.key}`,
-            );
+            const violationType = combo.type || "blocked_keyboard";
+            const message = combo.message ||
+              `Blocked keyboard shortcut: ${e.ctrlKey ? "Ctrl+" : ""}${e.shiftKey ? "Shift+" : ""}${e.altKey ? "Alt+" : ""}${e.metaKey ? "Meta+" : ""}${e.key}`;
+            addViolation(violationType, message);
           }
           return;
         }
@@ -365,6 +411,8 @@ export const useAntiCheat = ({
     exitFullScreen,
     warningMessage,
     isAutoSubmitted,
+    isSecurityLock,
+    securityLockReason,
     dismissWarning,
     reset,
   };

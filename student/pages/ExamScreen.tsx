@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckCircleIcon, ClockIcon, EyeIcon, UserCircleIcon } from '../../components/icons';
 import { Answers, ExamData, GameState, QuestionStatus } from '../../types';
 import SecurityBadge from '../components/SecurityBadge';
+import Calculator, { CalculatorMode } from '../../src/components/Calculator';
 import { formatTime } from '../lib/examHelpers';
 
 type ExamScreenProps = {
@@ -25,6 +26,8 @@ type ExamScreenProps = {
     onSaveProgress: (updatedAnswers: Answers) => void;
     violationCount: number;
     maxViolations: number;
+    calculatorEnabled: boolean;
+    activeCalculatorType: CalculatorMode | null;
 };
 
 const ExamScreen: React.FC<ExamScreenProps> = (props) => {
@@ -49,10 +52,14 @@ const ExamScreen: React.FC<ExamScreenProps> = (props) => {
         onSaveProgress,
         violationCount,
         maxViolations,
+        calculatorEnabled,
+        activeCalculatorType,
     } = props;
 
     const currentSection = examData.sections[currentSectionIndex];
     const currentQuestion = currentSection.questions[currentQuestionIndex];
+    const [calculatorOpen, setCalculatorOpen] = React.useState(false);
+    const isAnyCalculatorEnabled = calculatorEnabled && activeCalculatorType !== null;
 
     const handleOptionChange = (optionIndex: number) => {
         onAnswerInteraction(currentQuestion.id, optionIndex);
@@ -173,7 +180,7 @@ const isAnswered =
                         </div>
                     </div>
 
-                    <div className="mt-2.5 grid grid-cols-1 gap-2 border-t border-slate-200 pt-2.5 text-xs sm:grid-cols-3 sm:text-sm lg:grid-cols-4">
+                    <div className="mt-2.5 grid grid-cols-1 gap-2 border-t border-slate-200 pt-2.5 text-xs sm:grid-cols-3 sm:text-sm lg:grid-cols-5">
                         <div className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700">
                             <EyeIcon className="h-4 w-4 text-slate-600" />
                             <span className="truncate">{currentSection.name}</span>
@@ -192,6 +199,24 @@ const isAnswered =
                         <div className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700">
                             <span className="text-[10px] uppercase tracking-wide text-slate-500">Examiner</span>
                             <span className="truncate">{examinerName}</span>
+                        </div>
+
+                        <div className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 font-semibold text-slate-700 bg-white border-slate-300">
+                            <button
+                                type="button"
+                                title={isAnyCalculatorEnabled ? `Open the ${activeCalculatorType} calculator` : 'Calculator access is disabled'}
+                                onClick={() => {
+                                    if (isAnyCalculatorEnabled) setCalculatorOpen(true);
+                                }}
+                                className={`inline-flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-semibold transition ${isAnyCalculatorEnabled ? 'bg-sky-50 text-sky-800 hover:bg-sky-100' : 'bg-slate-100 text-slate-500 cursor-not-allowed'}`}
+                                disabled={!isAnyCalculatorEnabled}
+                            >
+                                <span className="inline-flex items-center gap-1">
+                                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white">∑</span>
+                                    <span>{activeCalculatorType || 'Calculator'}</span>
+                                </span>
+                                <span className="text-[10px] uppercase tracking-wide text-slate-500">{isAnyCalculatorEnabled ? 'Open' : 'Disabled'}</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -335,6 +360,26 @@ const isAnswered =
                     </section>
 
                     <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-md">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Exam Calculator</p>
+                        {calculatorEnabled ? (
+                            <>
+                                {activeCalculatorType ? (
+                                    <>
+                                        <p className="mt-3 text-sm font-semibold text-slate-900">Active calculator: {activeCalculatorType}</p>
+                                        <p className="mt-2 text-sm text-slate-600">Your administrator has enabled this calculator type for the exam.</p>
+                                        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                                            <p className="font-semibold text-slate-900">Open the calculator using the floating button.</p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <p className="mt-3 text-sm text-slate-600">Calculator access is enabled, but no calculator type has been selected for this exam. Please contact your administrator.</p>
+                                )}
+                            </>
+                        ) : (
+                            <p className="mt-2 text-sm text-slate-600">No calculator access is enabled for this exam. Contact your administrator if you need calculator support.</p>
+                        )}
+                    </section>
+                    <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-md">
                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Final Submission</p>
                         <p className="mt-2 text-sm text-slate-600">Check your responses before submitting the exam.</p>
                         <button
@@ -346,6 +391,16 @@ const isAnswered =
                     </section>
                 </aside>
             </main>
+
+            {calculatorOpen && activeCalculatorType && (
+                <Calculator
+                    popup
+                    initialMode={activeCalculatorType}
+                    allowedTypes={[activeCalculatorType]}
+                    onClose={() => setCalculatorOpen(false)}
+                    showModeSwitcher={false}
+                />
+            )}
         </div>
     );
 };

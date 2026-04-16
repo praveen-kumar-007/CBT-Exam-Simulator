@@ -13,6 +13,8 @@ type StudentExamConfigResponse = {
     startAt?: string | null;
     forceEndedAt?: string | null;
     autoSubmitAfterTime?: boolean;
+    calculatorEnabled?: boolean;
+    activeCalculatorType?: string | null;
   };
 };
 
@@ -69,6 +71,14 @@ export const getStudentExamConfig = async (token: string) => {
         typeof config?.data?.autoSubmitAfterTime === "boolean"
           ? config.data.autoSubmitAfterTime
           : true,
+      calculatorEnabled:
+        typeof config?.data?.calculatorEnabled === "boolean"
+          ? config.data.calculatorEnabled
+          : false,
+      activeCalculatorType:
+        typeof config?.data?.activeCalculatorType === "string" && config.data.activeCalculatorType
+          ? config.data.activeCalculatorType
+          : null,
     };
   } catch (error) {
     console.warn(
@@ -83,6 +93,8 @@ export const getStudentExamConfig = async (token: string) => {
     startAt: null,
     forceEndedAt: null,
     autoSubmitAfterTime: true,
+    calculatorEnabled: false,
+    activeCalculatorType: null,
   };
 };
 

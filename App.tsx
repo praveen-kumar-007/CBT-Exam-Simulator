@@ -3,6 +3,7 @@ import AdminApp from './admin/AdminApp';
 import { examData as defaultExamData } from './data/questions';
 import { useAntiCheat } from './hooks/useAntiCheat';
 import { Answers, ExamData, GameState, Question, QuestionInteraction, Section, SubmissionMeta } from './types';
+import type { CalculatorMode } from './src/components/Calculator';
 import BrandSignature from './student/components/BrandSignature';
 import ViolationWarningOverlay from './student/components/ViolationWarningOverlay';
 import DisqualifiedScreen from './student/pages/DisqualifiedScreen';
@@ -40,6 +41,8 @@ const StudentApp: React.FC = () => {
   const [examStartAt, setExamStartAt] = useState<string | null>(null);
   const [examForceEndedAt, setExamForceEndedAt] = useState<string | null>(null);
   const [autoSubmitAfterTime, setAutoSubmitAfterTime] = useState(true);
+  const [calculatorEnabled, setCalculatorEnabled] = useState(false);
+  const [activeCalculatorType, setActiveCalculatorType] = useState<CalculatorMode | null>(null);
   const [questionInteractions, setQuestionInteractions] = useState<Record<string, QuestionInteraction>>({});
   const [totalOptionChanges, setTotalOptionChanges] = useState(0);
   const [submissionMeta, setSubmissionMeta] = useState<SubmissionMeta>(makeDefaultSubmissionMeta());
@@ -210,11 +213,40 @@ const StudentApp: React.FC = () => {
     [handleSubmitExam],
   );
 
+  const sendSecurityEvent = useCallback(
+    async (event: { type: string; message: string; timestamp: string }) => {
+      const currentSessionId = sectionSessionIds[currentSectionIndex];
+      if (!studentToken || !currentSessionId) return;
+
+      try {
+        await apiRequest<{ success: boolean }>(
+          `/api/student/sessions/${currentSessionId}/progress`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${studentToken}`,
+            },
+            body: JSON.stringify({
+              answers: [],
+              examMeta: {
+                securityEvents: [event],
+              },
+            }),
+          },
+        );
+      } catch (error) {
+        console.warn('Failed to report security event:', error);
+      }
+    },
+    [currentSectionIndex, sectionSessionIds, studentToken],
+  );
+
   const antiCheat = useAntiCheat({
     enabled: isProtectionActive,
     trackViolations: isExamActive,
     maxViolations: 1,
     onAutoSubmit: handleAutoSubmit,
+    onSecurityEvent: sendSecurityEvent,
   });
 
   useEffect(() => {
@@ -247,6 +279,14 @@ const StudentApp: React.FC = () => {
             terminationRemark: 'The exam was forcibly ended by the administrator.',
             cheatingAttempts: antiCheat.violationCount,
           });
+          return;
+        }
+
+        if (isSubscribed) {
+          setCalculatorEnabled(examConfig.calculatorEnabled ?? false);
+          setActiveCalculatorType(
+            (examConfig.activeCalculatorType as CalculatorMode) || null,
+          );
         }
       } catch {
         // Silence transient poll errors.
@@ -298,6 +338,7 @@ const StudentApp: React.FC = () => {
     setQuestionInteractions({});
     setTotalOptionChanges(0);
     setSubmissionMeta(makeDefaultSubmissionMeta());
+    setActiveCalculatorType(null);
     submitLockRef.current = false;
   };
 
@@ -320,6 +361,10 @@ const StudentApp: React.FC = () => {
     setExamStartAt(examConfig.startAt || null);
     setExamForceEndedAt(examConfig.forceEndedAt || null);
     setAutoSubmitAfterTime(examConfig.autoSubmitAfterTime ?? true);
+    setCalculatorEnabled(examConfig.calculatorEnabled ?? false);
+    setActiveCalculatorType(
+      (examConfig.activeCalculatorType as CalculatorMode) || null,
+    );
 
     const sectionsResponse = await apiRequest<{ data: Array<{ _id: string; name: string }> }>('/api/student/sections', {
       headers: {
@@ -492,6 +537,8 @@ const StudentApp: React.FC = () => {
             onSaveProgress={saveCurrentSectionProgress}
             violationCount={antiCheat.violationCount}
             maxViolations={antiCheat.maxViolations}
+            calculatorEnabled={calculatorEnabled}
+            activeCalculatorType={activeCalculatorType}
           />
         );
       case GameState.Review:
@@ -540,6 +587,9 @@ const StudentApp: React.FC = () => {
         >
           {apiError}
         </div>
+      )}
+      {antiCheat.isSecurityLock && (
+        <div className="fixed inset-0 z-50 bg-slate-950" />
       )}
       {renderContent()}
 
