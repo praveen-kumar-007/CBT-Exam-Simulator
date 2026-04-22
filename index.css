@@ -55,6 +55,15 @@ select {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .responsive-stack {
   display: flex;
   flex-direction: column;

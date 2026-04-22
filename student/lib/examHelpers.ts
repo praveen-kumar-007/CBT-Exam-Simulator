@@ -9,6 +9,8 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(
 type StudentExamConfigResponse = {
   data: {
     durationInMinutes: number;
+    officialEntryWindowInMinutes?: number;
+    sectionReentryWindowInMinutes?: number;
     examinerName?: string;
     startAt?: string | null;
     forceEndedAt?: string | null;
@@ -76,7 +78,8 @@ export const getStudentExamConfig = async (token: string) => {
           ? config.data.calculatorEnabled
           : false,
       activeCalculatorType:
-        typeof config?.data?.activeCalculatorType === "string" && config.data.activeCalculatorType
+        typeof config?.data?.activeCalculatorType === "string" &&
+        config.data.activeCalculatorType
           ? config.data.activeCalculatorType
           : null,
     };

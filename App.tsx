@@ -368,9 +368,18 @@ const StudentApp: React.FC = () => {
     const now = new Date();
     const examStart = examConfig.startAt ? new Date(examConfig.startAt) : null;
     const examEnded = examConfig.forceEndedAt ? new Date(examConfig.forceEndedAt) : null;
+    const examEntryEnds = examStart
+      ? new Date(examStart.getTime() + 30 * 60 * 1000)
+      : null;
 
     if (examStart && now < examStart) {
       throw new Error(`Exam access opens at ${examStart.toLocaleString()}. Please log in at the scheduled start time.`);
+    }
+
+    if (examEntryEnds && now > examEntryEnds) {
+      throw new Error(
+        'Exam entry has closed. Students may only start within 30 minutes after the scheduled exam start time.',
+      );
     }
 
     if (examEnded && now >= examEnded) {

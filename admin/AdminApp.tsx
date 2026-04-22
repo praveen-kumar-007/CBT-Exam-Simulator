@@ -3,7 +3,7 @@ import NotificationBanner from '../src/components/NotificationBanner';
 import Calculator, { CalculatorMode, loadCalculatorSettings, saveCalculatorSettings } from '../src/components/Calculator';
 
 type Mode = 'admin-login' | 'super-admin-login' | 'dashboard';
-type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help' | 'profile' | 'demo-exam' | 'calculator';
+type DashboardView = 'overview' | 'sections' | 'questions' | 'add-question' | 'students' | 'student-access' | 'responses' | 'config' | 'activity' | 'insights' | 'reports' | 'users' | 'settings' | 'tenants' | 'help' | 'profile' | 'demo-exam' | 'calculator';
 
 type AdminIdentity = {
     id?: string;
@@ -15,6 +15,7 @@ type AdminIdentity = {
     plan?: string;
     imageUrl?: string;
     studentLimit?: number;
+    existingStudentOnlyAccess?: boolean;
 };
 
 type ManagedAdminItem = {
@@ -23,6 +24,7 @@ type ManagedAdminItem = {
     email: string;
     phone?: string;
     studentLimit: number;
+    existingStudentOnlyAccess: boolean;
     studentCount: number;
     tenantKey: string;
     createdAt: string;
@@ -156,6 +158,8 @@ type RecentSubmission = {
 
 type ExamConfig = {
     durationInMinutes: number;
+    officialEntryWindowInMinutes?: number;
+    sectionReentryWindowInMinutes?: number;
     examinerName?: string;
     startAt?: string | null;
     forceEndedAt?: string | null;
@@ -198,7 +202,7 @@ type InsightsPayload = {
     timeline: InsightsTimelineItem[];
 };
 
-const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'add-question', 'students', 'responses', 'config', 'calculator', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help', 'demo-exam'];
+const DASHBOARD_VIEWS: DashboardView[] = ['overview', 'sections', 'questions', 'add-question', 'students', 'student-access', 'responses', 'config', 'calculator', 'activity', 'insights', 'reports', 'users', 'settings', 'tenants', 'help', 'demo-exam'];
 const DEFAULT_DASHBOARD_VIEW: DashboardView = 'overview';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -321,16 +325,19 @@ const BrandSignature: React.FC<BrandSignatureProps> = ({ showMenuButton = false,
                         backdropFilter: 'blur(12px)',
                         borderRadius: '12px',
                         width: '44px',
+                        minWidth: '44px',
                         height: '40px',
+                        padding: 0,
                         position: 'absolute',
-                        top: 0,
-                        left: 0,
+                        top: '10px',
+                        left: '10px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
                         boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        zIndex: 1010
                     }}
                 >
                     <Icon name={isMenuOpen ? 'close' : 'menu'} color="#ffffff" size={22} />
@@ -415,6 +422,17 @@ export const AdminApp: React.FC = () => {
     const [students, setStudents] = useState<StudentItem[]>([]);
     const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
     const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
+    const uniqueSectionSubmissions = useMemo(() => {
+        const seenSections = new Set<string>();
+        return submissions.filter((submission) => {
+            const sectionKey = submission.section?.name || submission._id;
+            if (seenSections.has(sectionKey)) {
+                return false;
+            }
+            seenSections.add(sectionKey);
+            return true;
+        });
+    }, [submissions]);
     const [analytics, setAnalytics] = useState<Analytics | null>(null);
     const [recentSubmissions, setRecentSubmissions] = useState<RecentSubmission[]>([]);
     const [examDuration, setExamDuration] = useState(60);
@@ -424,6 +442,8 @@ export const AdminApp: React.FC = () => {
     const [examStartDate, setExamStartDate] = useState('');
     const [examStartTime, setExamStartTime] = useState('');
     const [examAutoSubmitAfterTime, setExamAutoSubmitAfterTime] = useState(true);
+    const [examOfficialEntryWindow, setExamOfficialEntryWindow] = useState(30);
+    const [examSectionReentryWindow, setExamSectionReentryWindow] = useState(15);
     const [examForceEndedAt, setExamForceEndedAt] = useState<string | null>(null);
     const [examConfigUpdatedAt, setExamConfigUpdatedAt] = useState('');
     const [calculatorEnabled, setCalculatorEnabled] = useState(false);
@@ -431,6 +451,17 @@ export const AdminApp: React.FC = () => {
     const [calculatorSettings, setCalculatorSettings] = useState(() => loadCalculatorSettings());
     const [questionSearch, setQuestionSearch] = useState('');
     const [studentSearch, setStudentSearch] = useState('');
+    const [newStudentName, setNewStudentName] = useState('');
+    const [newStudentEmail, setNewStudentEmail] = useState('');
+    const [newStudentCredential, setNewStudentCredential] = useState('');
+    const [studentImportFile, setStudentImportFile] = useState<File | null>(null);
+    const [isImportingStudents, setIsImportingStudents] = useState(false);
+    const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+    const [editStudentName, setEditStudentName] = useState('');
+    const [editStudentEmail, setEditStudentEmail] = useState('');
+    const [editStudentCredential, setEditStudentCredential] = useState('');
+    const [editStudentPassword, setEditStudentPassword] = useState('');
+    const [isUpdatingStudentRecord, setIsUpdatingStudentRecord] = useState(false);
     const [insights, setInsights] = useState<InsightsPayload | null>(null);
     const [menuSearch, setMenuSearch] = useState('');
     const [managedAdmins, setManagedAdmins] = useState<ManagedAdminItem[]>([]);
@@ -438,6 +469,7 @@ export const AdminApp: React.FC = () => {
         if (typeof window === 'undefined') return '';
         return localStorage.getItem('selectedTenantAdminId') || '';
     });
+    const [isUpdatingStudentRestriction, setIsUpdatingStudentRestriction] = useState(false);
     const [newTenantAdminName, setNewTenantAdminName] = useState('');
     const [newTenantAdminEmail, setNewTenantAdminEmail] = useState('');
     const [newTenantAdminPassword, setNewTenantAdminPassword] = useState('');
@@ -448,6 +480,10 @@ export const AdminApp: React.FC = () => {
     const [newSuperAdminEmail, setNewSuperAdminEmail] = useState('');
     const [newSuperAdminPassword, setNewSuperAdminPassword] = useState('');
     const [newSuperAdminPhone, setNewSuperAdminPhone] = useState('');
+    const selectedTenantAdmin = useMemo(
+        () => managedAdmins.find((item) => item._id === selectedTenantAdminId) || null,
+        [managedAdmins, selectedTenantAdminId],
+    );
 
     const updateCalculatorSettings = (settings: Partial<{ enabled: boolean; allowedTypes: CalculatorMode[] }>) => {
         const next = saveCalculatorSettings({ ...calculatorSettings, ...settings });
@@ -475,6 +511,9 @@ export const AdminApp: React.FC = () => {
         | 'deleteManagedAdmin'
         | 'deleteQuestion'
         | 'deleteStudent'
+        | 'deleteSubmission'
+        | 'deleteStudentResponses'
+        | 'deleteAllResponses'
         | 'resetAllStudents'
         | 'deleteSection'
         | 'editSection';
@@ -487,7 +526,7 @@ export const AdminApp: React.FC = () => {
         inputValue?: string;
         inputPlaceholder?: string;
         targetId?: string;
-        targetItem?: SectionItem | QuestionItem | StudentItem;
+        targetItem?: SectionItem | QuestionItem | StudentItem | SubmissionItem;
     };
 
     const [modalState, setModalState] = useState<ModalState | null>(null);
@@ -515,6 +554,21 @@ export const AdminApp: React.FC = () => {
             String(s.studentCredential || '').toLowerCase().includes(key)
         );
     }, [students, studentSearch]);
+
+    const effectiveStudentLimit = useMemo(() => {
+        if (adminIdentity?.role === 'super_admin') {
+            return selectedTenantAdmin?.studentLimit && selectedTenantAdmin.studentLimit > 0
+                ? selectedTenantAdmin.studentLimit
+                : 100;
+        }
+
+        return adminIdentity?.studentLimit && adminIdentity.studentLimit > 0
+            ? adminIdentity.studentLimit
+            : 100;
+    }, [adminIdentity, selectedTenantAdmin]);
+
+    const seatsUsed = students.length;
+    const seatsRemaining = Math.max(0, effectiveStudentLimit - seatsUsed);
 
     const navigate = (path: string) => {
         window.history.pushState({}, '', path);
@@ -778,6 +832,8 @@ export const AdminApp: React.FC = () => {
         try {
             const result = await api<{ data: ExamConfig }>('/api/admin/exam-config');
             setExamDuration(result.data?.durationInMinutes || 60);
+            setExamOfficialEntryWindow(result.data?.officialEntryWindowInMinutes ?? 30);
+            setExamSectionReentryWindow(result.data?.sectionReentryWindowInMinutes ?? 15);
             setExaminerName(result.data?.examinerName || 'CBT Examination Cell');
             setCalculatorEnabled(result.data?.calculatorEnabled ?? false);
             setActiveCalculatorType(result.data?.activeCalculatorType || null);
@@ -796,6 +852,8 @@ export const AdminApp: React.FC = () => {
             const message = e instanceof Error ? e.message : 'Failed to load exam configuration';
             if (isMissingExamConfigRoute(message)) {
                 setExamDuration(60);
+                setExamOfficialEntryWindow(30);
+                setExamSectionReentryWindow(15);
                 setExaminerName('CBT Examination Cell');
                 setExamStartAt('');
                 setExamAutoSubmitAfterTime(true);
@@ -1159,6 +1217,32 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         });
     };
 
+    const promptDeleteSubmission = (submission: SubmissionItem) => {
+        openModal({
+            type: 'deleteSubmission',
+            title: 'Delete Student Response',
+            message: `Delete this submission for ${selectedStudent?.name || 'the student'}? This will allow the student to retake the exam section.`,
+            targetItem: submission
+        });
+    };
+
+    const promptDeleteStudentResponses = (student: StudentItem) => {
+        openModal({
+            type: 'deleteStudentResponses',
+            title: 'Delete Full Exam Response',
+            message: `Delete all submitted responses for ${student.name}? This will clear the student's entire exam result and allow an immediate fresh start.`,
+            targetItem: student,
+        });
+    };
+
+    const promptDeleteAllResponses = () => {
+        openModal({
+            type: 'deleteAllResponses',
+            title: 'Delete All Responses',
+            message: 'Delete all student responses and active exam sessions for this organization? This will allow a clean exam restart for everyone.',
+        });
+    };
+
     const promptDeleteSection = (section: SectionItem) => {
         openModal({
             type: 'deleteSection',
@@ -1246,6 +1330,29 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                         return;
                     }
                     await deleteStudent(modalState.targetItem as StudentItem);
+                    closeModal();
+                    return;
+                }
+                case 'deleteSubmission': {
+                    if (!modalState.targetItem) {
+                        setError('No submission selected.');
+                        return;
+                    }
+                    await deleteSubmission(modalState.targetItem as SubmissionItem);
+                    closeModal();
+                    return;
+                }
+                case 'deleteStudentResponses': {
+                    if (!modalState.targetItem) {
+                        setError('No student selected.');
+                        return;
+                    }
+                    await deleteStudentResponses(modalState.targetItem as StudentItem);
+                    closeModal();
+                    return;
+                }
+                case 'deleteAllResponses': {
+                    await deleteAllResponses();
                     closeModal();
                     return;
                 }
@@ -1392,6 +1499,16 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
             return;
         }
 
+        if (!Number.isInteger(examOfficialEntryWindow) || examOfficialEntryWindow < 1 || examOfficialEntryWindow > 1440) {
+            setError('Official exam entry window must be an integer between 1 and 1440 minutes.');
+            return;
+        }
+
+        if (!Number.isInteger(examSectionReentryWindow) || examSectionReentryWindow < 1 || examSectionReentryWindow > 1440) {
+            setError('Section reentry window must be an integer between 1 and 1440 minutes.');
+            return;
+        }
+
         if (!examinerName.trim() || examinerName.trim().length < 2) {
             setError('Examiner name must be at least 2 characters.');
             return;
@@ -1406,6 +1523,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         durationInMinutes: examDuration,
+                        officialEntryWindowInMinutes: examOfficialEntryWindow,
+                        sectionReentryWindowInMinutes: examSectionReentryWindow,
                         examinerName: examinerName.trim(),
                         startAt: formattedStartAt,
                         autoSubmitAfterTime: examAutoSubmitAfterTime,
@@ -1417,6 +1536,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
 
             const localStart = formatLocalDateTime(result.data?.startAt || null);
             setExamDuration(result.data?.durationInMinutes || examDuration);
+            setExamOfficialEntryWindow(result.data?.officialEntryWindowInMinutes ?? examOfficialEntryWindow);
+            setExamSectionReentryWindow(result.data?.sectionReentryWindowInMinutes ?? examSectionReentryWindow);
             setExaminerName(result.data?.examinerName || examinerName.trim());
             setExamStartAt(localStart);
             setExamStartDate(localStart ? localStart.slice(0, 10) : '');
@@ -1449,6 +1570,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     durationInMinutes: examDuration,
+                    officialEntryWindowInMinutes: examOfficialEntryWindow,
+                    sectionReentryWindowInMinutes: examSectionReentryWindow,
                     examinerName: examinerName.trim(),
                     startAt: startAtValue ? new Date(startAtValue).toISOString() : null,
                     autoSubmitAfterTime: examAutoSubmitAfterTime,
@@ -1460,6 +1583,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
 
         const localStart = formatLocalDateTime(result.data?.startAt || null);
         setExamDuration(result.data?.durationInMinutes || examDuration);
+        setExamOfficialEntryWindow(result.data?.officialEntryWindowInMinutes ?? examOfficialEntryWindow);
+        setExamSectionReentryWindow(result.data?.sectionReentryWindowInMinutes ?? examSectionReentryWindow);
         setExaminerName(result.data?.examinerName || examinerName.trim());
         setCalculatorEnabled(result.data?.calculatorEnabled ?? enabled);
         setActiveCalculatorType(result.data?.activeCalculatorType || null);
@@ -1792,6 +1917,44 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         }
     };
 
+    const deleteSubmission = async (submission: SubmissionItem) => {
+        try {
+            await api(`/api/admin/submissions/${submission._id}`, { method: 'DELETE' });
+            setStatus('Submission deleted. Student can retake this section.');
+            if (selectedStudent) {
+                await loadSubmissions(selectedStudent);
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to delete submission');
+        }
+    };
+
+    const deleteStudentResponses = async (student: StudentItem) => {
+        try {
+            await api(`/api/admin/students/${student._id}/submissions`, { method: 'DELETE' });
+            setStatus('All student responses were deleted. The student may restart the exam immediately.');
+            if (selectedStudent) {
+                await loadSubmissions(selectedStudent);
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to delete student responses');
+        }
+    };
+
+    const deleteAllResponses = async () => {
+        try {
+            const result = await api<{ data: { deletedSubmissions: number; deletedSessions: number } }>('/api/admin/submissions/reset-all', {
+                method: 'DELETE',
+            });
+            setStatus(`All responses deleted successfully. Removed ${result.data?.deletedSubmissions ?? 0} submissions and ${result.data?.deletedSessions ?? 0} session records.`);
+            if (selectedStudent) {
+                await loadSubmissions(selectedStudent);
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to delete all responses');
+        }
+    };
+
     const loadStudents = async () => {
         try {
             const result = await api<{ data: StudentItem[] }>('/api/admin/students');
@@ -1800,6 +1963,186 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
             setSelectedStudent(null);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load students');
+        }
+    };
+
+    const createStudent = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError('');
+        setStatus('');
+
+        if (!newStudentName.trim()) {
+            setError('Student name is required.');
+            return;
+        }
+
+        if (!newStudentEmail.trim()) {
+            setError('Student email is required.');
+            return;
+        }
+
+        if (!newStudentCredential.trim()) {
+            setError('Student credential is required.');
+            return;
+        }
+
+        try {
+            await api('/api/admin/students', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newStudentName.trim(),
+                    email: newStudentEmail.trim(),
+                    studentCredential: newStudentCredential.trim()
+                })
+            });
+
+            setNewStudentName('');
+            setNewStudentEmail('');
+            setNewStudentCredential('');
+            setStatus('Student added successfully.');
+            await loadStudents();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to create student');
+        }
+    };
+
+    const startEditStudent = (student: StudentItem) => {
+        setEditingStudentId(student._id);
+        setEditStudentName(student.name);
+        setEditStudentEmail(student.email);
+        setEditStudentCredential(student.studentCredential || '');
+        setEditStudentPassword('');
+    };
+
+    const cancelEditStudent = () => {
+        setEditingStudentId(null);
+        setEditStudentName('');
+        setEditStudentEmail('');
+        setEditStudentCredential('');
+        setEditStudentPassword('');
+    };
+
+    const saveStudentEdit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError('');
+        setStatus('');
+
+        if (!editingStudentId) {
+            setError('No student selected for editing.');
+            return;
+        }
+
+        if (!editStudentName.trim()) {
+            setError('Student name is required.');
+            return;
+        }
+
+        if (!editStudentEmail.trim()) {
+            setError('Student email is required.');
+            return;
+        }
+
+        if (!editStudentCredential.trim()) {
+            setError('Student credential is required.');
+            return;
+        }
+
+        setIsUpdatingStudentRecord(true);
+        try {
+            await api(`/api/admin/students/${editingStudentId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: editStudentName.trim(),
+                    email: editStudentEmail.trim(),
+                    studentCredential: editStudentCredential.trim(),
+                    password: editStudentPassword.trim() || undefined,
+                }),
+            });
+            setStatus('Student updated successfully.');
+            cancelEditStudent();
+            await loadStudents();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to update student');
+        } finally {
+            setIsUpdatingStudentRecord(false);
+        }
+    };
+
+    const importStudentsFromExcel = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError('');
+        setStatus('');
+
+        if (!studentImportFile) {
+            setError('Choose an Excel file to import.');
+            return;
+        }
+
+        setIsImportingStudents(true);
+        const formData = new FormData();
+        formData.append('studentFile', studentImportFile);
+
+        try {
+            const result = await api<{
+                message: string;
+                data: { importedCount: number; totalRows: number; availableSeats: number };
+            }>('/api/admin/students/import', {
+                method: 'POST',
+                body: formData,
+            });
+
+            setStatus(result.message || `${result.data?.importedCount || 0} student(s) imported successfully.`);
+            setStudentImportFile(null);
+            await loadStudents();
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to import students');
+        } finally {
+            setIsImportingStudents(false);
+        }
+    };
+
+    const updateOrganizationStudentAccess = async (enabled: boolean) => {
+        setError('');
+        setStatus('');
+        setIsUpdatingStudentRestriction(true);
+
+        const targetAdminId = adminIdentity?.role === 'super_admin'
+            ? selectedTenantAdminId
+            : adminIdentity?.id || '';
+
+        if (!targetAdminId) {
+            setError('Select an organization context before updating this setting.');
+            setIsUpdatingStudentRestriction(false);
+            return;
+        }
+
+        try {
+            await api(`/api/admin/managed-admins/${targetAdminId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ existingStudentOnlyAccess: enabled }),
+            });
+
+            setStatus(enabled
+                ? 'Organization now restricts exam access to existing students only.'
+                : 'Organization now allows guest exam sessions for any student code.');
+
+            if (adminIdentity?.role === 'super_admin') {
+                await loadManagedAdmins();
+            } else {
+                const nextIdentity = {
+                    ...adminIdentity,
+                    existingStudentOnlyAccess: enabled,
+                };
+                setAdminIdentity(nextIdentity);
+                localStorage.setItem('adminUser', JSON.stringify(nextIdentity));
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to update access policy');
+        } finally {
+            setIsUpdatingStudentRestriction(false);
         }
     };
 
@@ -1995,6 +2338,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         { key: 'questions', label: 'Question Bank', hint: 'View and edit existing questions', icon: 'questions' },
         { key: 'add-question', label: 'Add Question', hint: 'Create new questions for the exam', icon: 'add' },
         { key: 'students', label: 'Students', hint: 'Account management and resets', icon: 'students' },
+        { key: 'student-access', label: 'Student Access', hint: 'Control exam access policy by organization', icon: 'security' },
         { key: 'responses', label: 'Responses', hint: 'View student submissions and answers', icon: 'responses' },
         { key: 'config', label: 'Exam Config', hint: 'Duration and examiner setup', icon: 'settings' },
         { key: 'calculator', label: 'Calculator', hint: 'Open the admin calculator utility', icon: 'calculator' },
@@ -2014,7 +2358,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
     const menuSearchKey = menuSearch.trim().toLowerCase();
     const sidebarSections: Array<{ title: string; views: DashboardView[] }> = [
         { title: 'Overview', views: ['profile', 'overview', 'activity', 'insights'] },
-        { title: 'Exam Workspace', views: ['sections', 'add-question', 'questions', 'students', 'config'] },
+        { title: 'Exam Workspace', views: ['sections', 'add-question', 'questions', 'students', 'responses', 'student-access', 'config'] },
         { title: 'Operations', views: ['reports'] },
         { title: 'Administration', views: adminIdentity?.role === 'super_admin' ? ['demo-exam', 'users', 'settings', 'tenants', 'calculator'] : ['settings', 'calculator'] },
         { title: 'Support', views: ['help'] }
@@ -2048,6 +2392,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         questions: 'Question Bank',
         'add-question': 'Create New Question',
         students: 'Student Management',
+        'student-access': 'Student Access Policy',
         responses: 'Student Responses',
         config: 'Exam Configuration',
         calculator: 'Calculator Utility',
@@ -2068,6 +2413,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         questions: 'Search, review, and modify existing exam questions.',
         'add-question': 'Design and securely upload a new exam question.',
         students: 'Manage student accounts, records, and system resets.',
+        'student-access': 'Control whether this organization only allows existing students to start exams.',
         responses: 'Review individual student submissions, answers, and performance.',
         config: 'Keep timing and examiner identity consistent across all exams.',
         activity: 'Track latest attempts and response trends in real time.',
@@ -2847,7 +3193,12 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                 sectionLabel={bannerSectionLabel}
                 onDismiss={handleBannerDismiss}
             />
-            <div style={{ ...pageStyle, alignItems: 'stretch', paddingTop: '0.2rem' }}>
+            <div style={{
+                ...pageStyle,
+                alignItems: 'stretch',
+                padding: isMobile ? '0.9rem 0.85rem 1rem' : pageStyle.padding,
+                paddingTop: '0.2rem'
+            }}>
                 {isMobile && isNavMenuOpen && (
                     <div
                         style={{
@@ -2962,11 +3313,13 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                 ...cardStyle,
                                 position: 'relative',
                                 background: 'linear-gradient(90deg, rgba(243,247,255,0.95), rgba(255,244,242,0.95))',
-                                display: 'flex',
+                                display: isMobile ? 'grid' : 'flex',
+                                gridTemplateColumns: isMobile ? '1fr' : undefined,
                                 justifyContent: 'space-between',
-                                gap: '0.75rem',
-                                alignItems: 'flex-start',
+                                gap: '0.65rem',
+                                alignItems: isMobile ? 'stretch' : 'center',
                                 flexWrap: 'wrap',
+                                padding: '1rem',
                                 paddingRight: '1rem'
                             }}
                         >
@@ -3696,17 +4049,24 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
 
                         {activeView === 'students' && (
                             <section style={cardStyle}>
-                                <h3>Students & Results</h3>
-                                <button onClick={loadStudents} style={primaryBtnStyle}>Refresh Students</button>
-                                {adminIdentity?.role === 'super_admin' && (
-                                    <button
-                                        onClick={promptResetAllStudents}
-                                        style={{ ...dangerBtnStyle, marginTop: '0.45rem' }}
-                                    >
-                                        Reset All Students Data
-                                    </button>
-                                )}
-                                <button onClick={exportAllDetailedCsv} style={secondaryBtnStyle}>Export All Students Detailed CSV</button>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                                    <div style={{ flex: 1, minWidth: '280px' }}>
+                                        <h3 style={{ margin: 0 }}>Students & Results</h3>
+                                        <p style={{ ...mutedStyle, margin: '0.5rem 0 0 0' }}>Add, search, and manage existing students who are permitted to sit the exam.</p>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                        <button onClick={loadStudents} style={primaryBtnStyle}>Refresh Students</button>
+                                        {adminIdentity?.role === 'super_admin' && (
+                                            <button
+                                                onClick={promptResetAllStudents}
+                                                style={{ ...dangerBtnStyle, marginTop: 0 }}
+                                            >
+                                                Reset All Students Data
+                                            </button>
+                                        )}
+                                        <button onClick={exportAllDetailedCsv} style={secondaryBtnStyle}>Export All Students Detailed CSV</button>
+                                    </div>
+                                </div>
 
                                 <label>Search student</label>
                                 <input
@@ -3735,6 +4095,238 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                             </section>
                         )}
 
+                        {activeView === 'student-access' && (
+                            <section style={cardStyle}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                                    <div>
+                                        <h3 style={{ margin: 0 }}>Student Access Policy</h3>
+                                        <p style={{ ...mutedStyle, margin: '0.5rem 0 0 0' }}>
+                                            Choose whether this organization only allows registered students to start exams, or if any student may join using the organization code.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => updateOrganizationStudentAccess(!Boolean(adminIdentity?.role === 'super_admin' ? selectedTenantAdmin?.existingStudentOnlyAccess : adminIdentity?.existingStudentOnlyAccess))}
+                                        disabled={isUpdatingStudentRestriction || (adminIdentity?.role === 'super_admin' && !selectedTenantAdminId)}
+                                        style={{
+                                            ...secondaryBtnStyle,
+                                            width: 'auto',
+                                            padding: '0.75rem 1rem',
+                                            borderRadius: '999px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '0.65rem',
+                                            transition: 'background-color 180ms ease, color 180ms ease',
+                                            background: Boolean(adminIdentity?.role === 'super_admin' ? selectedTenantAdmin?.existingStudentOnlyAccess : adminIdentity?.existingStudentOnlyAccess)
+                                                ? '#ecfdf5'
+                                                : '#eff6ff',
+                                            color: Boolean(adminIdentity?.role === 'super_admin' ? selectedTenantAdmin?.existingStudentOnlyAccess : adminIdentity?.existingStudentOnlyAccess)
+                                                ? '#166534'
+                                                : '#1d4ed8',
+                                        }}
+                                    >
+                                        <span style={{ width: '2rem', height: '1.1rem', borderRadius: '999px', background: Boolean(adminIdentity?.role === 'super_admin' ? selectedTenantAdmin?.existingStudentOnlyAccess : adminIdentity?.existingStudentOnlyAccess) ? '#22c55e' : '#2563eb', display: 'inline-flex', alignItems: 'center', justifyContent: Boolean(adminIdentity?.role === 'super_admin' ? selectedTenantAdmin?.existingStudentOnlyAccess : adminIdentity?.existingStudentOnlyAccess) ? 'flex-end' : 'flex-start', padding: '0.1rem', transition: 'justify-content 180ms ease, background-color 180ms ease' }}>
+                                            <span style={{ width: '0.8rem', height: '0.8rem', borderRadius: '50%', background: '#fff', display: 'block', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.18)' }} />
+                                        </span>
+                                        <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                            {Boolean(adminIdentity?.role === 'super_admin' ? selectedTenantAdmin?.existingStudentOnlyAccess : adminIdentity?.existingStudentOnlyAccess)
+                                                ? 'Only registered students'
+                                                : 'Allow open access'}
+                                        </span>
+                                    </button>
+                                </div>
+
+                                {adminIdentity?.role === 'super_admin' && !selectedTenantAdminId && (
+                                    <p style={{ ...mutedStyle, marginBottom: '1rem' }}>
+                                        Select an organization context above before changing this policy.
+                                    </p>
+                                )}
+
+                                <div style={{ padding: '1rem', background: '#f8fafc', border: '1px solid #dfe7f0', borderRadius: '14px' }}>
+                                    <p style={{ margin: 0, fontWeight: 700, color: '#1f3651' }}>Current organization</p>
+                                    <p style={{ ...mutedStyle, margin: '0.5rem 0 0 0' }}>
+                                        {adminIdentity?.role === 'super_admin'
+                                            ? selectedTenantAdmin?.tenantKey || 'No organization selected'
+                                            : adminIdentity?.tenantKey || 'Primary organization'}
+                                    </p>
+                                </div>
+                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px' }}>
+                                    <p style={{ margin: 0, fontWeight: 700, color: '#1f3651' }}>Policy details</p>
+                                    <p style={{ ...mutedStyle, margin: '0.75rem 0 0 0' }}>
+                                        {Boolean(adminIdentity?.role === 'super_admin' ? selectedTenantAdmin?.existingStudentOnlyAccess : adminIdentity?.existingStudentOnlyAccess)
+                                            ? 'Only students already registered under this organization may start exams.'
+                                            : 'Any student may start a new exam session using the organization code until your configured seat limit is reached.'}
+                                    </p>
+                                </div>
+
+                                <div style={{ marginTop: '1rem', padding: '1rem', background: '#eef2ff', border: '1px solid #dbeafe', borderRadius: '14px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '1rem' }}>
+                                    <div>
+                                        <p style={{ margin: 0, fontWeight: 700 }}>Seat allocation</p>
+                                        <p style={{ margin: '0.5rem 0 0 0', color: '#475569' }}>
+                                            {seatsUsed} of {effectiveStudentLimit} seats used.
+                                        </p>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <p style={{ margin: 0, fontWeight: 700, color: seatsRemaining > 0 ? '#166534' : '#b91c1c' }}>
+                                            {seatsRemaining > 0 ? `${seatsRemaining} seat(s) available` : 'No seats available'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <section style={{ ...cardStyle, background: '#f9fbff', border: '1px solid #dde7f3', marginTop: '1.5rem' }}>
+                                    <h4 style={{ margin: '0 0 0.8rem 0' }}>Add New Student</h4>
+                                    <form onSubmit={createStudent} style={{ display: 'grid', gap: '0.85rem' }}>
+                                        <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: '1fr 1fr' }}>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Student Name</label>
+                                                <input
+                                                    value={newStudentName}
+                                                    onChange={(e) => setNewStudentName(e.target.value)}
+                                                    placeholder="Full name"
+                                                    style={inputStyle}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Student Email</label>
+                                                <input
+                                                    value={newStudentEmail}
+                                                    onChange={(e) => setNewStudentEmail(e.target.value)}
+                                                    type="email"
+                                                    placeholder="Email address"
+                                                    style={inputStyle}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Student Credential</label>
+                                            <input
+                                                value={newStudentCredential}
+                                                onChange={(e) => setNewStudentCredential(e.target.value)}
+                                                placeholder="Unique credential / admission number"
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={
+                                                (adminIdentity?.role === 'super_admin' && !selectedTenantAdminId) ||
+                                                seatsRemaining <= 0
+                                            }
+                                            style={{ ...primaryBtnStyle, width: 'fit-content', marginTop: '0.25rem' }}
+                                        >
+                                            Add Student
+                                        </button>
+                                        {adminIdentity?.role === 'super_admin' && !selectedTenantAdminId && (
+                                            <p style={{ margin: 0, color: '#dc2626', fontSize: '0.86rem' }}>Choose an organization administration context before adding students.</p>
+                                        )}
+                                        {seatsRemaining <= 0 && (
+                                            <p style={{ margin: '0.5rem 0 0 0', color: '#dc2626', fontSize: '0.86rem' }}>
+                                                Student seat limit reached ({effectiveStudentLimit}). Delete a student or response to free a seat.
+                                            </p>
+                                        )}
+                                    </form>
+                                </section>
+
+                                <section style={{ ...cardStyle, background: '#f9fbff', border: '1px solid #dde7f3', marginTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+                                        <h4 style={{ margin: '0 0 0.8rem 0' }}>Import Students from Excel</h4>
+                                        <a
+                                            href="/student-import-template.xlsx"
+                                            download
+                                            style={{ ...secondaryBtnStyle, padding: '0.65rem 1rem', textDecoration: 'none' }}
+                                        >
+                                            Download sample file
+                                        </a>
+                                    </div>
+                                    <p style={{ ...mutedStyle, marginBottom: '0.75rem' }}>
+                                        Use the sample file to prepare student records, then upload the updated .xlsx file. Required columns: <strong>Name</strong>, <strong>Email</strong>, <strong>Student Credential</strong>, and optional <strong>Password</strong>.
+                                    </p>
+                                    <form onSubmit={importStudentsFromExcel} style={{ display: 'grid', gap: '0.85rem' }}>
+                                        <input
+                                            type="file"
+                                            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                            onChange={(e) => setStudentImportFile(e.target.files?.[0] || null)}
+                                            style={inputStyle}
+                                        />
+                                        {studentImportFile && (
+                                            <p style={{ margin: 0, color: '#0f172a' }}>Selected file: {studentImportFile.name}</p>
+                                        )}
+                                        <button
+                                            type="submit"
+                                            disabled={
+                                                isImportingStudents ||
+                                                seatsRemaining <= 0 ||
+                                                (adminIdentity?.role === 'super_admin' && !selectedTenantAdminId)
+                                            }
+                                            style={{ ...primaryBtnStyle, width: 'fit-content', marginTop: '0.25rem' }}
+                                        >
+                                            {isImportingStudents ? 'Importing...' : 'Upload updated file and import'}
+                                        </button>
+                                    </form>
+                                    <div style={{ marginTop: '1rem', color: '#475569', fontSize: '0.92rem' }}>
+                                        <p style={{ margin: '0 0 0.5rem 0' }}>
+                                            Student data will be fed automatically after upload. Duplicate email or credential rows are skipped, and only the remaining {seatsRemaining} available seat(s) will be imported.
+                                        </p>
+                                        <p style={{ margin: 0 }}>You can also manage students manually below once the import completes.</p>
+                                    </div>
+                                </section>
+
+                                <section style={{ ...cardStyle, background: '#ffffff', border: '1px solid #e2e8f0', marginTop: '1.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                                        <h4 style={{ margin: '0 0 0.8rem 0' }}>Manage Existing Students</h4>
+                                        <span style={{ ...mutedStyle, fontSize: '0.95rem' }}>{filteredStudents.length} student(s) loaded</span>
+                                    </div>
+
+                                    {editingStudentId && (
+                                        <form onSubmit={saveStudentEdit} style={{ display: 'grid', gap: '0.85rem', marginBottom: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '14px' }}>
+                                            <h5 style={{ margin: '0 0 0.75rem 0' }}>Edit student</h5>
+                                            <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: '1fr 1fr' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Name</label>
+                                                    <input value={editStudentName} onChange={(e) => setEditStudentName(e.target.value)} style={inputStyle} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Email</label>
+                                                    <input value={editStudentEmail} onChange={(e) => setEditStudentEmail(e.target.value)} type="email" style={inputStyle} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Student Credential</label>
+                                                <input value={editStudentCredential} onChange={(e) => setEditStudentCredential(e.target.value)} style={inputStyle} />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Password (optional)</label>
+                                                <input value={editStudentPassword} onChange={(e) => setEditStudentPassword(e.target.value)} type="password" placeholder="Leave blank to keep existing password" style={inputStyle} />
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                                <button type="submit" disabled={isUpdatingStudentRecord} style={{ ...primaryBtnStyle, width: 'fit-content' }}>{isUpdatingStudentRecord ? 'Saving...' : 'Save changes'}</button>
+                                                <button type="button" onClick={cancelEditStudent} style={{ ...secondaryBtnStyle, width: 'fit-content' }}>Cancel</button>
+                                            </div>
+                                        </form>
+                                    )}
+
+                                    <div style={{ display: 'grid', gap: '1rem' }}>
+                                        {filteredStudents.length === 0 && <p style={mutedStyle}>No student records found for the current filter.</p>}
+                                        {filteredStudents.map((student) => (
+                                            <div key={student._id} style={itemStyle}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                                                    <div>
+                                                        <strong>{student.name}</strong>
+                                                        <p style={mutedStyle}>{student.email}</p>
+                                                        <p style={mutedStyle}>Credential: {student.studentCredential || '-'}</p>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                        <button type="button" onClick={() => startEditStudent(student)} style={{ ...secondaryBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>Edit</button>
+                                                        <button type="button" onClick={() => { loadSubmissions(student); openView('responses'); }} style={{ ...primaryBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>View Responses</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            </section>
+                        )}
+
                         {activeView === 'responses' && (
                             <section style={{ ...cardStyle, background: '#ffffff', padding: '1.5rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1.5rem', borderBottom: '2px solid #f0f4f9', paddingBottom: '1.2rem' }}>
@@ -3758,201 +4350,267 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                         <button onClick={exportSelectedStudentCsv} style={{ ...primaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}>Export Detailed PDF/CSV</button>
                                     </div>
                                 </div>
+                                <div style={{ marginBottom: '1rem', padding: '1rem', background: '#eff6ff', border: '1px solid #dbeafe', borderRadius: '14px', color: '#1e3a8a' }}>
+                                    <strong style={{ display: 'block', marginBottom: '0.35rem' }}>Exam status note</strong>
+                                    If the student has already submitted an exam response, the system prevents another submission for that section. Deleting all responses here clears the student's full exam record and allows a fresh retake immediately.
+                                </div>
 
-                                {!selectedStudent ? (
-                                    <div style={{ padding: '4rem 2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
-                                        <div style={{ marginBottom: '1.5rem', opacity: 0.15 }}>
-                                            <Icon name="user" size={64} color="#1e293b" />
-                                        </div>
-                                        <h4 style={{ color: '#334155', fontSize: '1.2rem', margin: '0 0 0.5rem 0' }}>No Student Selected</h4>
-                                        <p style={{ ...mutedStyle, maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>Please select a student from the directory to analyze their exam performance, responses, and behavioral insights.</p>
-                                        <button onClick={() => openView('students')} style={{ ...primaryBtnStyle, width: 'auto', padding: '0.6rem 2rem' }}>Go to Students Directory</button>
-                                    </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                                        {submissions.length === 0 && (
-                                            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>No submissions found for this candidate.</div>
-                                        )}
-                                        {submissions.map((submission) => (
-                                            <div key={submission._id} style={{ border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-                                                {/* Submission Header */}
-                                                <div style={{ background: '#f8fafc', padding: '1.2rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                                                    <div>
-                                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EXAM SECTION</span>
-                                                        <h4 style={{ margin: '0.2rem 0 0 0', color: '#1e293b', fontSize: '1.2rem' }}>
-                                                            {submission.section?.name || 'Standard Assessment'}
-                                                            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500, marginLeft: '12px', opacity: 0.8 }}>
-                                                                &mdash; {selectedStudent?.name}
-                                                            </span>
-                                                        </h4>
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
-                                                        <div style={{ textAlign: 'right' }}>
-                                                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', letterSpacing: '0.02em' }}>SUBMITTED ON</div>
-                                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>{new Date(submission.createdAt).toLocaleString()}</div>
-                                                        </div>
-                                                        {submission.examMeta?.terminatedDueToCheating && (
-                                                            <div style={{ background: '#fef2f2', color: '#dc2626', padding: '0.45rem 1rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, border: '1px solid #fee2e2', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <Icon name="warning" color="#dc2626" size={16} /> TERMINATED
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ padding: '1.5rem' }}>
-                                                    {/* Key Metrics Row */}
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                                        <div style={{ padding: '1rem', borderRadius: '12px', background: '#f0f9ff', border: '1px solid #e0f2fe' }}>
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.25rem' }}>SCORE PERCENTAGE</div>
-                                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                                                <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0c4a6e' }}>
-                                                                    {Math.round((submission.score / submission.maxScore) * 100)}%
-                                                                </div>
-                                                                <div style={{ fontSize: '0.85rem', color: '#0369a1', fontWeight: 700, opacity: 0.8 }}>
-                                                                    ({submission.score}/{submission.maxScore} pts)
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ padding: '1rem', borderRadius: '12px', background: '#f0fdf4', border: '1px solid #dcfce7' }}>
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#166534', marginBottom: '0.25rem' }}>ACCURACY</div>
-                                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                                                <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#064e3b' }}>
-                                                                    {Math.round((submission.attemptedQuestions / submission.totalQuestions) * 100)}%
-                                                                </div>
-                                                                <div style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 700, opacity: 0.8 }}>
-                                                                    ({submission.attemptedQuestions}/{submission.totalQuestions} ans)
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ padding: '1rem', borderRadius: '12px', background: submission.examMeta?.cheatingAttempts ? '#fff1f2' : '#f8fafc', border: submission.examMeta?.cheatingAttempts ? '1px solid #ffe4e6' : '1px solid #e2e8f0' }}>
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: submission.examMeta?.cheatingAttempts ? '#9f1239' : '#64748b', marginBottom: '0.25rem' }}>POLICY VIOLATIONS</div>
-                                                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: submission.examMeta?.cheatingAttempts ? '#e11d48' : '#334155' }}>
-                                                                {submission.examMeta?.cheatingAttempts ?? 0}
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ padding: '1rem', borderRadius: '12px', background: '#fdf4ff', border: '1px solid #fae8ff' }}>
-                                                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#701a75', marginBottom: '0.25rem' }}>BEHAVIORAL SWAPS</div>
-                                                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#4a044e' }}>
-                                                                {submission.examMeta?.totalOptionChanges ?? 0}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {((submission.examMeta?.terminationRemark || submission.remark) || (submission.examMeta?.securityEvents?.length ?? 0) > 0) && (
-                                                        <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px' }}>
-                                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                                                <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                    <Icon name="warning" color="#c2410c" size={20} />
-                                                                </div>
-                                                                <div style={{ flex: 1 }}>
-                                                                    <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.75rem' }}>Administrative Remark</div>
-                                                                    <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#9a3412', lineHeight: '1.85', fontSize: '0.95rem', fontWeight: 500 }}>
-                                                                        {submission.examMeta?.terminationRemark && (
-                                                                            <li style={{ marginBottom: (submission.examMeta?.securityEvents?.length ?? 0) ? '0.75rem' : 0 }}>
-                                                                                {submission.examMeta.terminationRemark}
-                                                                            </li>
-                                                                        )}
-                                                                        {submission.examMeta?.securityEvents?.map((event, idx) => (
-                                                                            <li key={idx} style={{ marginBottom: idx !== ((submission.examMeta?.securityEvents?.length ?? 0) - 1) ? '0.55rem' : 0 }}>
-                                                                                <span style={{ fontWeight: 700, color: '#0f172a' }}>{new Date(event.timestamp).toLocaleString()}</span>
-                                                                                <span style={{ marginLeft: '0.5rem', color: '#475569' }}>{event.message}</span>
-                                                                            </li>
-                                                                        ))}
-                                                                    </ul>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Behavioral Insights */}
-                                                    {!!submission.examMeta?.questionInteractions?.length && (
-                                                        <div style={{ marginBottom: '2.5rem' }}>
-                                                            <h5 style={{ margin: '0 0 1.25rem 0', color: '#1e293b', fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                <span style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f0f9ff', border: '1px solid #e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                    <Icon name="lightning" color="#3b82f6" size={20} />
-                                                                </span>
-                                                                <span style={{ whiteSpace: 'nowrap' }}>Sequence &amp; Micro-Interaction Tracking</span>
-                                                            </h5>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                                                                {submission.examMeta.questionInteractions.map((interaction, ix) => (
-                                                                    interaction.changeCount > 0 && (
-                                                                        <div key={ix} style={{ padding: '0.8rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                                                                                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b' }}>QUESTION #{ix + 1}</span>
-                                                                                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#f59e0b' }}>{interaction.changeCount} SWAPS</span>
-                                                                            </div>
-                                                                            <div style={{ fontSize: '0.85rem', color: '#475569' }}>
-                                                                                Opt {interaction.firstSelectedOptionIndex ?? '-'} <Icon name="arrow-right" size={12} /> <strong style={{ color: '#1e40af' }}>Opt {interaction.finalSelectedOptionIndex ?? '-'}</strong>
-                                                                            </div>
-                                                                        </div>
-                                                                    )
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Full Width Answer Breakdown */}
-                                                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
-                                                        <h5 style={{ margin: '0 0 1.5rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: 700 }}>
-                                                            Question-by-Question Breakdown
-                                                            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500, marginLeft: '10px' }}>
-                                                                &mdash; {selectedStudent?.name}
-                                                            </span>
-                                                        </h5>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                                            {submission.answers.map((answer, index) => (
-                                                                <div key={index} style={{
-                                                                    padding: '1.5rem',
-                                                                    background: answer.isCorrect ? '#f0fdf4' : '#fff1f2',
-                                                                    border: answer.isCorrect ? '1px solid #dcfce7' : '1px solid #ffe4e6',
-                                                                    borderRadius: '16px',
-                                                                    position: 'relative'
-                                                                }}>
-                                                                    <div style={{ position: 'absolute', top: '-10px', left: '20px', background: answer.isCorrect ? '#22c55e' : '#ef4444', color: '#fff', padding: '2px 10px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800 }}>
-                                                                        QUESTION {index + 1}
-                                                                    </div>
-
-                                                                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b', marginBottom: '1.2rem', lineHeight: '1.5' }}>
-                                                                        {answer.questionText}
-                                                                    </div>
-
-                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                                                                        <div style={{ background: 'rgba(255,255,255,0.6)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                                                                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Student Selection</div>
-                                                                            <div style={{ fontSize: '1rem', color: answer.isCorrect ? '#166534' : '#991b1b', fontWeight: 600 }}>
-                                                                                {answer.selectedOptionIndex === null || answer.selectedOptionIndex === undefined
-                                                                                    ? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Not Attempted</span>
-                                                                                    : (answer.options?.[answer.selectedOptionIndex] || `Option ${answer.selectedOptionIndex}`)}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div style={{ background: 'rgba(255,255,255,0.6)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                                                                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Correct Reference</div>
-                                                                            <div style={{ fontSize: '1rem', color: '#166534', fontWeight: 600 }}>
-                                                                                {answer.options?.[answer.correctOptionIndex] || `Option ${answer.correctOptionIndex}`}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div style={{ marginTop: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                            <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: answer.isCorrect ? '#22c55e' : '#ef4444' }}></span>
-                                                                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: answer.isCorrect ? '#166534' : '#991b1b' }}>
-                                                                                {answer.isCorrect ? 'MARKS AWARDED' : 'NO MARKS AWARDED'}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
-                                                                            +{answer.marksAwarded} Points
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                {uniqueSectionSubmissions.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                                        {uniqueSectionSubmissions.map((submission) => (
+                                            <button
+                                                key={submission.section?.name || submission._id}
+                                                type="button"
+                                                onClick={() => promptDeleteSubmission(submission)}
+                                                style={{ ...dangerBtnStyle, padding: '0.75rem 1rem', fontSize: '0.88rem', minWidth: '220px' }}
+                                            >
+                                                Delete {submission.section?.name || 'Section'} response
+                                            </button>
                                         ))}
                                     </div>
                                 )}
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 360px) 1fr', gap: '1.5rem', alignItems: 'start' }}>
+                                    <aside style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'sticky', top: '1.5rem' }}>
+                                        <section style={{ ...cardStyle, background: '#f8fafc', border: '1px solid #dbeafe', padding: '1rem' }}>
+                                            <h4 style={{ margin: '0 0 0.8rem 0' }}>Response Management</h4>
+                                            <p style={{ ...mutedStyle, marginBottom: '1rem' }}>
+                                                Manage student deletion and response reset actions from one dedicated control panel.
+                                            </p>
+                                            {adminIdentity?.role === 'super_admin' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => selectedStudent && promptDeleteStudent(selectedStudent)}
+                                                    style={{ ...dangerBtnStyle, width: '100%', marginBottom: '0.75rem', padding: '0.8rem 1rem', fontSize: '0.95rem' }}
+                                                    disabled={!selectedStudent}
+                                                >
+                                                    Delete student
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => selectedStudent && promptDeleteStudentResponses(selectedStudent)}
+                                                style={{ ...dangerBtnStyle, width: '100%', marginBottom: '0.75rem', padding: '0.8rem 1rem', fontSize: '0.95rem' }}
+                                                disabled={!selectedStudent || submissions.length === 0}
+                                            >
+                                                Delete student responses
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={promptDeleteAllResponses}
+                                                style={{ ...dangerBtnStyle, width: '100%', padding: '0.8rem 1rem', fontSize: '0.95rem' }}
+                                                disabled={submissions.length === 0}
+                                            >
+                                                Delete all responses
+                                            </button>
+                                            <p style={{ ...mutedStyle, margin: '1rem 0 0 0', fontSize: '0.9rem' }}>
+                                                These actions are now grouped in one easy-to-use section. You can still delete responses section-by-section using the button on each submission card.
+                                            </p>
+                                        </section>
+                                    </aside>
+
+                                    <main style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                        {selectedStudent ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                                {submissions.length === 0 && (
+                                                    <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>No submissions found for this candidate.</div>
+                                                )}
+                                                {submissions.map((submission) => (
+                                                    <div key={submission._id} style={{ border: '1px solid #e2e8f0', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+                                                        {/* Submission Header */}
+                                                        <div style={{ background: '#f8fafc', padding: '1.2rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                                                            <div>
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EXAM SECTION</span>
+                                                                <h4 style={{ margin: '0.2rem 0 0 0', color: '#1e293b', fontSize: '1.2rem' }}>
+                                                                    {submission.section?.name || 'Standard Assessment'}
+                                                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500, marginLeft: '12px', opacity: 0.8 }}>
+                                                                        &mdash; {selectedStudent?.name}
+                                                                    </span>
+                                                                </h4>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                                                                <div style={{ textAlign: 'right' }}>
+                                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', letterSpacing: '0.02em' }}>SUBMITTED ON</div>
+                                                                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>{new Date(submission.createdAt).toLocaleString()}</div>
+                                                                </div>
+                                                                {submission.examMeta?.terminatedDueToCheating && (
+                                                                    <div style={{ background: '#fef2f2', color: '#dc2626', padding: '0.45rem 1rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 800, border: '1px solid #fee2e2', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <Icon name="warning" color="#dc2626" size={16} /> TERMINATED
+                                                                    </div>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => promptDeleteSubmission(submission)}
+                                                                    style={{ ...dangerBtnStyle, width: 'auto', padding: '0.55rem 0.95rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+                                                                >
+                                                                    Delete section response
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ padding: '1.5rem' }}>
+                                                            {/* Key Metrics Row */}
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                                                                <div style={{ padding: '1rem', borderRadius: '12px', background: '#f0f9ff', border: '1px solid #e0f2fe' }}>
+                                                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', marginBottom: '0.25rem' }}>SCORE PERCENTAGE</div>
+                                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                                                        <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0c4a6e' }}>
+                                                                            {Math.round((submission.score / submission.maxScore) * 100)}%
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.85rem', color: '#0369a1', fontWeight: 700, opacity: 0.8 }}>
+                                                                            ({submission.score}/{submission.maxScore} pts)
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ padding: '1rem', borderRadius: '12px', background: '#f0fdf4', border: '1px solid #dcfce7' }}>
+                                                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#166534', marginBottom: '0.25rem' }}>ACCURACY</div>
+                                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                                                        <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#064e3b' }}>
+                                                                            {Math.round((submission.attemptedQuestions / submission.totalQuestions) * 100)}%
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 700, opacity: 0.8 }}>
+                                                                            ({submission.attemptedQuestions}/{submission.totalQuestions} ans)
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ padding: '1rem', borderRadius: '12px', background: submission.examMeta?.cheatingAttempts ? '#fff1f2' : '#f8fafc', border: submission.examMeta?.cheatingAttempts ? '1px solid #ffe4e6' : '1px solid #e2e8f0' }}>
+                                                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: submission.examMeta?.cheatingAttempts ? '#9f1239' : '#64748b', marginBottom: '0.25rem' }}>POLICY VIOLATIONS</div>
+                                                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: submission.examMeta?.cheatingAttempts ? '#e11d48' : '#334155' }}>
+                                                                        {submission.examMeta?.cheatingAttempts ?? 0}
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ padding: '1rem', borderRadius: '12px', background: '#fdf4ff', border: '1px solid #fae8ff' }}>
+                                                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#701a75', marginBottom: '0.25rem' }}>BEHAVIORAL SWAPS</div>
+                                                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#4a044e' }}>
+                                                                        {submission.examMeta?.totalOptionChanges ?? 0}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {((submission.examMeta?.terminationRemark || submission.remark) || (submission.examMeta?.securityEvents?.length ?? 0) > 0) && (
+                                                                <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: '1.2rem', marginBottom: '1.5rem', borderRadius: '14px' }}>
+                                                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                                                        <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                            <Icon name="warning" color="#c2410c" size={20} />
+                                                                        </div>
+                                                                        <div style={{ flex: 1 }}>
+                                                                            <div style={{ fontSize: '0.8rem', fontWeight: 900, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.75rem' }}>Administrative Remark</div>
+                                                                            <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#9a3412', lineHeight: '1.85', fontSize: '0.95rem', fontWeight: 500 }}>
+                                                                                {submission.examMeta?.terminationRemark && (
+                                                                                    <li style={{ marginBottom: (submission.examMeta?.securityEvents?.length ?? 0) ? '0.75rem' : 0 }}>
+                                                                                        {submission.examMeta.terminationRemark}
+                                                                                    </li>
+                                                                                )}
+                                                                                {submission.examMeta?.securityEvents?.map((event, idx) => (
+                                                                                    <li key={idx} style={{ marginBottom: idx !== ((submission.examMeta?.securityEvents?.length ?? 0) - 1) ? '0.55rem' : 0 }}>
+                                                                                        <span style={{ fontWeight: 700, color: '#0f172a' }}>{new Date(event.timestamp).toLocaleString()}</span>
+                                                                                        <span style={{ marginLeft: '0.5rem', color: '#475569' }}>{event.message}</span>
+                                                                                    </li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {!!submission.examMeta?.questionInteractions?.length && (
+                                                                <div style={{ marginBottom: '2.5rem' }}>
+                                                                    <h5 style={{ margin: '0 0 1.25rem 0', color: '#1e293b', fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                        <span style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f0f9ff', border: '1px solid #e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                            <Icon name="lightning" color="#3b82f6" size={20} />
+                                                                        </span>
+                                                                        <span style={{ whiteSpace: 'nowrap' }}>Sequence &amp; Micro-Interaction Tracking</span>
+                                                                    </h5>
+                                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                                                                        {submission.examMeta.questionInteractions.map((interaction, ix) => (
+                                                                            interaction.changeCount > 0 && (
+                                                                                <div key={ix} style={{ padding: '0.8rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                                                                                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b' }}>QUESTION #{ix + 1}</span>
+                                                                                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#f59e0b' }}>{interaction.changeCount} SWAPS</span>
+                                                                                    </div>
+                                                                                    <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                                                                                        Opt {interaction.firstSelectedOptionIndex ?? '-'} <Icon name="arrow-right" size={12} /> <strong style={{ color: '#1e40af' }}>Opt {interaction.finalSelectedOptionIndex ?? '-'}</strong>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
+                                                                <h5 style={{ margin: '0 0 1.5rem 0', color: '#0f172a', fontSize: '1.1rem', fontWeight: 700 }}>
+                                                                    Question-by-Question Breakdown
+                                                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500, marginLeft: '10px' }}>
+                                                                        &mdash; {selectedStudent?.name}
+                                                                    </span>
+                                                                </h5>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                                                    {submission.answers.map((answer, index) => (
+                                                                        <div key={index} style={{
+                                                                            padding: '1.5rem',
+                                                                            background: answer.isCorrect ? '#f0fdf4' : '#fff1f2',
+                                                                            border: answer.isCorrect ? '1px solid #dcfce7' : '1px solid #ffe4e6',
+                                                                            borderRadius: '16px',
+                                                                            position: 'relative'
+                                                                        }}>
+                                                                            <div style={{ position: 'absolute', top: '-10px', left: '20px', background: answer.isCorrect ? '#22c55e' : '#ef4444', color: '#fff', padding: '2px 10px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 800 }}>
+                                                                                QUESTION {index + 1}
+                                                                            </div>
+
+                                                                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b', marginBottom: '1.2rem', lineHeight: '1.5' }}>
+                                                                                {answer.questionText}
+                                                                            </div>
+
+                                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                                                                                <div style={{ background: 'rgba(255,255,255,0.6)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Student Selection</div>
+                                                                                    <div style={{ fontSize: '1rem', color: answer.isCorrect ? '#166534' : '#991b1b', fontWeight: 600 }}>
+                                                                                        {answer.selectedOptionIndex === null || answer.selectedOptionIndex === undefined
+                                                                                            ? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Not Attempted</span>
+                                                                                            : (answer.options?.[answer.selectedOptionIndex] || `Option ${answer.selectedOptionIndex}`)}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div style={{ background: 'rgba(255,255,255,0.6)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                                                                                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Correct Reference</div>
+                                                                                    <div style={{ fontSize: '1rem', color: '#166534', fontWeight: 600 }}>
+                                                                                        {answer.options?.[answer.correctOptionIndex] || `Option ${answer.correctOptionIndex}`}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div style={{ marginTop: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                    <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: answer.isCorrect ? '#22c55e' : '#ef4444' }}></span>
+                                                                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: answer.isCorrect ? '#166534' : '#991b1b' }}>
+                                                                                        {answer.isCorrect ? 'MARKS AWARDED' : 'NO MARKS AWARDED'}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                                                                                    +{answer.marksAwarded} Points
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div style={{ padding: '4rem 2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
+                                                <div style={{ marginBottom: '1.5rem', opacity: 0.15 }}>
+                                                    <Icon name="user" size={64} color="#1e293b" />
+                                                </div>
+                                                <h4 style={{ color: '#334155', fontSize: '1.2rem', margin: '0 0 0.5rem 0' }}>No Student Selected</h4>
+                                                <p style={{ ...mutedStyle, maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>Please select a student from the directory to analyze their exam performance, responses, and behavioral insights.</p>
+                                                <button onClick={() => openView('students')} style={{ ...primaryBtnStyle, width: 'auto', padding: '0.6rem 2rem' }}>Go to Students Directory</button>
+                                            </div>
+                                        )}
+                                    </main>
+                                </div>
                             </section>
                         )}
 
@@ -3967,6 +4625,26 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                         max={600}
                                         value={examDuration}
                                         onChange={(e) => setExamDuration(Number(e.target.value))}
+                                        style={inputStyle}
+                                        required
+                                    />
+                                    <label>Official Entry Window (minutes)</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={1440}
+                                        value={examOfficialEntryWindow}
+                                        onChange={(e) => setExamOfficialEntryWindow(Number(e.target.value))}
+                                        style={inputStyle}
+                                        required
+                                    />
+                                    <label>Section Re-entry Window After Deletion (minutes)</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={1440}
+                                        value={examSectionReentryWindow}
+                                        onChange={(e) => setExamSectionReentryWindow(Number(e.target.value))}
                                         style={inputStyle}
                                         required
                                     />
@@ -5200,24 +5878,32 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
 };
 
 const pageStyle: React.CSSProperties = {
-    background: 'radial-gradient(circle at 20% 10%, #f2f7ff 0%, #e6f0ff 45%, #eaf2ff 100%)',
+    boxSizing: 'border-box',
+    background: 'radial-gradient(circle at 20% 10%, #eef5ff 0%, #e8efff 45%, #f7fbff 100%)',
     display: 'flex',
     alignItems: 'stretch',
     justifyContent: 'stretch',
     width: '100%',
-    padding: '0.3rem 0.5rem 0.8rem'
+    maxWidth: '1680px',
+    margin: '0 auto',
+    minHeight: '100vh',
+    padding: '0.9rem 1rem 1rem'
 };
 
 const cardStyle: React.CSSProperties = {
-    background: 'linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)',
-    border: '1px solid #c8d9f5',
-    borderRadius: '16px',
+    boxSizing: 'border-box',
+    width: '100%',
+    minWidth: 0,
+    background: '#ffffff',
+    border: '1px solid rgba(148, 163, 184, 0.18)',
+    borderRadius: '20px',
     padding: '1rem',
-    boxShadow: '0 8px 18px rgba(16, 45, 99, 0.08)',
+    boxShadow: '0 20px 40px rgba(15, 23, 42, 0.08)',
     overflow: 'hidden'
 };
 
 const inputStyle: React.CSSProperties = {
+    boxSizing: 'border-box',
     width: '100%',
     padding: '0.55rem',
     marginTop: '0.3rem',
@@ -5227,32 +5913,46 @@ const inputStyle: React.CSSProperties = {
 };
 
 const primaryBtnStyle: React.CSSProperties = {
-    width: '100%',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.5rem',
+    minWidth: '170px',
+    maxWidth: '100%',
     marginTop: '0.4rem',
-    padding: '0.55rem',
-    borderRadius: '8px',
+    padding: '0.95rem 1.3rem',
+    borderRadius: '14px',
     border: 'none',
-    background: 'linear-gradient(120deg, #1b57b8, #2383d6)',
-    color: '#fff',
-    fontWeight: 600,
-    cursor: 'pointer'
+    background: 'linear-gradient(120deg, #1d60e0, #2e90ff)',
+    color: '#ffffff',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 12px 24px rgba(15, 23, 42, 0.12)',
+    transition: 'transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease'
 };
 
 const secondaryBtnStyle: React.CSSProperties = {
-    width: '100%',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.5rem',
+    minWidth: '170px',
+    maxWidth: '100%',
     marginTop: '0.4rem',
-    padding: '0.55rem',
-    borderRadius: '8px',
-    border: '1px solid #b7c7e8',
-    background: '#f7faff',
-    color: '#173a7a',
-    fontWeight: 600,
-    cursor: 'pointer'
+    padding: '0.95rem 1.3rem',
+    borderRadius: '14px',
+    border: '1px solid #c5d4ef',
+    background: '#f5f8ff',
+    color: '#1f3f72',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 10px 20px rgba(15, 23, 42, 0.08)',
+    transition: 'transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease'
 };
 
 const dangerBtnStyle: React.CSSProperties = {
     ...primaryBtnStyle,
-    background: '#c03535'
+    background: 'linear-gradient(120deg, #dc4040, #c12727)'
 };
 
 const okStyle: React.CSSProperties = {
