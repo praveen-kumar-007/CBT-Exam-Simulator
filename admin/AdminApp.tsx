@@ -570,6 +570,11 @@ export const AdminApp: React.FC = () => {
     const seatsUsed = students.length;
     const seatsRemaining = Math.max(0, effectiveStudentLimit - seatsUsed);
 
+    const isOrgAdmin = adminIdentity?.role === 'admin';
+    const isSuperAdmin = adminIdentity?.role === 'super_admin';
+    const canDeleteStudents = isOrgAdmin || isSuperAdmin;
+    const canDeleteAllResponses = isOrgAdmin || isSuperAdmin;
+
     const navigate = (path: string) => {
         window.history.pushState({}, '', path);
         setMode(getModeFromPath());
@@ -2331,6 +2336,24 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         }
     }, [mode, token, selectedTenantAdminId]);
 
+    useEffect(() => {
+        if (mode !== 'dashboard') {
+            return;
+        }
+
+        if (activeView === 'questions') {
+            if (selectedSectionId) {
+                loadQuestions().catch(() => { });
+            } else if (sections.length === 0) {
+                loadSections().catch(() => { });
+            }
+        }
+
+        if (activeView === 'students') {
+            loadStudents().catch(() => { });
+        }
+    }, [mode, activeView, selectedSectionId, sections.length]);
+
     const navItems: Array<{ key: DashboardView; label: string; hint: string; icon: string }> = [
         { key: 'profile', label: 'My Profile', hint: 'View your account and plan details', icon: 'user' },
         { key: 'overview', label: 'Overview', hint: 'Summary and quick actions', icon: 'overview' },
@@ -3316,29 +3339,29 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                 display: isMobile ? 'grid' : 'flex',
                                 gridTemplateColumns: isMobile ? '1fr' : undefined,
                                 justifyContent: 'space-between',
-                                gap: '0.65rem',
+                                gap: '0.45rem',
                                 alignItems: isMobile ? 'stretch' : 'center',
                                 flexWrap: 'wrap',
-                                padding: '1rem',
-                                paddingRight: '1rem'
+                                padding: '0.75rem 0.9rem',
+                                paddingRight: '0.9rem'
                             }}
                         >
                             <div>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '0.25rem' }}>
-                                    <span style={{ fontSize: '0.72rem', border: '1px solid #9bc0f4', background: '#e8f1ff', color: '#2d6dd3', borderRadius: '999px', padding: '0.22rem 0.6rem', fontWeight: 700 }}>Dashboard</span>
-                                    <span style={{ fontSize: '0.72rem', border: '1px solid #f0c6bf', background: '#fff1ef', color: '#d94f43', borderRadius: '999px', padding: '0.22rem 0.6rem', fontWeight: 700 }}>Analytics</span>
-                                    <span style={{ fontSize: '0.72rem', border: '1px solid #bde0c3', background: '#ecfff0', color: '#2e8f4c', borderRadius: '999px', padding: '0.22rem 0.6rem', fontWeight: 700 }}>Audit Logs</span>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '0.18rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.68rem', border: '1px solid #9bc0f4', background: '#e8f1ff', color: '#2d6dd3', borderRadius: '999px', padding: '0.2rem 0.55rem', fontWeight: 700 }}>Dashboard</span>
+                                    <span style={{ fontSize: '0.68rem', border: '1px solid #f0c6bf', background: '#fff1ef', color: '#d94f43', borderRadius: '999px', padding: '0.2rem 0.55rem', fontWeight: 700 }}>Analytics</span>
+                                    <span style={{ fontSize: '0.68rem', border: '1px solid #bde0c3', background: '#ecfff0', color: '#2e8f4c', borderRadius: '999px', padding: '0.2rem 0.55rem', fontWeight: 700 }}>Audit Logs</span>
                                 </div>
-                                <h2 style={{ margin: 0, color: '#193c73' }}>{dashboardTitle[activeView]}</h2>
-                                <p style={{ ...mutedStyle, marginTop: '0.2rem' }}>{dashboardSubtitle[activeView]}</p>
+                                <h2 style={{ margin: 0, color: '#193c73', fontSize: isMobile ? '1.3rem' : '1.45rem' }}>{dashboardTitle[activeView]}</h2>
+                                <p style={{ ...mutedStyle, margin: '0.15rem 0 0 0', maxWidth: '760px' }}>{dashboardSubtitle[activeView]}</p>
                             </div>
 
                             <div style={{
-                                display: isMobile ? 'grid' : 'flex',
-                                gap: '0.55rem',
-                                alignItems: 'center',
+                                display: 'flex',
                                 flexWrap: 'wrap',
-                                gridTemplateColumns: isMobile ? 'repeat(auto-fit, minmax(120px, 1fr))' : undefined
+                                alignItems: 'center',
+                                gap: '0.45rem',
+                                justifyContent: 'flex-start'
                             }}>
                                 {!isMobile && (
                                     <button
@@ -3392,16 +3415,16 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                     Open Help
                                 </button>
                                 {activeView === 'responses' && (
-                                    <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <div style={{ display: 'grid', gap: '0.45rem', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(170px, auto))', alignItems: 'center' }}>
                                         <button
                                             onClick={() => openView('students')}
-                                            style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.45rem 0.9rem', fontSize: '0.84rem', minWidth: 'fit-content' }}
+                                            style={{ ...secondaryBtnStyle, width: isMobile ? '100%' : 'auto', marginTop: 0, padding: '0.45rem 0.9rem', fontSize: '0.84rem' }}
                                         >
                                             <Icon name="arrow-left" size={14} /> Back to Students
                                         </button>
                                         <button
                                             onClick={exportSelectedStudentCsv}
-                                            style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.45rem 0.9rem', fontSize: '0.84rem', minWidth: 'fit-content' }}
+                                            style={{ ...secondaryBtnStyle, width: isMobile ? '100%' : 'auto', marginTop: 0, padding: '0.45rem 0.9rem', fontSize: '0.84rem' }}
                                         >
                                             <Icon name="download" size={14} /> Export Submissions CSV
                                         </button>
@@ -3417,18 +3440,18 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                             <button
                                 onClick={logout}
                                 style={{
-                                    display: isMobile ? 'none' : 'inline-flex',
-                                    position: 'absolute',
-                                    top: '1rem',
-                                    right: '1rem',
+                                    display: 'inline-flex',
+                                    position: isMobile ? 'relative' : 'absolute',
+                                    top: isMobile ? undefined : '1rem',
+                                    right: isMobile ? undefined : '1rem',
                                     width: 'auto',
-                                    marginTop: 0,
-                                    padding: '0.75rem 1.1rem',
+                                    marginTop: isMobile ? '0.8rem' : 0,
+                                    padding: '0.65rem 1rem',
                                     borderRadius: '999px',
                                     minWidth: '110px',
                                     justifyContent: 'center',
                                     alignItems: 'center',
-                                    fontSize: '0.95rem',
+                                    fontSize: '0.92rem',
                                     fontWeight: 700,
                                     background: '#c03535',
                                     color: '#fff',
@@ -3514,7 +3537,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
 
                                 <section style={cardStyle}>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start' }}>
-                                        <div style={{ flex: '1 1 320px', minWidth: '280px' }}>
+                                        <div style={{ flex: '1 1 320px', minWidth: isMobile ? '100%' : '280px' }}>
                                             <h3 style={{ marginTop: 0 }}>Integrity & Response Trends</h3>
                                             <p style={{ ...mutedStyle, marginTop: '-0.25rem' }}>In-depth analytics on cheating risk, answer revisions, and exam flow quality.</p>
                                             <div style={{ display: 'grid', gap: '0.85rem', marginTop: '1rem' }}>
@@ -3539,9 +3562,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                             </div>
                                         </div>
 
-                                        <div style={{ flex: '1 1 320px', minWidth: '280px', padding: '1rem', borderRadius: '24px', background: '#f8fafc', border: '1px solid #dbe4ef', display: 'grid', placeItems: 'center' }}>
+                                        <div style={{ flex: '1 1 320px', minWidth: isMobile ? '100%' : '280px', padding: '1rem', borderRadius: '24px', background: '#f8fafc', border: '1px solid #dbe4ef', display: 'grid', placeItems: 'center' }}>
                                             <div style={{ width: '220px', height: '220px', borderRadius: '999px', background: scorePieGradient, position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(15,23,42,0.08)' }}>
-                                                <div style={{ position: 'absolute', inset: '24%', borderRadius: '999px', background: '#f8fafc' }} />
                                                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#0f172a' }}>
                                                     <div style={{ fontSize: '1.55rem', fontWeight: 900 }}>{scoreTotal}</div>
                                                     <div style={{ fontSize: '0.85rem', marginTop: '0.35rem', color: '#475569' }}>Score distribution segments</div>
@@ -3799,9 +3821,9 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                 <h3>Create New Question</h3>
                                 <p style={mutedStyle}>Draft question text, upload attachments, and configure marks. Select a target section first.</p>
 
-                                <div style={{ padding: '1rem', borderRadius: '16px', background: '#f8fafc', border: '1px solid #dbe4ef', margin: '1.5rem 0' }}>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
-                                        <div style={{ minWidth: '220px' }}>
+                                <div style={{ padding: '0.95rem', borderRadius: '16px', background: '#f8fafc', border: '1px solid #dbe4ef', margin: '1rem 0' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: '0.65rem', alignItems: 'center' }}>
+                                        <div style={{ flex: '1 1 260px', minWidth: 0, maxWidth: isMobile ? '100%' : 'calc(100% - 180px)' }}>
                                             <p style={{ margin: 0, fontWeight: 700, color: '#0f172a' }}>Excel import for bulk questions</p>
                                             <p style={{ margin: '0.35rem 0 0', color: '#475569', fontSize: '0.95rem' }}>
                                                 Download the sample Excel template, then fill questions with section rows, options, and the correct option. The upload parser ignores the header row and creates the section automatically.
@@ -3902,27 +3924,37 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
 
                         {activeView === 'questions' && (
                             <section style={cardStyle}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-                                    <div>
-                                        <h3 style={{ margin: 0, marginBottom: '0.3rem' }}>Question Bank</h3>
-                                        <p style={{ ...mutedStyle, margin: 0 }}>Review, search, and edit existing questions in your database.</p>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.8rem' }}>
+                                    <div style={{ minWidth: 0, flex: '1 1 1px' }}>
+                                        <h3 style={{ margin: 0, marginBottom: '0.2rem' }}>Question Bank</h3>
+                                        <p style={{ ...mutedStyle, margin: 0, lineHeight: 1.4 }}>Review, search, and edit existing questions in your database.</p>
                                     </div>
                                     <button onClick={() => openView('add-question')} style={{ ...primaryBtnStyle, padding: '0.45rem 1rem', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'auto' }}>
                                         <Icon name="add" size={16} /> Add Question
                                     </button>
                                 </div>
 
-                                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
-                                    <label style={{ fontWeight: 600 }}>Filter by Section</label>
-                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
-                                        <select value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)} style={{ ...inputStyle, flex: 1, margin: 0 }}>
+                                <div style={{ display: 'grid', gap: '0.7rem', gridTemplateColumns: isMobile ? '1fr' : 'minmax(220px, 1fr) auto', alignItems: 'end', marginBottom: '0.95rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Filter by Section</label>
+                                        <select value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)} style={{ ...inputStyle, width: '100%', margin: 0 }}>
                                             <option value="">Select section to view</option>
                                             {sections.map((section) => (
                                                 <option key={section._id} value={section._id}>{section.name}</option>
                                             ))}
                                         </select>
-                                        <button onClick={loadQuestions} style={{ ...secondaryBtnStyle, margin: 0, padding: '0 1rem' }}>Load Data</button>
                                     </div>
+                                    <button onClick={loadQuestions} style={{ ...secondaryBtnStyle, margin: 0, padding: '0.75rem 1rem', width: isMobile ? '100%' : 'auto' }}>Load Data</button>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                                    <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Search question text</label>
+                                    <input
+                                        value={questionSearch}
+                                        onChange={(e) => setQuestionSearch(e.target.value)}
+                                        placeholder="Type to filter questions"
+                                        style={inputStyle}
+                                    />
                                 </div>
 
                                 {editingQuestionId && (
@@ -4008,14 +4040,6 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                     </section>
                                 )}
 
-                                <label>Search question text</label>
-                                <input
-                                    value={questionSearch}
-                                    onChange={(e) => setQuestionSearch(e.target.value)}
-                                    placeholder="Type to filter questions"
-                                    style={inputStyle}
-                                />
-
                                 <div style={listStyle}>
                                     {filteredQuestions.length === 0 && <p style={mutedStyle}>No questions loaded for current filter.</p>}
                                     {filteredQuestions.map((question) => (
@@ -4049,32 +4073,34 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
 
                         {activeView === 'students' && (
                             <section style={cardStyle}>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
-                                    <div style={{ flex: 1, minWidth: '280px' }}>
-                                        <h3 style={{ margin: 0 }}>Students & Results</h3>
-                                        <p style={{ ...mutedStyle, margin: '0.5rem 0 0 0' }}>Add, search, and manage existing students who are permitted to sit the exam.</p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.7rem', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.9rem' }}>
+                                    <div style={{ flex: 1, minWidth: isMobile ? '100%' : '280px' }}>
+                                        <h3 style={{ margin: 0 }}>Student Management</h3>
+                                        <p style={{ ...mutedStyle, margin: '0.3rem 0 0 0', lineHeight: 1.4 }}>Add, search, and manage existing students who are permitted to sit the exam.</p>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                        <button onClick={loadStudents} style={primaryBtnStyle}>Refresh Students</button>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', justifyContent: isMobile ? 'stretch' : 'flex-end', alignItems: 'center' }}>
+                                        <button onClick={loadStudents} style={{ ...primaryBtnStyle, width: isMobile ? '100%' : 'auto' }}>Refresh Students</button>
                                         {adminIdentity?.role === 'super_admin' && (
                                             <button
                                                 onClick={promptResetAllStudents}
-                                                style={{ ...dangerBtnStyle, marginTop: 0 }}
+                                                style={{ ...dangerBtnStyle, width: isMobile ? '100%' : 'auto', marginTop: 0 }}
                                             >
                                                 Reset All Students Data
                                             </button>
                                         )}
-                                        <button onClick={exportAllDetailedCsv} style={secondaryBtnStyle}>Export All Students Detailed CSV</button>
+                                        <button onClick={exportAllDetailedCsv} style={{ ...secondaryBtnStyle, width: isMobile ? '100%' : 'auto' }}>Export All Students Detailed CSV</button>
                                     </div>
                                 </div>
 
-                                <label>Search student</label>
-                                <input
-                                    value={studentSearch}
-                                    onChange={(e) => setStudentSearch(e.target.value)}
-                                    placeholder="Name, email, credential"
-                                    style={inputStyle}
-                                />
+                                <div style={{ display: 'grid', gap: '0.55rem', marginBottom: '1rem' }}>
+                                    <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Search student</label>
+                                    <input
+                                        value={studentSearch}
+                                        onChange={(e) => setStudentSearch(e.target.value)}
+                                        placeholder="Name, email, credential"
+                                        style={inputStyle}
+                                    />
+                                </div>
 
                                 <div style={listStyle}>
                                     {filteredStudents.length === 0 && <p style={mutedStyle}>No student records found for the current filter.</p>}
@@ -4085,7 +4111,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                             <p style={mutedStyle}>Credential: {student.studentCredential || '-'}</p>
                                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                                 <button onClick={() => { loadSubmissions(student); openView('responses'); }} style={{ ...primaryBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>View Responses</button>
-                                                {adminIdentity?.role === 'super_admin' && (
+                                                {canDeleteStudents && (
                                                     <button onClick={() => promptDeleteStudent(student)} style={{ ...dangerBtnStyle, padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>Delete Student</button>
                                                 )}
                                             </div>
@@ -4097,10 +4123,10 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
 
                         {activeView === 'student-access' && (
                             <section style={cardStyle}>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                     <div>
                                         <h3 style={{ margin: 0 }}>Student Access Policy</h3>
-                                        <p style={{ ...mutedStyle, margin: '0.5rem 0 0 0' }}>
+                                        <p style={{ ...mutedStyle, margin: '0.35rem 0 0 0' }}>
                                             Choose whether this organization only allows registered students to start exams, or if any student may join using the organization code.
                                         </p>
                                     </div>
@@ -4176,7 +4202,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                 <section style={{ ...cardStyle, background: '#f9fbff', border: '1px solid #dde7f3', marginTop: '1.5rem' }}>
                                     <h4 style={{ margin: '0 0 0.8rem 0' }}>Add New Student</h4>
                                     <form onSubmit={createStudent} style={{ display: 'grid', gap: '0.85rem' }}>
-                                        <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: '1fr 1fr' }}>
+                                        <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
                                             <div>
                                                 <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Student Name</label>
                                                 <input
@@ -4280,7 +4306,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                     {editingStudentId && (
                                         <form onSubmit={saveStudentEdit} style={{ display: 'grid', gap: '0.85rem', marginBottom: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '14px' }}>
                                             <h5 style={{ margin: '0 0 0.75rem 0' }}>Edit student</h5>
-                                            <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: '1fr 1fr' }}>
+                                            <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
                                                 <div>
                                                     <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Name</label>
                                                     <input value={editStudentName} onChange={(e) => setEditStudentName(e.target.value)} style={inputStyle} />
@@ -4328,25 +4354,31 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                         )}
 
                         {activeView === 'responses' && (
-                            <section style={{ ...cardStyle, background: '#ffffff', padding: '1.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1.5rem', borderBottom: '2px solid #f0f4f9', paddingBottom: '1.2rem' }}>
-                                    <div style={{ flex: 1, minWidth: '300px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <section style={{ ...cardStyle, background: '#ffffff', padding: '1.3rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem', borderBottom: '2px solid #f0f4f9', paddingBottom: '1rem' }}>
+                                    <div style={{ flex: 1, minWidth: isMobile ? '100%' : '300px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                                             <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'linear-gradient(135deg, #1e4db7, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.5rem', fontWeight: 800, flexShrink: 0 }}>
                                                 {selectedStudent?.name?.charAt(0) || 'S'}
                                             </div>
                                             <div>
-                                                <h3 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a', lineHeight: 1.2 }}>{selectedStudent?.name || 'Candidate Responses'}</h3>
-                                                <p style={{ ...mutedStyle, margin: '0.2rem 0 0 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ fontSize: '0.85rem' }}>{selectedStudent?.email}</span>
-                                                    <span style={{ color: '#cbd5e1' }}>|</span>
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>ID: {selectedStudent?.studentCredential}</span>
+                                                <h3 style={{ margin: 0, fontSize: '1.5rem', color: '#0f172a', lineHeight: 1.2 }}>{selectedStudent?.name || 'Student Responses'}</h3>
+                                                <p style={{ ...mutedStyle, margin: '0.2rem 0 0 0', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                                                    {selectedStudent ? (
+                                                        <>
+                                                            <span style={{ fontSize: '0.85rem' }}>{selectedStudent.email}</span>
+                                                            <span style={{ color: '#cbd5e1' }}>|</span>
+                                                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>ID: {selectedStudent.studentCredential}</span>
+                                                        </>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.95rem', color: '#475569' }}>Select a student below to review their submitted responses.</span>
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                        <button onClick={() => openView('students')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}><Icon name="arrow-left" size={16} /> Exit View</button>
+                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <button onClick={() => openView('students')} style={{ ...secondaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}><Icon name="arrow-left" size={16} /> Back to Students</button>
                                         <button onClick={exportSelectedStudentCsv} style={{ ...primaryBtnStyle, width: 'auto', marginTop: 0, padding: '0.6rem 1.2rem', borderRadius: '10px', fontSize: '0.9rem' }}>Export Detailed PDF/CSV</button>
                                     </div>
                                 </div>
@@ -4362,7 +4394,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                                 key={submission.section?.name || submission._id}
                                                 type="button"
                                                 onClick={() => promptDeleteSubmission(submission)}
-                                                style={{ ...dangerBtnStyle, padding: '0.75rem 1rem', fontSize: '0.88rem', minWidth: '220px' }}
+                                                style={{ ...dangerBtnStyle, padding: '0.75rem 1rem', fontSize: '0.88rem', minWidth: isMobile ? '100%' : '220px' }}
                                             >
                                                 Delete {submission.section?.name || 'Section'} response
                                             </button>
@@ -4370,14 +4402,14 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                     </div>
                                 )}
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 360px) 1fr', gap: '1.5rem', alignItems: 'start' }}>
-                                    <aside style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'sticky', top: '1.5rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(320px, 360px) 1fr', gap: '1.5rem', alignItems: 'start' }}>
+                                    <aside style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'sticky', top: isMobile ? '0' : '1.5rem' }}>
                                         <section style={{ ...cardStyle, background: '#f8fafc', border: '1px solid #dbeafe', padding: '1rem' }}>
-                                            <h4 style={{ margin: '0 0 0.8rem 0' }}>Response Management</h4>
+                                            <h4 style={{ margin: '0 0 0.9rem 0', color: '#0f3c79' }}>Admin response management</h4>
                                             <p style={{ ...mutedStyle, marginBottom: '1rem' }}>
-                                                Manage student deletion and response reset actions from one dedicated control panel.
+                                                Admins can delete a student entirely, clear all of a student's responses, or remove individual section submissions below.
                                             </p>
-                                            {adminIdentity?.role === 'super_admin' && (
+                                            {canDeleteStudents && (
                                                 <button
                                                     type="button"
                                                     onClick={() => selectedStudent && promptDeleteStudent(selectedStudent)}
@@ -4395,14 +4427,16 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                             >
                                                 Delete student responses
                                             </button>
-                                            <button
-                                                type="button"
-                                                onClick={promptDeleteAllResponses}
-                                                style={{ ...dangerBtnStyle, width: '100%', padding: '0.8rem 1rem', fontSize: '0.95rem' }}
-                                                disabled={submissions.length === 0}
-                                            >
-                                                Delete all responses
-                                            </button>
+                                            {canDeleteAllResponses && (
+                                                <button
+                                                    type="button"
+                                                    onClick={promptDeleteAllResponses}
+                                                    style={{ ...dangerBtnStyle, width: '100%', padding: '0.8rem 1rem', fontSize: '0.95rem' }}
+                                                    disabled={submissions.length === 0}
+                                                >
+                                                    Delete all responses
+                                                </button>
+                                            )}
                                             <p style={{ ...mutedStyle, margin: '1rem 0 0 0', fontSize: '0.9rem' }}>
                                                 These actions are now grouped in one easy-to-use section. You can still delete responses section-by-section using the button on each submission card.
                                             </p>
@@ -4598,6 +4632,44 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        ) : students.length > 0 ? (
+                                            <div style={{ display: 'grid', gap: '1.5rem' }}>
+                                                <div style={{ padding: '1rem 0' }}>
+                                                    <h4 style={{ margin: 0, fontSize: '1.4rem', color: '#0f172a' }}>Browse student responses</h4>
+                                                    <p style={{ ...mutedStyle, margin: '0.75rem 0 0', maxWidth: '720px' }}>
+                                                        Select a student below to open their submitted responses and section analytics. This view is optimized for teachers and administrators reviewing individual performance without requiring a committed student selection ahead of time.
+                                                    </p>
+                                                </div>
+
+                                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
+                                                    {students.map((student) => (
+                                                        <div key={student._id} style={{ padding: '1.2rem', borderRadius: '18px', background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 10px 24px rgba(15,23,42,0.05)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                                                <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#eff6ff', color: '#1d4ed8', fontWeight: 800, display: 'grid', placeItems: 'center', fontSize: '1rem', flexShrink: 0 }}>
+                                                                    {student.name?.charAt(0).toUpperCase() || 'S'}
+                                                                </div>
+                                                                <div style={{ minWidth: 0 }}>
+                                                                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.name}</div>
+                                                                    <div style={{ fontSize: '0.85rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.email}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'grid', gap: '0.35rem', color: '#475569', fontSize: '0.92rem' }}>
+                                                                <span><strong style={{ color: '#0f172a' }}>Credential:</strong> {student.studentCredential || 'Not available'}</span>
+                                                                <span><strong style={{ color: '#0f172a' }}>Profile status:</strong> Registered student</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => loadSubmissions(student)}
+                                                                    style={{ ...primaryBtnStyle, width: 'auto', padding: '0.8rem 1.1rem', minWidth: 'auto' }}
+                                                                >
+                                                                    View Responses
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         ) : (
                                             <div style={{ padding: '4rem 2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
@@ -5896,9 +5968,9 @@ const cardStyle: React.CSSProperties = {
     minWidth: 0,
     background: '#ffffff',
     border: '1px solid rgba(148, 163, 184, 0.18)',
-    borderRadius: '20px',
-    padding: '1rem',
-    boxShadow: '0 20px 40px rgba(15, 23, 42, 0.08)',
+    borderRadius: '18px',
+    padding: '0.8rem',
+    boxShadow: '0 18px 32px rgba(15, 23, 42, 0.08)',
     overflow: 'hidden'
 };
 
@@ -5916,18 +5988,18 @@ const primaryBtnStyle: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.5rem',
-    minWidth: '170px',
+    gap: '0.45rem',
+    minWidth: '140px',
     maxWidth: '100%',
-    marginTop: '0.4rem',
-    padding: '0.95rem 1.3rem',
-    borderRadius: '14px',
+    marginTop: '0.3rem',
+    padding: '0.78rem 1.15rem',
+    borderRadius: '12px',
     border: 'none',
     background: 'linear-gradient(120deg, #1d60e0, #2e90ff)',
     color: '#ffffff',
     fontWeight: 700,
     cursor: 'pointer',
-    boxShadow: '0 12px 24px rgba(15, 23, 42, 0.12)',
+    boxShadow: '0 10px 20px rgba(15, 23, 42, 0.12)',
     transition: 'transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease'
 };
 
@@ -5935,12 +6007,12 @@ const secondaryBtnStyle: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '0.5rem',
-    minWidth: '170px',
+    gap: '0.45rem',
+    minWidth: '140px',
     maxWidth: '100%',
-    marginTop: '0.4rem',
-    padding: '0.95rem 1.3rem',
-    borderRadius: '14px',
+    marginTop: '0.3rem',
+    padding: '0.78rem 1.15rem',
+    borderRadius: '12px',
     border: '1px solid #c5d4ef',
     background: '#f5f8ff',
     color: '#1f3f72',
@@ -5983,6 +6055,7 @@ const gridStyle: React.CSSProperties = {
 
 const listStyle: React.CSSProperties = {
     marginTop: '0.45rem',
+    minHeight: '240px',
     maxHeight: 'calc(100vh - 360px)',
     overflow: 'auto'
 };
