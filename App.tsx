@@ -41,8 +41,16 @@ const StudentApp: React.FC = () => {
   const [examStartAt, setExamStartAt] = useState<string | null>(null);
   const [examForceEndedAt, setExamForceEndedAt] = useState<string | null>(null);
   const [autoSubmitAfterTime, setAutoSubmitAfterTime] = useState(true);
+  const [maxCheatingAttempts, setMaxCheatingAttempts] = useState(3);
   const [calculatorEnabled, setCalculatorEnabled] = useState(false);
   const [activeCalculatorType, setActiveCalculatorType] = useState<CalculatorMode | null>(null);
+  const STUDENT_INACTIVITY_TIMEOUT_MS = 3 * 60 * 60 * 1000;
+  const STUDENT_LAST_ACTIVITY_KEY = 'studentLastActivityAt';
+
+  const refreshStudentActivity = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STUDENT_LAST_ACTIVITY_KEY, String(Date.now()));
+  }, []);
   const [questionInteractions, setQuestionInteractions] = useState<Record<string, QuestionInteraction>>({});
   const [totalOptionChanges, setTotalOptionChanges] = useState(0);
   const [submissionMeta, setSubmissionMeta] = useState<SubmissionMeta>(makeDefaultSubmissionMeta());
@@ -263,7 +271,7 @@ const StudentApp: React.FC = () => {
   const antiCheat = useAntiCheat({
     enabled: isProtectionActive,
     trackViolations: isExamActive,
-    maxViolations: 3,
+    maxViolations: maxCheatingAttempts,
     onAutoSubmit: handleAutoSubmit,
     onSecurityEvent: sendSecurityEvent,
   });
@@ -306,6 +314,12 @@ const StudentApp: React.FC = () => {
           setActiveCalculatorType(
             (examConfig.activeCalculatorType as CalculatorMode) || null,
           );
+          if (
+            Number.isInteger(examConfig.maxCheatingAttempts) &&
+            examConfig.maxCheatingAttempts >= 1
+          ) {
+            setMaxCheatingAttempts(examConfig.maxCheatingAttempts);
+          }
         }
       } catch {
         // Silence transient poll errors.
@@ -361,6 +375,42 @@ const StudentApp: React.FC = () => {
     submitLockRef.current = false;
   };
 
+  useEffect(() => {
+    if (!studentToken) return undefined;
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    const handleActivity = () => refreshStudentActivity();
+
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, handleActivity));
+
+    const intervalId = window.setInterval(() => {
+      const lastActivity = Number(localStorage.getItem(STUDENT_LAST_ACTIVITY_KEY) || '0');
+      if (lastActivity && Date.now() - lastActivity >= STUDENT_INACTIVITY_TIMEOUT_MS) {
+        setApiError('You have been logged out after 3 hours of inactivity. Please sign in again to continue.');
+        resetExam();
+      }
+    }, 60 * 1000);
+
+    refreshStudentActivity();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === STUDENT_LAST_ACTIVITY_KEY && event.newValue) {
+        const lastActivity = Number(event.newValue);
+        if (Date.now() - lastActivity < STUDENT_INACTIVITY_TIMEOUT_MS) {
+          refreshStudentActivity();
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, handleActivity));
+      window.removeEventListener('storage', handleStorage);
+      window.clearInterval(intervalId);
+    };
+  }, [refreshStudentActivity, resetExam, studentToken]);
+
   const initializeStudentExam = useCallback(async (token: string, displayName: string, loginId: string) => {
     setStudentToken(token);
 
@@ -393,6 +443,12 @@ const StudentApp: React.FC = () => {
     setActiveCalculatorType(
       (examConfig.activeCalculatorType as CalculatorMode) || null,
     );
+    if (
+      Number.isInteger(examConfig.maxCheatingAttempts) &&
+      examConfig.maxCheatingAttempts >= 1
+    ) {
+      setMaxCheatingAttempts(examConfig.maxCheatingAttempts);
+    }
 
     const sectionsResponse = await apiRequest<{ data: Array<{ _id: string; name: string }> }>('/api/student/sections', {
       headers: {

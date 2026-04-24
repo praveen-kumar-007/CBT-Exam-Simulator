@@ -159,7 +159,9 @@ export const useAntiCheat = ({
       } else {
         const remaining = maxViolations - newCount;
         setWarningMessage(
-          `⚠️ VIOLATION DETECTED: ${message}\n\nWarning ${newCount}/${maxViolations} — ${remaining} more violation${remaining > 1 ? "s" : ""} will auto-submit your exam!`,
+          `⚠️ Policy violation detected: ${message}\n\n` +
+            `Recorded ${newCount} of ${maxViolations} allowed violations. ` +
+            `${remaining} more warning${remaining > 1 ? "s" : ""} before the exam is auto-submitted.`,
         );
 
         if (warningTimeoutRef.current) {
@@ -180,8 +182,25 @@ export const useAntiCheat = ({
     }
   }, []);
 
+  const getFullScreenElement = useCallback(() => {
+    return (
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).msFullscreenElement ||
+      null
+    );
+  }, []);
+
+  const isCurrentlyFullScreen = useCallback(() => {
+    return !!getFullScreenElement();
+  }, [getFullScreenElement]);
+
   const enterFullScreen = useCallback(async () => {
     try {
+      if (isCurrentlyFullScreen()) {
+        return;
+      }
+
       const el = document.documentElement;
       if (el.requestFullscreen) {
         await el.requestFullscreen();
@@ -190,30 +209,31 @@ export const useAntiCheat = ({
       } else if ((el as any).msRequestFullscreen) {
         await (el as any).msRequestFullscreen();
       }
-      hasEnteredFullScreenRef.current = true;
+      hasEnteredFullScreenRef.current = !!getFullScreenElement();
     } catch (err) {
       console.warn(
-        "Failed to enter full-screen (might be unsupported on this device):",
+        "Failed to enter full-screen (might be unsupported or blocked by browser):",
         err,
       );
-      // Fallback for mobile devices (like iOS Safari) that block requestFullscreen
-      hasEnteredFullScreenRef.current = true;
+      hasEnteredFullScreenRef.current = !!getFullScreenElement();
     }
-  }, []);
+  }, [getFullScreenElement, isCurrentlyFullScreen]);
 
   const exitFullScreen = useCallback(async () => {
     try {
-      if (document.fullscreenElement) {
+      if (getFullScreenElement()) {
         if (document.exitFullscreen) {
           await document.exitFullscreen();
         } else if ((document as any).webkitExitFullscreen) {
           await (document as any).webkitExitFullscreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
         }
       }
     } catch (err) {
       console.warn("Failed to exit full-screen:", err);
     }
-  }, []);
+  }, [getFullScreenElement]);
 
   /** Fully resets all internal state — call on exam restart / return to login */
   const reset = useCallback(() => {
@@ -239,7 +259,7 @@ export const useAntiCheat = ({
 
     // --- Full-screen change detection ---
     const handleFullScreenChange = () => {
-      const isFull = !!document.fullscreenElement;
+      const isFull = isCurrentlyFullScreen();
       setIsFullScreen(isFull);
       isFullScreenRef.current = isFull;
 
@@ -533,7 +553,7 @@ export const useAntiCheat = ({
 
     // --- Aggressive Full Screen Enforcement (Background & Interaction) ---
     const enforceFullScreen = () => {
-      if (!document.fullscreenElement) {
+      if (!isCurrentlyFullScreen()) {
         enterFullScreen().catch(() => {});
       }
     };
@@ -564,6 +584,8 @@ export const useAntiCheat = ({
     // --- Attach event listeners ---
     document.addEventListener("fullscreenchange", handleFullScreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullScreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullScreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullScreenChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("resize", handleWindowResize);
@@ -602,6 +624,14 @@ export const useAntiCheat = ({
       document.removeEventListener("fullscreenchange", handleFullScreenChange);
       document.removeEventListener(
         "webkitfullscreenchange",
+        handleFullScreenChange,
+      );
+      document.removeEventListener(
+        "mozfullscreenchange",
+        handleFullScreenChange,
+      );
+      document.removeEventListener(
+        "MSFullscreenChange",
         handleFullScreenChange,
       );
       document.removeEventListener("visibilitychange", handleVisibilityChange);

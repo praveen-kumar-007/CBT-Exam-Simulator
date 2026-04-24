@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import NotificationBanner from '../src/components/NotificationBanner';
 import Calculator, { CalculatorMode, loadCalculatorSettings, saveCalculatorSettings } from '../src/components/Calculator';
 
@@ -160,6 +160,7 @@ type ExamConfig = {
     durationInMinutes: number;
     officialEntryWindowInMinutes?: number;
     sectionReentryWindowInMinutes?: number;
+    maxCheatingAttempts?: number;
     examinerName?: string;
     startAt?: string | null;
     forceEndedAt?: string | null;
@@ -438,6 +439,7 @@ export const AdminApp: React.FC = () => {
     const [examDuration, setExamDuration] = useState(60);
     const [examinerName, setExaminerName] = useState('CBT Examination Cell');
     const [examStartAt, setExamStartAt] = useState('');
+    const [examMaxCheatingAttempts, setExamMaxCheatingAttempts] = useState(3);
     const [isExamStartPickerOpen, setIsExamStartPickerOpen] = useState(false);
     const [examStartDate, setExamStartDate] = useState('');
     const [examStartTime, setExamStartTime] = useState('');
@@ -839,6 +841,7 @@ export const AdminApp: React.FC = () => {
             setExamDuration(result.data?.durationInMinutes || 60);
             setExamOfficialEntryWindow(result.data?.officialEntryWindowInMinutes ?? 30);
             setExamSectionReentryWindow(result.data?.sectionReentryWindowInMinutes ?? 15);
+            setExamMaxCheatingAttempts(result.data?.maxCheatingAttempts ?? 3);
             setExaminerName(result.data?.examinerName || 'CBT Examination Cell');
             setCalculatorEnabled(result.data?.calculatorEnabled ?? false);
             setActiveCalculatorType(result.data?.activeCalculatorType || null);
@@ -859,6 +862,7 @@ export const AdminApp: React.FC = () => {
                 setExamDuration(60);
                 setExamOfficialEntryWindow(30);
                 setExamSectionReentryWindow(15);
+                setExamMaxCheatingAttempts(3);
                 setExaminerName('CBT Examination Cell');
                 setExamStartAt('');
                 setExamAutoSubmitAfterTime(true);
@@ -1514,6 +1518,11 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
             return;
         }
 
+        if (!Number.isInteger(examMaxCheatingAttempts) || examMaxCheatingAttempts < 1 || examMaxCheatingAttempts > 99) {
+            setError('Max cheating attempts must be an integer between 1 and 99.');
+            return;
+        }
+
         if (!examinerName.trim() || examinerName.trim().length < 2) {
             setError('Examiner name must be at least 2 characters.');
             return;
@@ -1530,6 +1539,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                         durationInMinutes: examDuration,
                         officialEntryWindowInMinutes: examOfficialEntryWindow,
                         sectionReentryWindowInMinutes: examSectionReentryWindow,
+                        maxCheatingAttempts: examMaxCheatingAttempts,
                         examinerName: examinerName.trim(),
                         startAt: formattedStartAt,
                         autoSubmitAfterTime: examAutoSubmitAfterTime,
@@ -1543,6 +1553,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
             setExamDuration(result.data?.durationInMinutes || examDuration);
             setExamOfficialEntryWindow(result.data?.officialEntryWindowInMinutes ?? examOfficialEntryWindow);
             setExamSectionReentryWindow(result.data?.sectionReentryWindowInMinutes ?? examSectionReentryWindow);
+            setExamMaxCheatingAttempts(result.data?.maxCheatingAttempts ?? examMaxCheatingAttempts);
             setExaminerName(result.data?.examinerName || examinerName.trim());
             setExamStartAt(localStart);
             setExamStartDate(localStart ? localStart.slice(0, 10) : '');
@@ -1577,6 +1588,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                     durationInMinutes: examDuration,
                     officialEntryWindowInMinutes: examOfficialEntryWindow,
                     sectionReentryWindowInMinutes: examSectionReentryWindow,
+                    maxCheatingAttempts: examMaxCheatingAttempts,
                     examinerName: examinerName.trim(),
                     startAt: startAtValue ? new Date(startAtValue).toISOString() : null,
                     autoSubmitAfterTime: examAutoSubmitAfterTime,
@@ -1590,6 +1602,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         setExamDuration(result.data?.durationInMinutes || examDuration);
         setExamOfficialEntryWindow(result.data?.officialEntryWindowInMinutes ?? examOfficialEntryWindow);
         setExamSectionReentryWindow(result.data?.sectionReentryWindowInMinutes ?? examSectionReentryWindow);
+        setExamMaxCheatingAttempts(result.data?.maxCheatingAttempts ?? examMaxCheatingAttempts);
         setExaminerName(result.data?.examinerName || examinerName.trim());
         setCalculatorEnabled(result.data?.calculatorEnabled ?? enabled);
         setActiveCalculatorType(result.data?.activeCalculatorType || null);
@@ -2314,6 +2327,52 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
         navigate('/admin/login');
     };
 
+    const ADMIN_INACTIVITY_TIMEOUT_MS = 3 * 60 * 60 * 1000;
+    const ADMIN_LAST_ACTIVITY_KEY = 'adminLastActivityAt';
+
+    const refreshAdminActivity = useCallback(() => {
+        if (typeof window === 'undefined') return;
+        localStorage.setItem(ADMIN_LAST_ACTIVITY_KEY, String(Date.now()));
+    }, []);
+
+    useEffect(() => {
+        if (!token || typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+        const handleActivity = () => refreshAdminActivity();
+
+        events.forEach((eventName) => window.addEventListener(eventName, handleActivity));
+
+        const intervalId = window.setInterval(() => {
+            const lastActivity = Number(localStorage.getItem(ADMIN_LAST_ACTIVITY_KEY) || '0');
+            if (lastActivity && Date.now() - lastActivity >= ADMIN_INACTIVITY_TIMEOUT_MS) {
+                setStatus('You have been logged out after 3 hours of inactivity.');
+                logout();
+            }
+        }, 60 * 1000);
+
+        refreshAdminActivity();
+
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key === ADMIN_LAST_ACTIVITY_KEY && event.newValue) {
+                const lastActivity = Number(event.newValue);
+                if (Date.now() - lastActivity < ADMIN_INACTIVITY_TIMEOUT_MS) {
+                    refreshAdminActivity();
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorage);
+
+        return () => {
+            events.forEach((eventName) => window.removeEventListener(eventName, handleActivity));
+            window.removeEventListener('storage', handleStorage);
+            window.clearInterval(intervalId);
+        };
+    }, [token, logout, refreshAdminActivity]);
+
     useEffect(() => {
         if (mode === 'dashboard' && token) {
             const currentAdminIdentity = readAdminIdentity();
@@ -2346,6 +2405,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                 loadQuestions().catch(() => { });
             } else if (sections.length === 0) {
                 loadSections().catch(() => { });
+            } else if (sections.length > 0 && !selectedSectionId) {
+                setSelectedSectionId(sections[0]._id);
             }
         }
 
@@ -3440,7 +3501,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                             <button
                                 onClick={logout}
                                 style={{
-                                    display: 'inline-flex',
+                                    display: isMobile ? 'none' : 'inline-flex',
                                     position: isMobile ? 'relative' : 'absolute',
                                     top: isMobile ? undefined : '1rem',
                                     right: isMobile ? undefined : '1rem',
@@ -3934,8 +3995,8 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                     </button>
                                 </div>
 
-                                <div style={{ display: 'grid', gap: '0.7rem', gridTemplateColumns: isMobile ? '1fr' : 'minmax(220px, 1fr) auto', alignItems: 'end', marginBottom: '0.95rem' }}>
-                                    <div>
+                                <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', alignItems: 'end', marginBottom: '0.95rem', minWidth: 0 }}>
+                                    <div style={{ minWidth: 0 }}>
                                         <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Filter by Section</label>
                                         <select value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)} style={{ ...inputStyle, width: '100%', margin: 0 }}>
                                             <option value="">Select section to view</option>
@@ -3944,7 +4005,7 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                             ))}
                                         </select>
                                     </div>
-                                    <button onClick={loadQuestions} style={{ ...secondaryBtnStyle, margin: 0, padding: '0.75rem 1rem', width: isMobile ? '100%' : 'auto' }}>Load Data</button>
+                                    <button onClick={loadQuestions} style={{ ...secondaryBtnStyle, margin: 0, padding: '0.75rem 1rem', width: isMobile ? '100%' : 'auto', whiteSpace: 'nowrap' }}>Load Data</button>
                                 </div>
 
                                 <div style={{ display: 'grid', gap: '0.5rem', marginBottom: '0.85rem' }}>
@@ -4078,17 +4139,17 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                         <h3 style={{ margin: 0 }}>Student Management</h3>
                                         <p style={{ ...mutedStyle, margin: '0.3rem 0 0 0', lineHeight: 1.4 }}>Add, search, and manage existing students who are permitted to sit the exam.</p>
                                     </div>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', justifyContent: isMobile ? 'stretch' : 'flex-end', alignItems: 'center' }}>
-                                        <button onClick={loadStudents} style={{ ...primaryBtnStyle, width: isMobile ? '100%' : 'auto' }}>Refresh Students</button>
+                                    <div style={{ display: 'grid', gap: '0.65rem', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(170px, auto))', justifyContent: isMobile ? 'stretch' : 'end', alignItems: 'end' }}>
+                                        <button onClick={loadStudents} style={{ ...primaryBtnStyle, width: '100%', whiteSpace: 'nowrap' }}>Refresh Students</button>
                                         {adminIdentity?.role === 'super_admin' && (
                                             <button
                                                 onClick={promptResetAllStudents}
-                                                style={{ ...dangerBtnStyle, width: isMobile ? '100%' : 'auto', marginTop: 0 }}
+                                                style={{ ...dangerBtnStyle, width: '100%', whiteSpace: 'nowrap' }}
                                             >
                                                 Reset All Students Data
                                             </button>
                                         )}
-                                        <button onClick={exportAllDetailedCsv} style={{ ...secondaryBtnStyle, width: isMobile ? '100%' : 'auto' }}>Export All Students Detailed CSV</button>
+                                        <button onClick={exportAllDetailedCsv} style={{ ...secondaryBtnStyle, width: '100%', whiteSpace: 'nowrap' }}>Export All Students Detailed CSV</button>
                                     </div>
                                 </div>
 
@@ -4720,6 +4781,19 @@ Use this prompt to generate an exam paper in a structured Excel-ready format.
                                         style={inputStyle}
                                         required
                                     />
+                                    <label>Max Allowed Cheating Attempts</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={99}
+                                        value={examMaxCheatingAttempts}
+                                        onChange={(e) => setExamMaxCheatingAttempts(Number(e.target.value))}
+                                        style={inputStyle}
+                                        required
+                                    />
+                                    <p style={{ ...mutedStyle, margin: '0 0 0.75rem 0' }}>
+                                        Students are auto-submitted when they hit this number of detected violations.
+                                    </p>
                                     <label>Exam Start Date &amp; Time</label>
                                     <div style={{ position: 'relative', width: '100%' }}>
                                         <button
@@ -6054,17 +6128,21 @@ const gridStyle: React.CSSProperties = {
 };
 
 const listStyle: React.CSSProperties = {
+    boxSizing: 'border-box',
     marginTop: '0.45rem',
-    minHeight: '240px',
-    maxHeight: 'calc(100vh - 360px)',
-    overflow: 'auto'
+    minHeight: '220px',
+    maxHeight: 'calc(100vh - 320px)',
+    overflow: 'auto',
+    minWidth: 0
 };
 
 const itemStyle: React.CSSProperties = {
+    boxSizing: 'border-box',
     padding: '0.75rem 0',
     borderBottom: '1px solid #d8e8f3',
     marginBottom: 0,
-    background: 'transparent'
+    background: 'transparent',
+    minWidth: 0
 };
 
 const mutedStyle: React.CSSProperties = {

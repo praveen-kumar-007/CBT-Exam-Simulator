@@ -26,19 +26,24 @@ const ViolationWarningOverlay: React.FC<ViolationWarningOverlayProps> = ({
             <h2 className="mb-2 text-2xl font-bold text-red-700">{String.fromCodePoint(0x26A0, 0xFE0F)} CHEATING DETECTED</h2>
             <p className="mb-4 whitespace-pre-line text-sm leading-relaxed text-gray-700">{message}</p>
 
-            <div className="mb-2 h-3 w-full rounded-full bg-gray-200">
+            <div className="mb-4 text-sm uppercase tracking-[0.18em] text-slate-500">
+                Violations: {violationCount} / {maxViolations}
+            </div>
+            <div className="mb-2 h-3 w-full rounded-full bg-slate-200">
                 <div
                     className="h-3 rounded-full transition-all duration-500"
                     style={{
-                        width: `${(violationCount / maxViolations) * 100}%`,
+                        width: `${Math.min(100, (violationCount / maxViolations) * 100)}%`,
                         background: violationCount >= maxViolations - 1
-                            ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                            ? 'linear-gradient(90deg, #dc2626, #b91c1c)'
                             : 'linear-gradient(90deg, #f59e0b, #ef4444)',
                     }}
                 />
             </div>
-            <p className="mb-6 text-xs text-gray-500">
-                {violationCount} of {maxViolations} violations {String.fromCodePoint(0x2014)} exam will auto-submit at {maxViolations}
+            <p className="mb-6 text-sm leading-6 text-slate-600">
+                {violationCount === maxViolations
+                    ? 'The exam is being submitted automatically due to repeated policy violations.'
+                    : `You have triggered ${violationCount} of ${maxViolations} allowed violations. ${maxViolations - violationCount} more will result in automatic submission.`}
             </p>
 
             <button

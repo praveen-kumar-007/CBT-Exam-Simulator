@@ -11,6 +11,7 @@ type StudentExamConfigResponse = {
     durationInMinutes: number;
     officialEntryWindowInMinutes?: number;
     sectionReentryWindowInMinutes?: number;
+    maxCheatingAttempts?: number;
     examinerName?: string;
     startAt?: string | null;
     forceEndedAt?: string | null;
@@ -66,6 +67,10 @@ export const getStudentExamConfig = async (token: string) => {
 
     return {
       durationInMinutes: safeDuration,
+      maxCheatingAttempts:
+        Number.isInteger(config?.data?.maxCheatingAttempts) && config.data.maxCheatingAttempts >= 1
+          ? config.data.maxCheatingAttempts
+          : 3,
       examinerName: config?.data?.examinerName || "CBT Examination Cell",
       startAt: config?.data?.startAt || null,
       forceEndedAt: config?.data?.forceEndedAt || null,
@@ -92,6 +97,7 @@ export const getStudentExamConfig = async (token: string) => {
 
   return {
     durationInMinutes: defaultExamData.durationInMinutes,
+    maxCheatingAttempts: undefined,
     examinerName: "CBT Examination Cell",
     startAt: null,
     forceEndedAt: null,
