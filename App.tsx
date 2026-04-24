@@ -43,6 +43,7 @@ const StudentApp: React.FC = () => {
   const [autoSubmitAfterTime, setAutoSubmitAfterTime] = useState(true);
   const [maxCheatingAttempts, setMaxCheatingAttempts] = useState(3);
   const [calculatorEnabled, setCalculatorEnabled] = useState(false);
+  const [isDemoSession, setIsDemoSession] = useState(false);
   const [activeCalculatorType, setActiveCalculatorType] = useState<CalculatorMode | null>(null);
   const STUDENT_INACTIVITY_TIMEOUT_MS = 3 * 60 * 60 * 1000;
   const STUDENT_LAST_ACTIVITY_KEY = 'studentLastActivityAt';
@@ -315,6 +316,7 @@ const StudentApp: React.FC = () => {
             (examConfig.activeCalculatorType as CalculatorMode) || null,
           );
           if (
+            typeof examConfig.maxCheatingAttempts === 'number' &&
             Number.isInteger(examConfig.maxCheatingAttempts) &&
             examConfig.maxCheatingAttempts >= 1
           ) {
@@ -372,6 +374,7 @@ const StudentApp: React.FC = () => {
     setTotalOptionChanges(0);
     setSubmissionMeta(makeDefaultSubmissionMeta());
     setActiveCalculatorType(null);
+    setIsDemoSession(false);
     submitLockRef.current = false;
   };
 
@@ -411,39 +414,41 @@ const StudentApp: React.FC = () => {
     };
   }, [refreshStudentActivity, resetExam, studentToken]);
 
-  const initializeStudentExam = useCallback(async (token: string, displayName: string, loginId: string) => {
+  const initializeStudentExam = useCallback(async (token: string, displayName: string, loginId: string, isDemo = false) => {
     setStudentToken(token);
+    setIsDemoSession(isDemo);
 
     const examConfig = await getStudentExamConfig(token);
     const now = new Date();
-    const examStart = examConfig.startAt ? new Date(examConfig.startAt) : null;
-    const examEnded = examConfig.forceEndedAt ? new Date(examConfig.forceEndedAt) : null;
+    const examStart = isDemo ? null : examConfig.startAt ? new Date(examConfig.startAt) : null;
+    const examEnded = isDemo ? null : examConfig.forceEndedAt ? new Date(examConfig.forceEndedAt) : null;
     const examEntryEnds = examStart
       ? new Date(examStart.getTime() + 30 * 60 * 1000)
       : null;
 
-    if (examStart && now < examStart) {
+    if (!isDemo && examStart && now < examStart) {
       throw new Error(`Exam access opens at ${examStart.toLocaleString()}. Please log in at the scheduled start time.`);
     }
 
-    if (examEntryEnds && now > examEntryEnds) {
+    if (!isDemo && examEntryEnds && now > examEntryEnds) {
       throw new Error(
         'Exam entry has closed. Students may only start within 30 minutes after the scheduled exam start time.',
       );
     }
 
-    if (examEnded && now >= examEnded) {
+    if (!isDemo && examEnded && now >= examEnded) {
       throw new Error('The scheduled exam period has ended. Please contact your administrator.');
     }
 
-    setExamStartAt(examConfig.startAt || null);
-    setExamForceEndedAt(examConfig.forceEndedAt || null);
+    setExamStartAt(isDemo ? null : examConfig.startAt || null);
+    setExamForceEndedAt(isDemo ? null : examConfig.forceEndedAt || null);
     setAutoSubmitAfterTime(examConfig.autoSubmitAfterTime ?? true);
     setCalculatorEnabled(examConfig.calculatorEnabled ?? false);
     setActiveCalculatorType(
       (examConfig.activeCalculatorType as CalculatorMode) || null,
     );
     if (
+      typeof examConfig.maxCheatingAttempts === 'number' &&
       Number.isInteger(examConfig.maxCheatingAttempts) &&
       examConfig.maxCheatingAttempts >= 1
     ) {
@@ -502,7 +507,11 @@ const StudentApp: React.FC = () => {
     submitLockRef.current = false;
 
     setTimeout(() => {
-      setGameState(GameState.Instructions);
+      if (isDemo) {
+        startExam();
+      } else {
+        setGameState(GameState.Instructions);
+      }
       setIsGateOpening(false);
     }, 2200);
   }, []);
@@ -510,6 +519,7 @@ const StudentApp: React.FC = () => {
   const handleLoginGateway = useCallback(async (studentName: string, rollNumber: string, organizationCode: string) => {
     setIsGateOpening(true);
     setApiError('');
+    setIsDemoSession(false);
 
     try {
       const session = await apiRequest<{ data: { token: string } }>('/api/auth/student/session', {
@@ -518,7 +528,7 @@ const StudentApp: React.FC = () => {
       });
 
       const token = session.data.token;
-      await initializeStudentExam(token, studentName, rollNumber);
+      await initializeStudentExam(token, studentName, rollNumber, false);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to start exam session.';
       setApiError(message);
@@ -529,6 +539,7 @@ const StudentApp: React.FC = () => {
   const handleDemoGateway = useCallback(async () => {
     setIsGateOpening(true);
     setApiError('');
+    setIsDemoSession(true);
 
     try {
       const session = await apiRequest<{ data: { token: string; user?: { name?: string; studentCredential?: string } } }>('/api/auth/student/demo-session', {
@@ -538,8 +549,9 @@ const StudentApp: React.FC = () => {
       const token = session.data.token;
       const demoName = session.data.user?.name || 'Demo Guest';
       const demoRoll = session.data.user?.studentCredential || 'demo-guest';
-      await initializeStudentExam(token, demoName, demoRoll);
+      await initializeStudentExam(token, demoName, demoRoll, true);
     } catch (error) {
+      setIsDemoSession(false);
       const message = error instanceof Error ? error.message : 'Unable to start demo exam.';
       setApiError(message);
       setIsGateOpening(false);
