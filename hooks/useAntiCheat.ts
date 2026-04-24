@@ -76,7 +76,7 @@ export const useAntiCheat = ({
   );
   const protectionGraceUntilRef = useRef<number>(0);
   const touchEdgeGestureRef = useRef<{
-    edge: 'top' | 'bottom' | null;
+    edge: "top" | "bottom" | null;
     startY: number;
   }>({ edge: null, startY: 0 });
 
@@ -307,26 +307,34 @@ export const useAntiCheat = ({
       const inGracePeriod = now < protectionGraceUntilRef.current;
 
       if (y <= edgeThreshold) {
-        touchEdgeGestureRef.current = { edge: 'top', startY: y };
-        if (trackViolationsRef.current && !autoSubmittedRef.current && !inGracePeriod) {
+        touchEdgeGestureRef.current = { edge: "top", startY: y };
+        if (
+          trackViolationsRef.current &&
+          !autoSubmittedRef.current &&
+          !inGracePeriod
+        ) {
           e.preventDefault();
           e.stopPropagation();
           addViolation(
-            'edge_gesture',
-            'Top-edge notification or control panel gesture blocked during the exam.',
+            "edge_gesture",
+            "Top-edge notification or control panel gesture blocked during the exam.",
           );
         }
         return;
       }
 
       if (window.innerHeight - y <= edgeThreshold) {
-        touchEdgeGestureRef.current = { edge: 'bottom', startY: y };
-        if (trackViolationsRef.current && !autoSubmittedRef.current && !inGracePeriod) {
+        touchEdgeGestureRef.current = { edge: "bottom", startY: y };
+        if (
+          trackViolationsRef.current &&
+          !autoSubmittedRef.current &&
+          !inGracePeriod
+        ) {
           e.preventDefault();
           e.stopPropagation();
           addViolation(
-            'edge_gesture',
-            'Bottom-edge notification or control panel gesture blocked during the exam.',
+            "edge_gesture",
+            "Bottom-edge notification or control panel gesture blocked during the exam.",
           );
         }
         return;
@@ -345,25 +353,25 @@ export const useAntiCheat = ({
       const deltaY = y - gesture.startY;
       const threshold = 60;
 
-      if (gesture.edge === 'top' && deltaY > threshold) {
+      if (gesture.edge === "top" && deltaY > threshold) {
         e.preventDefault();
         e.stopPropagation();
         if (trackViolationsRef.current && !autoSubmittedRef.current) {
           addViolation(
-            'edge_gesture',
-            'Top-edge system drawer gesture blocked during the exam.',
+            "edge_gesture",
+            "Top-edge system drawer gesture blocked during the exam.",
           );
         }
         touchEdgeGestureRef.current = { edge: null, startY: 0 };
       }
 
-      if (gesture.edge === 'bottom' && deltaY < -threshold) {
+      if (gesture.edge === "bottom" && deltaY < -threshold) {
         e.preventDefault();
         e.stopPropagation();
         if (trackViolationsRef.current && !autoSubmittedRef.current) {
           addViolation(
-            'edge_gesture',
-            'Bottom-edge system drawer gesture blocked during the exam.',
+            "edge_gesture",
+            "Bottom-edge system drawer gesture blocked during the exam.",
           );
         }
         touchEdgeGestureRef.current = { edge: null, startY: 0 };
@@ -606,12 +614,12 @@ export const useAntiCheat = ({
     document.addEventListener(
       "touchstart",
       handleTouchStartEdgeSwipe as any,
-      ({ passive: false, capture: true } as any),
+      { passive: false, capture: true } as any,
     );
     document.addEventListener(
       "touchmove",
       handleTouchMoveEdgeSwipe as any,
-      ({ passive: false, capture: true } as any),
+      { passive: false, capture: true } as any,
     );
     document.addEventListener("touchend", handleTouchEndEdgeSwipe, true);
     document.addEventListener("touchcancel", handleTouchEndEdgeSwipe, true);
@@ -662,7 +670,11 @@ export const useAntiCheat = ({
         true,
       );
       document.removeEventListener("touchend", handleTouchEndEdgeSwipe, true);
-      document.removeEventListener("touchcancel", handleTouchEndEdgeSwipe, true);
+      document.removeEventListener(
+        "touchcancel",
+        handleTouchEndEdgeSwipe,
+        true,
+      );
       clearInterval(enforceFullScreenInterval);
 
       // Restore text selection

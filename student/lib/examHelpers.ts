@@ -68,7 +68,8 @@ export const getStudentExamConfig = async (token: string) => {
     return {
       durationInMinutes: safeDuration,
       maxCheatingAttempts:
-        Number.isInteger(config?.data?.maxCheatingAttempts) && config.data.maxCheatingAttempts >= 1
+        Number.isInteger(config?.data?.maxCheatingAttempts) &&
+        config.data.maxCheatingAttempts >= 1
           ? config.data.maxCheatingAttempts
           : 3,
       examinerName: config?.data?.examinerName || "CBT Examination Cell",
